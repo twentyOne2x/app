@@ -1,0 +1,91 @@
+/* components/Modal.module.css */
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.modalContent {
+  background-color: #444; /* Grey background */
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  position: relative;
+  outline: none; /* Remove default outline */
+  animation: slideIn 0.3s ease-in-out;
+}
+
+.closeButton {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #ffffff; /* White color for visibility */
+}
+
+.transparentCloseButton {
+  position: fixed; /* Fixed position to stay visible */
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.3); /* Semi-transparent background */
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1001; /* Above the modal content */
+  display: none; /* Hidden by default */
+}
+
+/* Show the transparent close button on mobile */
+@media (max-width: 767px) {
+  .transparentCloseButton {
+    display: block;
+  }
+}
+
+.modalTitle {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #ffffff; /* White text */
+}
+
+@media (max-width: 767px) {
+  .modalContent {
+    padding: 1rem;
+    max-width: 95%;
+    max-height: 95%;
+  }
+
+  .modalTitle {
+    font-size: 1.5rem; /* Smaller title on mobile */
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(-20px); }
+  to { transform: translateY(0); }
+}

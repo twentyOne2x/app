@@ -1,0 +1,34 @@
+.textareaWithButton {
+  padding-left: 3rem; /* Space for the button */
+}
+
+.newChatButton {
+  position: absolute;
+  left: 1rem; /* Adjust so the button doesn't overlap the text */
+  top: 1rem;
+  z-index: 10; /* Ensure the button is above other elements */
+}
+
+.reducedSizeButton {
+  transform: scale(0.7); /* Reduces the size by 30% */
+}
+
+/* New Responsive Styles */
+@media (max-width: 1024px) {
+  .promptFormContainer {
+    padding: 0.5rem; /* Reduced padding */
+  }
+
+  .promptTextArea {
+    font-size: 0.9rem; /* Smaller font size for textarea */
+  }
+
+  .newChatButton {
+    top: 0.75rem; /* Adjust position of the new chat button */
+    left: 0.75rem;
+  }
+
+  .sendButton {
+    right: 1rem;
+  }
+}

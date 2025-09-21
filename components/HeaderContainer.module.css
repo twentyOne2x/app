@@ -1,0 +1,12 @@
+.header-visible {
+    display: block;
+  }
+  .header-hidden {
+    display: none;
+  }
+  #toggleButton.header-hidden .header-visible {
+    display: none;
+  }
+  #toggleButton.header-hidden .header-hidden {
+    display: block;
+  }

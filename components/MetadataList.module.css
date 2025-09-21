@@ -1,0 +1,190 @@
+/* components/MetadataList.module.css */
+
+/* Desktop Styles */
+
+/* Remove or adjust padding-right if necessary for desktop */
+.metadataList {
+  list-style: none;
+  padding: 0;
+  font-size: 1rem;
+  padding-right: 10px;
+}
+
+.metadataListItem {
+  display: flex;
+  align-items: start; /* Align items to the start */
+  color: #bbb;
+  word-wrap: break-word;
+  margin-bottom: 30px;
+  min-width: 400px;
+  max-height: 200px; /* Increase the maximum height */
+  overflow: hidden; /* Hide overflow */
+}
+
+.metadataListItem:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Brighten background on hover */
+}
+
+.metadataListItem:last-child {
+  border-bottom: none;
+}
+
+.metadataListLink,
+.metadataListSpan {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: bold;
+  /* Allow text to wrap if needed */
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metadataListDetails {
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.metadataListExtraInfo {
+  margin-right: 0.5rem;
+}
+
+.metadataListDot {
+  font-size: 1.5rem;
+  line-height: 0;
+}
+
+.metadataInfo {
+  display: block;
+  white-space: normal; /* Change to allow wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metadataThumbnail {
+  flex-shrink: 0;
+  width: 200px;
+  height: 150px;
+  margin-right: 20px;
+  overflow: hidden;
+}
+
+.metadataThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Add a new class for the thumbnail link */
+.metadataThumbnailLink {
+  flex-shrink: 0;
+  width: 200px;
+  height: 150px;
+  margin-right: 20px;
+  overflow: hidden;
+  display: block; /* Ensure the link is block-level to contain the thumbnail */
+}
+
+/* Ensure the image remains styled appropriately */
+.metadataThumbnailLink img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.metadataContent {
+  flex-grow: 1;
+  font-size: 1.05rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 150px;
+}
+
+.metadataListLink {
+  color: #ffffff;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.metadataListSpan {
+  color: #666;
+}
+
+.metadataTop,
+.metadataMiddle,
+.metadataBottom {
+  display: block;
+}
+
+.authorLink {
+  color: #007bff; /* Light blue color */
+  text-decoration: underline; /* Underline to indicate it's clickable */
+}
+
+.authorLink:hover {
+  color: #0056b3; /* Darker blue on hover */
+  text-decoration: none; /* Remove underline on hover */
+}
+
+/* Mobile Styles */
+@media (max-width: 767px) {
+  /* Adjust metadataListItem to stack elements vertically */
+  .metadataListItem {
+    flex-direction: column;
+    align-items: center;
+    min-width: 0; /* Remove min-width to allow flexibility */
+    max-height: none; /* Remove max-height to accommodate content */
+    margin-bottom: 20px; /* Reduce bottom margin for tighter spacing */
+    padding: 0.5rem; /* Add some padding */
+    background-color: transparent; /* Remove background on mobile */
+  }
+
+  /* Remove the thin blue outline around thumbnails */
+  .metadataThumbnailLink {
+    border: none; /* Remove blue outline */
+    border-radius: 0; /* Remove rounded corners if any */
+    padding: 0; /* Remove padding */
+    display: block; /* Ensure proper sizing */
+    width: 100%; /* Make thumbnail fill the container */
+    height: auto; /* Allow height to adjust based on image */
+    margin: 0 0 10px 0; /* Add bottom margin for spacing */
+  }
+
+  /* Increase thumbnail size to fill mobile width */
+  .metadataThumbnail {
+    width: 100%; /* Full width */
+    height: auto; /* Automatic height */
+    margin-right: 0; /* Remove right margin */
+    margin-bottom: 10px; /* Add bottom margin */
+  }
+
+  .metadataThumbnail img {
+    width: 100%;
+    height: auto; /* Adjust height to maintain aspect ratio */
+    object-fit: cover; /* Cover the container */
+  }
+
+  /* Center the metadataContent and adjust font sizes */
+  .metadataContent {
+    margin-left: 0;
+    text-align: center; /* Center text */
+    font-size: 0.9rem; /* Slightly smaller font on mobile */
+    height: auto; /* Allow height to adjust based on content */
+  }
+
+  /* Adjust links and spans for better readability on mobile */
+  .metadataListLink {
+    font-size: 1rem; /* Maintain readability */
+  }
+
+  .metadataListSpan {
+    font-size: 0.85rem; /* Slightly smaller for mobile */
+    color: #ccc; /* Lighter grey for better contrast */
+  }
+
+  /* Optional: Adjust metadataList to remove padding-right on mobile */
+  .metadataList {
+    padding-right: 0;
+  }
+}

@@ -1,0 +1,514 @@
+/* components/ChatListContainer.module.css */
+
+/* Main container for the entire layout */
+.layoutContainer {
+  display: flex;
+  height: 100vh; /* Full height of the viewport */
+  justify-content: space-between; /* Space between ensures elements are pushed to the edges */
+  align-items: flex-start; /* Aligns items to the top */
+}
+
+.layoutContainerWithPadding {
+  padding-bottom: 100px; /* Adjust the padding as needed */
+}
+
+.leftPanel {
+  flex: 0 1 20%; /* Reduce the flex-basis to 20% and allow them to shrink if necessary */
+  min-width: 320px; /* Minimum width */
+  max-width: 20%; /* Adjusted maximum width */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Horizontally center */
+  position: relative; /* Change to relative to make the left property effective */
+  padding-top: 50px;
+}
+
+.rightPanel {
+  flex: 0 1 30%; /* Reduce the flex-basis to 30% and allow them to shrink if necessary */
+  min-width: 350px; /* Minimum width */
+  max-width: 30%; /* Adjusted maximum width */
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* Horizontally center */
+  position: relative; /* Change to relative to make the left property effective */
+  /*left: 25px;*/
+  right: 30px;
+  padding-top: 30px; /* Aligns the top padding with the middle panel (has top-padding: 30px) */
+}
+
+.rightPanelNoPaddingTop {
+  padding-top: 0;
+}
+
+
+/* Middle panel for chatlist and prompt form */
+.middlePanel {
+  flex: 0 1 50%; /* Increase the flex-basis to 50% for the middle panel */
+  min-width: 500px; /* Minimum width to ensure it doesn't get too small */
+  max-width: 50%; /* Adjusted maximum width */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* This pushes the ChatPanel to the bottom */
+  padding-bottom: 60px; /* Bottom padding */
+  padding-top: 40px; /* Reduced top padding, adjust the value as needed */
+  position: relative; /* Needed for absolute positioning within */
+  box-sizing: border-box;
+  align-items: stretch; /* Ensure children stretch to fill the panel width */
+}
+
+.middlePanelNoPaddingTop {
+  padding-top: 0;
+}
+
+.scrollableContainer {
+  max-height: calc(100vh - 205px);
+  overflow-y: auto;
+  flex-grow: 1; /* Allows the container to grow and take available space */
+  overflow-x: hidden; /* Hides horizontal scroll */
+  padding-left: 40px; /* To fully display the user and assistant icons */
+  padding-right: 40px; /* Add right padding to balance the left padding */
+  width: 100%; /* Full width to contain the chat list */
+  max-width: 800px; /* Set a max width */
+  margin-left: auto; /* Centers the container horizontally */
+  margin-right: auto; /* Centers the container horizontally */
+  display: block; /* Use block instead of flex to avoid horizontal centering */
+}
+
+/* ChatList container with scrollable content */
+.chatListContainer {
+  max-height: calc(100vh - 120px - 80px);
+  overflow-y: auto; /* Ensures vertical scroll */
+  max-width: 800px; /* Set a max width */
+  margin-left: auto; /* Centers the container horizontally */
+  margin-right: auto; /* Centers the container horizontally */
+  align-items: center; /* Horizontally center */
+}
+
+/* Additional class for chat messages to control container styling */
+.chatMessageContainer {
+  padding-left: 5px; /* Push icons closer to the edge */
+  padding-right: 5px;
+}
+
+/* Adjust chatListPadding to allow more message width */
+.chatListPadding {
+  padding: 0.5rem; /* Reduced padding */
+}
+
+.chatListMaxWidth {
+  max-width: 100%; /* Allow full width on mobile */
+  padding: 0 10px; /* Optional: Add slight padding for better readability */
+}
+
+/* CHAT PANEL SECTION */
+
+.chatPanelWrapper {
+  /* Removed the commented out properties and adjusted the width */
+  margin: 0 auto;
+  max-width: 900px; /* Set a max width */
+  padding: 1rem; /* Padding inside the wrapper, if needed */
+  padding-right: 120px; /* To align with the chatlist for fully display the user and assistant icons */
+}
+
+.chatPanel {
+  position: fixed;
+  bottom: 0;
+  left: 43%;
+  transform: translateX(-43%);
+  width: calc(75% - 120px);
+  box-sizing: border-box;
+  z-index: 10;
+  padding-top: 1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+
+.chatPanelContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* To distribute space between elements inside */
+  padding: 0; /* Adjust or remove padding as needed */
+}
+
+.broomButton {
+  display: flex; /* Use flexbox layout */
+  justify-content: center; /* Center items horizontally */
+  align-items: center; /* Center items vertically */
+  background-color: #000000;
+  border-radius: 50%;
+  margin-right: 15px;
+  width: 2rem; /* Increase the width for more space */
+  height: 2rem; /* Increase the height to match the width */
+  cursor: pointer; /* Change cursor to pointer to indicate it's clickable */
+  margin-bottom: 0.3rem; /* Reduced bottom margin */
+  padding: 0.5rem; /* Adjust padding to ensure it fits within the chatPanel */
+}
+
+.promptFormContainer {
+  flex-grow: 1;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  background: transparent;
+  position: relative;
+  max-width: 100%
+}
+
+.promptForm {
+  width: 100%;
+}
+
+.promptFormInner {
+  display: flex;
+  flex-grow: 1;
+  width: 100%;
+  align-items: center;
+  background-color: transparent;
+  position: relative;
+}
+
+.promptTextarea {
+  flex-grow: 1;
+  padding: 0.7rem;
+  outline: none;
+  font-size: 1rem;
+  background-color: transparent;
+  color: #ffffff;
+  margin-right: 2.7rem; /* Adjust if needed to ensure text does not go under the send button */
+  margin-left: -9px; /* Extend by 5px to the left */
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Thin, semi-transparent white border */
+  border-radius: 8px; /* Rounded corners */
+  padding-right: 55px; /* Adjust this padding to prevent text from going under the send button */
+  width: calc(100% - 55px); /* Subtract the padding from the width to maintain the layout */
+  box-sizing: border-box; /* Include padding and border in the element's total width */
+}
+
+.sendButtonContainer {
+  position: absolute;
+  margin-top: 0.3rem;
+  right: 55px;
+  top: 50%; /* Adjust this value as needed to center the button vertically within the form */
+  transform: translateY(-50%); /* This will center the button vertically relative to its container */
+}
+
+.sendButtonContainer button {
+  background-color: transparent; /* Ensures the button has no background */
+  border: none;  /* Removes any border */
+  outline: none;  /* Removes focus outline */
+  cursor: pointer; /* Changes the cursor to a hand icon on hover */
+}
+
+.sendButtonContainer button img {
+  width: 90%; /* Resize SVG to 90% of the button's width */
+  height: 90%; /* Resize SVG to 90% of the button's height */
+  display: block; /* This ensures that the img tag does not have any extra space around it */
+  margin: auto; /* This will center the image within the button */
+}
+
+.loadingContainer {
+  position: absolute;
+  top: -5px; /* Move up by 5 pixels, adjust value as needed */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  z-index: 11;
+}
+
+
+/*.stopGeneratingButtonContainer {
+  position: absolute;
+  top: 4rem; /* Position the button below the spinner */
+  /* width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  bottom:4 rem;
+}*/
+
+
+/* For WebKit (Chrome, Safari, newer versions of Opera): */
+.chat-list-container::-webkit-scrollbar {
+  width: 10px;
+}
+.chat-list-container::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.chat-list-container::-webkit-scrollbar-thumb {
+  background: #888;
+}
+.chat-list-container::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* For Firefox: */
+.chat-list-container {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+/* Metadata container */
+.metadataContainer {
+  width: 100%; /* Use 100% of the rightPanel width */
+  max-width: 600px; /* Example max-width */
+  max-height: calc(100vh - 150px);
+  margin-left: 10px; /* Align to the left by setting left margin */
+  margin-right: auto; /* Keeps right margin automatic */
+  padding: 1rem;
+  overflow-y: auto; /* Allows vertical scrolling if content overflows */
+  overflow-x: hidden; /* Hides horizontal scrollbar and wraps text */
+  word-wrap: break-word; /* Allows long words to be broken and wrapped to the next line */
+  white-space: normal; /* Normal text wrapping */
+  transition: transform 0.3s; /* Smooth transition for sliding in/out */
+  z-index: 10; /* Ensure it's above other content */
+  padding-right: 10%;
+  padding-left: 5%;
+  opacity: 0; /* Start with invisible */
+  transition: opacity 0.5s ease-in-out; /* Smooth transition for opacity */
+}
+
+/* Class to make metadataContainer visible */
+.metadataContainerVisible {
+  opacity: 1; /* Fully visible */
+}
+
+/* Style for the button to toggle the metadata view */
+.toggleMetadataButton {
+  display: none; /* Hide by default, will be shown in media query for mobile */
+  position: fixed;
+  right: 1rem;
+  bottom: 130px; /* Increased distance from bottom */
+  background-color: #333; /* Example color */
+  color: #fff;
+  padding: 6px 12px; /* Reduced padding */
+  font-size: 0.8rem; /* Smaller font size */
+  cursor: pointer;
+  z-index: 20; /* Above the metadata panel */
+}
+
+.metadataTitle {
+  color: #fff; /* White text */
+  font-weight: bold;
+  font-size: 1.5rem;
+  margin-bottom: 2rem;
+  /*margin-top: 1rem;*/ /*remove margin top now that we have metadataContainer-level padding*/
+}
+
+.customMarkdownFont {
+  font-size: 0.98rem; /* Adjust the font size as needed */
+}
+
+.customMarkdownFontMobile {
+  font-size: 1rem; /* Slightly larger for better readability on mobile */
+}
+
+/* Mobile-specific styles */
+@media (max-width: 767px) {
+  /* Hide the left and right panels on mobile */
+  .leftPanel, .rightPanel {
+    display: none;
+  }
+
+  /* Ensure the middle panel takes the full viewport width */
+  .middlePanel {
+    flex: 1;
+    width: 100%;
+    min-width: 320px;
+    max-width: none;
+    padding-top: 30px;
+    box-sizing: border-box;
+    position: relative; /* Allows positioning of ChatPanel */
+  }
+
+  /* Adjust the scrollableContainer for mobile */
+  .scrollableContainer {
+    overflow-y: auto;
+    max-height: calc(100vh - 140px); /* Adjust height for ChatPanel */
+    padding: 0 10px; /* Reduced horizontal padding */
+  }
+
+  /* Reduce padding in chatListPadding to allow more message width */
+  .chatListPadding {
+    padding: 0.5rem; /* Reduced padding */
+  }
+
+  /* Adjust chatListMaxWidth to occupy more screen space */
+  .chatListMaxWidth {
+    max-width: 100%; /* Allow full width on mobile */
+    padding: 0 10px; /* Optional: Add slight padding for better readability */
+  }
+
+  /* Adjust ChatMessage container to have minimal horizontal padding */
+  .chatMessageContainer {
+    padding-left: 5px; /* Push icons closer to the edge */
+    padding-right: 5px;
+  }
+
+  /* Ensure ChatMessage icons are closer to screen edges */
+  .chatMessageIcon {
+    width: 35px; /* Slightly larger icons for better touch targets */
+    height: 35px;
+    margin-left: 5px; /* Further reduce left margin */
+    margin-right: 5px; /* Further reduce right margin */
+  }
+  
+  /* Adjust the main chat message content area */
+  .chatMessageContent {
+    padding-left: 8px; /* Reduce padding */
+    padding-right: 8px;
+  }
+  
+  /* Ensure metadataContainer uses full width on mobile */
+  .metadataContainer {
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    padding: 1rem 5px; /* Reduced horizontal padding */
+  }
+
+  /* Chat Panel */
+  .chatPanel {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    /*box-shadow: 0 -2px 5px rgba(0,0,0,0.2);*/
+    padding-top: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+    z-index: 10;
+  }
+
+  .chatPanelWrapper {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .promptFormContainer {
+    width: 100%;
+    padding: 0;
+  }
+
+  .promptTextarea {
+    flex-grow: 1;
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  .sendButtonContainer {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* Loader adjustment */
+  .loadingContainer {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 11;
+  }
+
+  /* Make the "View Sources" button smaller on mobile */
+  .viewSourcesButton {
+    padding: 0.3rem 0.6rem; /* Smaller padding */
+    font-size: 0.8rem; /* Smaller font size */
+    margin: 0.5rem auto; /* Less margin */
+  }
+
+  /* Make the "Top Sources" title bigger and bolder on mobile */
+  .metadataTitle {
+    font-size: 2rem; /* Larger font size on mobile */
+    font-weight: 800; /* Heavier boldness on mobile */
+    text-align: center; /* Center the title */
+  }
+}
+
+
+/* Ensure that all components are vertically stacked and centered in the viewport */
+@media screen and (max-width: 768px) {
+  .mobileHide {
+    display: none;
+  }
+}
+
+
+@media (min-width: 768px) {
+  /* Adjustments for larger screens where the metadata can be shown inline */
+  .metadataContainer {
+    position: static; /* Back to the normal document flow */
+    right: auto; /* No longer off-screen */
+    transform: none; /* No transform needed */
+  }
+}
+
+
+/* Apply responsive design adjustments */
+@media (min-width: 640px) { /* This corresponds to Tailwind's 'sm:' breakpoint */
+  .chatPanelWrapper {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+
+/* View Sources Button */
+.viewSourcesButton {
+  background-color: #333;
+  color: #fff;
+  padding: 0.5rem 1rem; /* Suitable padding for mobile tap */
+  border: none; /* Remove default border */
+  border-radius: 9999px; /* Fully rounded corners */
+  cursor: pointer; /* Pointer cursor on hover */
+  z-index: 100; /* Ensure it appears above other elements */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+  font-size: 0.9rem; /* Readable font size */
+  margin: 1rem auto; /* Centered with some margin */
+  display: block;
+  width: 80%; /* Occupy 80% width on mobile for better tap area */
+  max-width: 300px; /* Prevents the button from being too wide */
+  text-align: center; /* Center the text within the button */
+}
+
+/* Remove blue outline around images within MetadataList on mobile */
+.metadataThumbnailLink img {
+  border: none; /* Remove any default borders */
+  outline: none; /* Remove outlines */
+  width: 100%; /* Ensure images fill the container */
+  height: auto; /* Maintain aspect ratio */
+  object-fit: cover; /* Cover the container */
+}
+
+/* Ensure images within ChatMessage are larger on mobile */
+@media (max-width: 767px) {
+  .metadataThumbnailLink img {
+    width: 100%; /* Full width */
+    height: auto; /* Adjust height based on aspect ratio */
+  }
+
+  /* Optional: Adjust ChatMessage icons if needed */
+  .chatMessageIcon {
+    width: 40px; /* Increase size */
+    height: 40px;
+  }
+}
+
+/* Ensure the "View Sources" button is hidden on desktop */
+@media (min-width: 768px) {
+  .viewSourcesContainer {
+    display: none; /* Hide the button on desktop */
+  }
+}
+
+/* Additional styles for better mobile responsiveness */
+@media (max-width: 767px) {
+  .viewSourcesButton {
+    width: 90%; /* Slightly wider on smaller screens */
+    max-width: 250px; /* Adjust as needed */
+  }
+}

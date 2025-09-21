@@ -118,12 +118,12 @@ export async function POST(req: Request) {
     return new Response('Internal Server Error', { status: 500 });
   }
 
-  // Process the response content to replace specified phrases with "MEV"
+  // Process the response content to replace specified phrases with "ICM"
   const processResponseContent = (content: string): string => {
     let processedContent = content;
-    processedContent = processedContent.replace(/MEV \(Maximal Extractable Value\)/g, "MEV");
-    processedContent = processedContent.replace(/Maximal Extractable Value \(MEV\)/g, "MEV");
-    processedContent = processedContent.replace(/Maximal Extractable Value/g, "MEV");
+    processedContent = processedContent.replace(/ICM \(Internet Capital Markets\)/g, "ICM");
+    processedContent = processedContent.replace(/Internet Capital Markets \(ICM\)/g, "ICM");
+    processedContent = processedContent.replace(/Internet Capital Markets/g, "ICM");
     return processedContent;
   };
 

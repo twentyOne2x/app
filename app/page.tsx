@@ -8,20 +8,20 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers'; // Ensure headers is imported
 
 export const metadata: Metadata = {
-  title: 'Home - mev.fyi MEV Research Chatbot',
-  description: 'Interact with the mev.fyi MEV research chatbot to explore Maximal Extractable Value (MEV) insights.',
+  title: 'Home - icm.fyi ICM Research Chatbot',
+  description: 'Interact with the icm.fyi ICM research chatbot to explore Internet Capital Markets (ICM) insights.',
   openGraph: {
-    title: 'Home - mev.fyi MEV Research Chatbot',
-    description: 'Interact with the mev.fyi MEV research chatbot to explore Maximal Extractable Value (MEV) insights.',
+    title: 'Home - icm.fyi ICM Research Chatbot',
+    description: 'Interact with the icm.fyi ICM research chatbot to explore Internet Capital Markets (ICM) insights.',
     url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/`,
     images: ['/opengraph-image.png'],
-    siteName: 'mev.fyi',
+    siteName: 'icm.fyi',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Home - mev.fyi MEV Research Chatbot',
-    description: 'Interact with the mev.fyi MEV research chatbot to explore Maximal Extractable Value (MEV) insights.',
+    title: 'Home - icm.fyi ICM Research Chatbot',
+    description: 'Interact with the icm.fyi ICM research chatbot to explore Internet Capital Markets (ICM) insights.',
     images: ['/twitter-image.png'],
   },
 };
@@ -32,12 +32,12 @@ export default async function IndexPage() {
   // Retrieve the host to determine the domain
   const headersList = headers();
   const host = headersList.get('host') || '';
-  const isMevSubdomain = host.startsWith('app.mev.fyi');
+  const isMevSubdomain = host.startsWith('app.icm.fyi');
 
   if (isMevSubdomain && !session?.user) {
-    // Redirect to sign-in only if on app.mev.fyi and not authenticated
+    // Redirect to sign-in only if on app.icm.fyi and not authenticated
     redirect('/sign-in');
-    console.error('Authentication required for app.mev.fyi.');
+    console.error('Authentication required for app.icm.fyi.');
     return;
   }
 

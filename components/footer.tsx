@@ -12,9 +12,7 @@ export function FooterText({ className, ...props }: React.ComponentProps<'p'>) {
       )}
       {...props}
     >
-      Crafted by <ExternalLink href="https://twitter.com/impliedval">@impliedval</ExternalLink>, 
-      championed by <ExternalLink href="https://www.twitter.com/freddmannen">@freddmannen</ExternalLink>, 
-      and supported by a <ExternalLink href="https://www.flashbots.net/">Flashbots&apos;</ExternalLink> grant.
+      <ExternalLink href="https://twitter.com/">twitter.com</ExternalLink>
     </p>
   )
 }

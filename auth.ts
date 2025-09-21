@@ -137,7 +137,7 @@ export async function auth() {
   const headersList = headers();
   const host = headersList.get('host') || '';
 
-  const isMevMainDomain = host === 'mev.fyi' || host === `mev.fyi:${process.env.PORT}`;
+  const isMevMainDomain = host === 'icm.fyi' || host === `icm.fyi:${process.env.PORT}`;
 
   if (isMevMainDomain) {
     // Read 'anonymousId' from cookies
@@ -151,11 +151,11 @@ export async function auth() {
       // This should not happen since middleware sets the cookie
       // But as a fallback, generate a new anonymousId
       const newAnonymousId = nanoid();
-      console.warn('anonymousId cookie missing for mev.fyi. Middleware should set it.');
+      console.warn('anonymousId cookie missing for icm.fyi. Middleware should set it.');
       return { user: { id: newAnonymousId, name: 'Anonymous' } };
     }
   }
 
-  // For other hosts (app.mev.fyi), enforce authentication
+  // For other hosts (app.icm.fyi), enforce authentication
   return null;
 }

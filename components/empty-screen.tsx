@@ -40,10 +40,10 @@ export function EmptyScreen({ onSubmit, isVisible }: QuestionsOverlayPropsLeftPa
     <div className={`flex flex-col w-full pb-12 ${fadeInOutClass}`}> {/* pb-12 is for padding-bottom */}
       <div className="w-full rounded-lg border bg-background p-8 text-left">
         <h1 className="mb-2 text-lg font-semibold text-white">
-          mev.fyi is the Maximal Extractable Value (MEV) research chatbot.
+          icm.fyi is the Internet Capital Markets (ICM) research chatbot.
         </h1>
         <p className="mb-4 leading-normal text-muted-foreground">
-          Find the latest MEV-related research, 
+          Find the latest ICM-related research, 
           across mechanism design, auctions, information privacy, from research papers and YouTube videos.
         </p>
       </div>

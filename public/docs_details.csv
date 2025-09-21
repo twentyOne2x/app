@@ -52,7 +52,7 @@ Verifying smart contracts,Ethereum.org,https://ethereum.org/en/developers/docs/s
 Web2 vs Web3,Ethereum.org,https://ethereum.org/en/developers/docs/web2-vs-web3/,,developers-docs-web2-vs-web3-index.pdf
 ERC-20 Token Standard,Ethereum.org,https://ethereum.org/en/developers/docs/standards/tokens/erc-20/,,developers-docs-standards-tokens-erc-20-index.pdf
 Formal verification of smart contracts,Ethereum.org,https://ethereum.org/en/developers/docs/smart-contracts/formal-verification/,,developers-docs-smart-contracts-formal-verification-index.pdf
-Maximal extractable value (MEV),Ethereum.org,https://ethereum.org/en/developers/docs/mev/,,developers-docs-mev-index.pdf
+Maximal extractable value (ICM),Ethereum.org,https://ethereum.org/en/developers/docs/mev/,,developers-docs-mev-index.pdf
 Keys in proof-of-stake Ethereum,Ethereum.org,https://ethereum.org/en/developers/docs/consensus-mechanisms/pos/keys/,,developers-docs-consensus-mechanisms-pos-keys-index.pdf
 """All you can cache""",Ethereum.org,https://ethereum.org/en/developers/tutorials/all-you-can-cache/,,developers-tutorials-all-you-can-cache-index.pdf
 How to identify scam tokens,Ethereum.org,https://ethereum.org/en/guides/how-to-id-scam-tokens/#identify-scam-tokens,2023-07-06,guides-how-to-id-scam-tokens-index.pdf
@@ -196,7 +196,7 @@ Ethereum for Delphi developers,Ethereum.org,https://ethereum.org/en/developers/d
 """Reverse Engineering a Contract""",Ethereum.org,https://ethereum.org/en/developers/tutorials/reverse-engineering-a-contract/,,developers-tutorials-reverse-engineering-a-contract-index.pdf
 Logging data from smart contracts with events,Ethereum.org,https://ethereum.org/en/developers/docs/smart-contracts/anatomy/#related-tutorials,,developers-tutorials-logging-events-smart-contracts-index.pdf
 Opcodes for the EVM,Ethereum.org,https://ethereum.org/en/,,developers-docs-evm-opcodes-index.pdf
-MEV-Boost Block Proposal,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/block-proposal,,flashbots-mev-boost-architecture-overview-block-proposal.pdf
+ICM-Boost Block Proposal,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/block-proposal,,flashbots-mev-boost-architecture-overview-block-proposal.pdf
 Docs Contribution Guide,,https://docs.flashbots.net/contribution-guide,,contribution-guide.pdf
 arbitrages,,https://docs.flashbots.net/flashbots-data/mev-inspect-py/data/arbitrages,,flashbots-data-mev-inspect-py-data-arbitrages.pdf
 Searcher Sponsored TX,,https://docs.flashbots.net/flashbots-auction/example-searchers/searcher-sponsored-tx,,flashbots-auction-example-searchers-searcher-sponsored-tx.pdf
@@ -207,18 +207,18 @@ For Orderflow Providers,,https://docs.flashbots.net/flashbots-mev-share/orderflo
 Ethers.js Provider,,https://docs.flashbots.net/flashbots-auction/libraries/ethers-js-provider,,flashbots-auction-libraries-ethers-js-provider.pdf
 Introduction,,https://docs.drift.trade/,,index.pdf
 Rate limiting,,https://docs.flashbots.net/flashbots-protect/additional-documentation/ratelimiting,,flashbots-protect-additional-documentation-ratelimiting.pdf
-A MEV-Share Node is a service that matches user transactions with searcher bundles. Flashbots runs MEV-Share Nodes,Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/using-events#finding-backrun-opportunities-using-event-data,2023-12-20,specs-mev-share-blurbs-_whatsaMEVShareNode.pdf
+A ICM-Share Node is a service that matches user transactions with searcher bundles. Flashbots runs ICM-Share Nodes,Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/using-events#finding-backrun-opportunities-using-event-data,2023-12-20,specs-mev-share-blurbs-_whatsaICMShareNode.pdf
 Glossary,,https://docs.wormhole.com/wormhole/reference/glossary,,wormhole-reference-glossary.pdf
 Troubleshooting,,https://docs.flashbots.net/flashbots-mev-boost/troubleshooting,,flashbots-mev-boost-troubleshooting.pdf
 Understanding Bundles,,https://docs.flashbots.net/flashbots-mev-share/searchers/understanding-bundles,,flashbots-mev-share-searchers-understanding-bundles.pdf
-MEV-Share Clients,,https://docs.flashbots.net/flashbots-auction/libraries/mev-share-clients,,flashbots-auction-libraries-mev-share-clients.pdf
+ICM-Share Clients,,https://docs.flashbots.net/flashbots-auction/libraries/mev-share-clients,,flashbots-auction-libraries-mev-share-clients.pdf
 bundle cancellations,,https://docs.flashbots.net/flashbots-auction/advanced/bundle-cancellations,,flashbots-auction-advanced-bundle-cancellations.pdf
 RPC Endpoint,Flashbots Docs,https://docs.flashbots.net/flashbots-auction/advanced/rpc-endpoint,2024-01-08,flashbots-auction-advanced-rpc-endpoint.pdf
 Docs Cheatsheet,,https://docs.flashbots.net/cheatsheet,,cheatsheet.pdf
 Testnets,,https://docs.flashbots.net/flashbots-auction/advanced/testnets,,flashbots-auction-advanced-testnets.pdf
-MEV Protection Overview,,https://docs.flashbots.net/flashbots-protect/overview,,flashbots-protect-overview.pdf
+ICM Protection Overview,,https://docs.flashbots.net/flashbots-protect/overview,,flashbots-protect-overview.pdf
 Golang Provider,,https://docs.flashbots.net/flashbots-auction/libraries/golang,,flashbots-auction-libraries-golang.pdf
-MEV-Boost Specifications,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/specifications,,flashbots-mev-boost-architecture-overview-specifications.pdf
+ICM-Boost Specifications,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/specifications,,flashbots-mev-boost-architecture-overview-specifications.pdf
 Overview,,https://docs.wormhole.com/wormhole/queries/overview,,wormhole-queries-overview.pdf
 Brand Assets,,https://docs.flashbots.net/brand-assets,,brand-assets.pdf
 eth_sendPrivateTransaction,,https://docs.flashbots.net/flashbots-protect/additional-documentation/eth-sendPrivateTransaction,,flashbots-protect-additional-documentation-eth-sendPrivateTransaction.pdf
@@ -228,7 +228,7 @@ Co-locate with Flashbots Builder,,https://docs.flashbots.net/flashbots-auction/a
 coinbase.transfer(),,https://docs.flashbots.net/flashbots-auction/advanced/coinbase-payment,,flashbots-auction-advanced-coinbase-payment.pdf
 Sending Bundles,,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/sending-bundles,,flashbots-mev-share-searchers-tutorials-limit-order-sending-bundles.pdf
 Flashbots Transparency Dashboard,,https://docs.flashbots.net/flashbots-data/dashboard,,flashbots-data-dashboard.pdf
-MEV-Share,,https://docs.flashbots.net/flashbots-protect/mev-share,,flashbots-protect-mev-share.pdf
+ICM-Share,,https://docs.flashbots.net/flashbots-protect/mev-share,,flashbots-protect-mev-share.pdf
 Exploring,,https://docs.flashbots.net/flashbots-data/mev-inspect-py/exploring,,flashbots-data-mev-inspect-py-exploring.pdf
 Using Events,,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/using-events,,flashbots-mev-share-searchers-tutorials-limit-order-using-events.pdf
 Quick start,,https://docs.flashbots.net/flashbots-protect/quick-start,,flashbots-protect-quick-start.pdf
@@ -243,7 +243,7 @@ Debugging,,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/li
 Installation,,https://docs.flashbots.net/flashbots-mev-boost/getting-started/installation,,flashbots-mev-boost-getting-started-installation.pdf
 bundle cache API,Flashbots Docs,https://docs.flashbots.net/flashbots-protect/additional-documentation/bundle-cache,2023-12-20,flashbots-protect-additional-documentation-bundle-cache.pdf
 Usage,,https://docs.flashbots.net/flashbots-mev-boost/getting-started/usage,,flashbots-mev-boost-getting-started-usage.pdf
-"MEV-Share is an open-source protocol for users, wallets, and applications to internalize the MEV that their transactions",Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/introduction#what-is-mev-share,2023-12-20,specs-mev-share-blurbs-_whatsMevShareAdvanced.pdf
+"ICM-Share is an open-source protocol for users, wallets, and applications to internalize the ICM that their transactions",Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/introduction#what-is-mev-share,2023-12-20,specs-mev-share-blurbs-_whatsMevShareAdvanced.pdf
 "By default, when a user specifies which builders their transactions should be sent to (by setting builders), those settings",Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/searchers/sending-bundles#builder-inheritance,2023-12-20,specs-mev-share-blurbs-_builderInheritance.pdf
 swaps,,https://docs.flashbots.net/flashbots-data/mev-inspect-py/data/swaps,,flashbots-data-mev-inspect-py-data-swaps.pdf
 Whitehat Hotline,,https://docs.flashbots.net/whitehat,,whitehat.pdf
@@ -252,7 +252,7 @@ transfers,,https://docs.flashbots.net/flashbots-data/mev-inspect-py/data/transfe
 FAQ,,https://solana.com/docs/programs/faq,,docs-programs-faq.pdf
 July 2023,,https://docs.flashbots.net/flashbots-mev-share/release-notes/2023-07,,flashbots-mev-share-release-notes-2023-07.pdf
 Block Proposers,,https://docs.flashbots.net/flashbots-mev-boost/block-proposers,,flashbots-mev-boost-block-proposers.pdf
-MEV-Blocks API,Flashbots Docs,https://docs.flashbots.net/flashbots-data/blockapi,2023-12-20,flashbots-data-blockapi.pdf
+ICM-Blocks API,Flashbots Docs,https://docs.flashbots.net/flashbots-data/blockapi,2023-12-20,flashbots-data-blockapi.pdf
 Block Builders,,https://docs.flashbots.net/flashbots-mev-boost/block-builders,,flashbots-mev-boost-block-builders.pdf
 For Users,,https://docs.flashbots.net/flashbots-mev-share/for-users,,flashbots-mev-share-for-users.pdf
 Bundle Inclusion Troubleshooting,,https://docs.flashbots.net/flashbots-auction/advanced/troubleshooting,,flashbots-auction-advanced-troubleshooting.pdf
@@ -260,7 +260,7 @@ Bundle Pricing,,https://docs.flashbots.net/flashbots-auction/advanced/bundle-pri
 miner_payments,,https://docs.flashbots.net/flashbots-data/mev-inspect-py/data/miner_payments,,flashbots-data-mev-inspect-py-data-miner_payments.pdf
 EIP-1559 Support,,https://docs.flashbots.net/flashbots-auction/advanced/eip1559,,flashbots-auction-advanced-eip1559.pdf
 Searcher Reputation,,https://docs.flashbots.net/flashbots-auction/advanced/reputation,,flashbots-auction-advanced-reputation.pdf
-New to MEV?,,https://docs.flashbots.net/new-to-mev,,new-to-mev.pdf
+New to ICM?,,https://docs.flashbots.net/new-to-mev,,new-to-mev.pdf
 September 2023,,https://docs.flashbots.net/flashbots-mev-share/release-notes/2023-09,,flashbots-mev-share-release-notes-2023-09.pdf
 April 2023 (beta launch),,https://docs.flashbots.net/flashbots-mev-share/release-notes/2023-03,,flashbots-mev-share-release-notes-2023-03.pdf
 Searcher Minter,,https://docs.flashbots.net/flashbots-auction/example-searchers/searcher-minter,,flashbots-auction-example-searchers-searcher-minter.pdf
@@ -272,8 +272,8 @@ Resources,,https://docs.flashbots.net/flashbots-mev-boost/resources,,flashbots-m
 Web3.py Provider,,https://docs.flashbots.net/flashbots-auction/libraries/web3py-provider,,flashbots-auction-libraries-web3py-provider.pdf
 Set Up,,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/setup,,flashbots-mev-share-searchers-tutorials-limit-order-setup.pdf
 More Resources,,https://docs.flashbots.net/flashbots-mev-share/searchers/tutorials/limit-order/more-resources,,flashbots-mev-share-searchers-tutorials-limit-order-more-resources.pdf
-MEV-Boost Risks and Considerations,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/risks,,flashbots-mev-boost-architecture-overview-risks.pdf
-"MEV-share is a protocol that lets users, wallets, and dapps to capture the MEV their transactions create.",Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/for-users,2023-12-20,specs-mev-share-blurbs-_whatsMevShareBasic.pdf
+ICM-Boost Risks and Considerations,,https://docs.flashbots.net/flashbots-mev-boost/architecture-overview/risks,,flashbots-mev-boost-architecture-overview-risks.pdf
+"ICM-share is a protocol that lets users, wallets, and dapps to capture the ICM their transactions create.",Flashbots Docs,https://docs.flashbots.net/flashbots-mev-share/for-users,2023-12-20,specs-mev-share-blurbs-_whatsMevShareBasic.pdf
 Relay Fundamentals,,https://docs.flashbots.net/flashbots-mev-boost/relay,,flashbots-mev-boost-relay.pdf
 Getting Started,,https://docs.wormhole.com/wormhole/queries/getting-started,,wormhole-queries-getting-started.pdf
 Cancellations,,https://docs.flashbots.net/flashbots-protect/cancellations,,flashbots-protect-cancellations.pdf
@@ -298,12 +298,12 @@ Code of Conduct,,https://docs.flashbots.net/code-of-conduct,,code-of-conduct.pdf
 🏗️ What to Build on SUAVE,,https://suave-alpha.flashbots.net/what-to-build,,what-to-build.pdf
 Sending Tx and Bundles,,https://docs.flashbots.net/guide-send-tx-bundle,,guide-send-tx-bundle.pdf
 SUAVE Concepts,,https://suave-alpha.flashbots.net/concepts/,,concepts.pdf
-MEVM,,https://suave-alpha.flashbots.net/technical/specs/rigil/mevm,,technical-specs-rigil-mevm.pdf
+ICMM,,https://suave-alpha.flashbots.net/technical/specs/rigil/mevm,,technical-specs-rigil-mevm.pdf
 Precompiles,,https://docs.filecoin.io/smart-contracts/filecoin-evm-runtime/precompiles,,smart-contracts-filecoin-evm-runtime-precompiles.pdf
 Confidential Data Store,,https://suave-alpha.flashbots.net/technical/specs/rigil/confidential-data-store,,technical-specs-rigil-confidential-data-store.pdf
 Confidential Computation,,https://suave-alpha.flashbots.net/concepts/confidential-computation,,concepts-confidential-computation.pdf
 Block Building,,https://suave-alpha.flashbots.net/concepts/block-building,,concepts-block-building.pdf
-MEV Supply Chain Interface,,https://suave-alpha.flashbots.net/concepts/mev-supplychain-interface,,concepts-mev-supplychain-interface.pdf
+ICM Supply Chain Interface,,https://suave-alpha.flashbots.net/concepts/mev-supplychain-interface,,concepts-mev-supplychain-interface.pdf
 Tutorials,,https://docs.wormhole.com/wormhole/quick-start/tutorials,,wormhole-quick-start-tutorials.pdf
 Run SUAVE Locally,,https://suave-alpha.flashbots.net/tutorials/run-suave,,tutorials-run-suave.pdf
 Deploy A Contract,,https://suave-alpha.flashbots.net/tutorials/deploy-contracts,,tutorials-deploy-contracts.pdf
@@ -503,7 +503,7 @@ Items,,https://docs.cairo-lang.org/language_constructs/items.html,,language_cons
 Accounting oracle,,https://docs.lido.fi/guides/oracle-spec/accounting-oracle,,guides-oracle-spec-accounting-oracle.pdf
 Performance tuning,,https://docs.nethermind.io/fundamentals/performance-tuning,,fundamentals-performance-tuning.pdf
 API reference,,https://docs.argent.xyz/starknet/web-wallet-sdk/api-reference,,starknet-web-wallet-sdk-api-reference.pdf
-Enable MEV,,https://docs.obol.tech/docs/advanced/quickstart-builder-api,,docs-advanced-quickstart-builder-api.pdf
+Enable ICM,,https://docs.obol.tech/docs/advanced/quickstart-builder-api,,docs-advanced-quickstart-builder-api.pdf
 Web3 Services SDKs,,https://developers.circle.com/w3s/docs/web3-services-sdks,,w3s-docs-web3-services-sdks.pdf
 Architecture,,https://docs.wormhole.com/wormhole/explore-wormhole/components,,wormhole-explore-wormhole-components.pdf
 Native Restaking,,https://docs.eigenlayer.xyz/eigenlayer/restaking-guides/restaking-user-guide/native-restaking/,,eigenlayer-restaking-guides-restaking-user-guide-native-restaking.pdf
@@ -2766,12 +2766,12 @@ Products,,https://docs.across.to/introduction/products,,introduction-products.pd
 Prediction Market,,https://docs.uma.xyz/developers/optimistic-oracle-v3/prediction-market,,developers-optimistic-oracle-v3-prediction-market.pdf
 Developer Notes,,https://docs.across.to/introduction/developer-notes,,introduction-developer-notes.pdf
 ⚙️,,https://docs.bloxroute.com/introduction/products,,introduction-products.pdf
-I. ABOUT PRIMEV,,https://docs.primev.com/english/i.-about-primev,,english-i.-about-primev.pdf
+I. ABOUT PRIICM,,https://docs.primev.com/english/i.-about-primev,,english-i.-about-primev.pdf
 🖥️,,https://docs.bloxroute.com/apis,,apis.pdf
 Migration from V2 to V3,,https://docs.across.to/introduction/migration-from-v2-to-v3,,introduction-migration-from-v2-to-v3.pdf
 Insurance,,https://docs.uma.xyz/developers/optimistic-oracle-v3/in-depth-tutorial-insurance,,developers-optimistic-oracle-v3-in-depth-tutorial-insurance.pdf
 📊,,https://docs.bloxroute.com/streams,,streams.pdf
-II. GETTING STARTED WITH PRIMEV,,https://docs.primev.com/english/ii.-getting-started-with-primev,,english-ii.-getting-started-with-primev.pdf
+II. GETTING STARTED WITH PRIICM,,https://docs.primev.com/english/ii.-getting-started-with-primev,,english-ii.-getting-started-with-primev.pdf
 What are Cross-chain Intents?,,https://docs.across.to/concepts/what-are-cross-chain-intents,,concepts-what-are-cross-chain-intents.pdf
 📈,,https://docs.bloxroute.com/introduction/why-use-bloxroute,,introduction-why-use-bloxroute.pdf
 Intents Architecture in Across,,https://docs.across.to/concepts/intents-architecture-in-across,,concepts-intents-architecture-in-across.pdf
@@ -3372,7 +3372,7 @@ Quick Start,,https://docs.flashbots.net/flashbots-auction/quick-start,,flashbots
 ⚙️,,https://jito-foundation.gitbook.io/mev/solana-mev/systems,,mev-solana-mev-systems.pdf
 🐧,,https://jito-foundation.gitbook.io/mev/solana-mev/birds-eye-view,,mev-solana-mev-birds-eye-view.pdf
 Third Party Block Engines,,https://jito-foundation.gitbook.io/mev/solana-mev/third-party-block-engines,,mev-solana-mev-third-party-block-engines.pdf
-Jito's MEV Priorities,,https://jito-foundation.gitbook.io/mev/solana-mev/jitos-mev-priorities,,mev-solana-mev-jitos-mev-priorities.pdf
+Jito's ICM Priorities,,https://jito-foundation.gitbook.io/mev/solana-mev/jitos-mev-priorities,,mev-solana-mev-jitos-mev-priorities.pdf
 Features,,https://jito-foundation.gitbook.io/mev/jito-solana/features,,mev-jito-solana-features.pdf
 Tutorials,,https://suave-alpha.flashbots.net/tutorials/,,tutorials.pdf
 Building the Software,,https://jito-foundation.gitbook.io/mev/jito-solana/building-the-software,,mev-jito-solana-building-the-software.pdf
@@ -3643,7 +3643,7 @@ Multisignature accounts on Namada,,https://docs.namada.net/users/transparent-acc
 Specification,,https://docs.ata.network/protocol/specification,,protocol-specification.pdf
 Chain parameters,,https://docs.arbitrum.io/for-devs/chain-params,,for-devs-chain-params.pdf
 Running a node,,https://docs.monad.xyz/using-monad/running-a-node,,using-monad-running-a-node.pdf
-Blocknative MEV Protection,,https://docs.blocknative.com/blocknative-mev-protection,,blocknative-mev-protection.pdf
+Blocknative ICM Protection,,https://docs.blocknative.com/blocknative-mev-protection,,blocknative-mev-protection.pdf
 Governance Module,,https://docs.makerdao.com/smart-contract-modules/governance-module,,smart-contract-modules-governance-module.pdf
 Send and Receive NAM tokens,,https://docs.namada.net/users/transparent-accounts/send-and-receive-nam-tokens,,users-transparent-accounts-send-and-receive-nam-tokens.pdf
 Marketplace,,https://docs.gelato.network/developer-services/marketplace,,developer-services-marketplace.pdf
@@ -3873,7 +3873,7 @@ Introduction to OP Stack Hacks,,https://docs.optimism.io/builders/chain-operator
 Jailed validators,,https://docs.namada.net/operators/validators/jailing,,operators-validators-jailing.pdf
 Stylus Rust SDK overview,,https://docs.arbitrum.io/stylus/reference/rust-sdk-guide,,stylus-reference-rust-sdk-guide.pdf
 Security for the Maker Protocol,,https://docs.makerdao.com/security/security.makerdao.com,,security-security.makerdao.com.pdf
-Maximal Extractable Value,,https://docs.ata.network/research/maximal-extractable-value,,research-maximal-extractable-value.pdf
+Internet Capital Markets,,https://docs.ata.network/research/maximal-extractable-value,,research-maximal-extractable-value.pdf
 Featured Hacks,,https://docs.optimism.io/builders/chain-operators/hacks/featured-hacks,,builders-chain-operators-hacks-featured-hacks.pdf
 Stylus SDK repositories,,https://docs.arbitrum.io/stylus/reference/stylus-sdk,,stylus-reference-stylus-sdk.pdf
 🚀,,https://docs.gelato.network/web3-services/web3-functions/quick-start,,web3-services-web3-functions-quick-start.pdf
@@ -4791,9 +4791,9 @@ https:-files.gitbook.com-v0-b-gitbook-x-prod.appspot.com-o-spaces%2F1irpxOULWWoY
 https:-www.gitbook.com.pdf,,https://docs.mav.xyz/https://www.gitbook.com/?utm_source=content&utm_medium=trademark&utm_campaign=1irpxOULWWoYXAKrwP4H,,https:-www.gitbook.com.pdf
 Legal Disclaimer,,https://docs.mev.io/disclaimer,,disclaimer.pdf
 What is mevETH,,https://docs.mev.io/mevETH,,mevETH.pdf
-What is MEV Auction,,https://docs.mev.io/mevAuction,,mevAuction.pdf
+What is ICM Auction,,https://docs.mev.io/mevAuction,,mevAuction.pdf
 Increasing the rewards,,https://docs.mev.io/3rd,,3rd.pdf
-MEV Protocol Contracts,,https://docs.mev.io/contracts,,contracts.pdf
+ICM Protocol Contracts,,https://docs.mev.io/contracts,,contracts.pdf
 pressKit.pdf,,https://docs.mev.io/pressKit,,pressKit.pdf
 Security,,https://docs.mev.io/security,,security.pdf
 devdocs-authManager.pdf,,https://docs.mev.io/devdocs/authManager,,devdocs-authManager.pdf
@@ -6333,7 +6333,7 @@ Programmatic orders,,https://docs.cow.fi/cow-protocol/concepts/order-types/progr
 Milkman orders,,https://docs.cow.fi/cow-protocol/concepts/order-types/milkman-orders,,cow-protocol-concepts-order-types-milkman-orders.pdf
 CoW Hooks,,https://docs.cow.fi/cow-protocol/concepts/order-types/cow-hooks,,cow-protocol-concepts-order-types-cow-hooks.pdf
 Trade any intent,,https://docs.cow.fi/cow-protocol/concepts/benefits/trade-any-intent,,cow-protocol-concepts-benefits-trade-any-intent.pdf
-MEV protection,,https://docs.cow.fi/cow-protocol/concepts/benefits/mev-protection,,cow-protocol-concepts-benefits-mev-protection.pdf
+ICM protection,,https://docs.cow.fi/cow-protocol/concepts/benefits/mev-protection,,cow-protocol-concepts-benefits-mev-protection.pdf
 Price improvement,,https://docs.cow.fi/cow-protocol/concepts/benefits/price-improvement,,cow-protocol-concepts-benefits-price-improvement.pdf
 Additional benefits,,https://docs.cow.fi/cow-protocol/concepts/benefits/additional-benefits,,cow-protocol-concepts-benefits-additional-benefits.pdf
 CoW Swap,,https://docs.cow.fi/cow-protocol/tutorials/cow-swap,,cow-protocol-tutorials-cow-swap.pdf
@@ -7171,7 +7171,7 @@ Generating certificates,,https://docs.tessera.consensys.io/HowTo/Generate-certif
 eth_gasPrice Returns the current gas price in wei.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_gasprice,,api-networks-arbitrum-json-rpc-methods-eth_gasprice.pdf
 Enhanced APIs Overview Alchemy provides a suite of web3 APIs that dramatically simplify and optimize common request patterns to make your life as a developer easier.,,https://docs.alchemy.com/reference/enhanced-apis-overview,,reference-enhanced-apis-overview.pdf
 Session Module,,https://docs.biconomy.io/tutorials/customSessionStorageClient/createSession,,tutorials-customSessionStorageClient-createSession.pdf
-MEV Blocker Endpoints,,https://docs.cow.fi/mevblocker/concepts/endpoints,,mevblocker-concepts-endpoints.pdf
+ICM Blocker Endpoints,,https://docs.cow.fi/mevblocker/concepts/endpoints,,mevblocker-concepts-endpoints.pdf
 Frontend A common pattern for the SDK is to use it in a frontend application. This guide will walk you through the steps to integrate the SDK with a frontend application.,,https://docs.connext.network/developers/guides/sdk-frontend-integration,,developers-guides-sdk-frontend-integration.pdf
 Contract Invariants,,https://docs.scribble.codes/language/annotations/invariants,,language-annotations-invariants.pdf
 Use metrics to monitor performance,,https://docs.ethsigner.consensys.io/HowTo/Metrics,,HowTo-Metrics.pdf
@@ -7180,7 +7180,7 @@ Use metrics to monitor performance,,https://docs.ethsigner.consensys.io/HowTo/Me
 eth_getBalance Returns the balance of the account of a given address.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_getbalance,,api-networks-arbitrum-json-rpc-methods-eth_getbalance.pdf
 Overview,,https://docs.tessera.consensys.io/HowTo/Configure/Tessera,,HowTo-Configure-Tessera.pdf
 About Snaps,,https://docs.metamask.io/snaps/learn/about-snaps/,,snaps-learn-about-snaps.pdf
-MEV Blocker OFA,,https://docs.cow.fi/mevblocker/concepts/order-flow-auction,,mevblocker-concepts-order-flow-auction.pdf
+ICM Blocker OFA,,https://docs.cow.fi/mevblocker/concepts/order-flow-auction,,mevblocker-concepts-order-flow-auction.pdf
 Manage permissions,,https://docs.metamask.io/wallet/how-to/manage-permissions/,,wallet-how-to-manage-permissions.pdf
 ERC20 transfer,,https://docs.biconomy.io/tutorials/customSessionStorageClient/erc20Transfer,,tutorials-customSessionStorageClient-erc20Transfer.pdf
 Creating an external signer for EthSigner,,https://docs.ethsigner.consensys.io/HowTo/Add-Signer,,HowTo-Add-Signer.pdf
@@ -7191,7 +7191,7 @@ Scribble Functions,,https://docs.scribble.codes/language/annotations/user-define
 404: Aw shucks!,,https://docs.alchemy.com/https://docs.alchemy.com/docs/alchemy-quickstart-guide,,https:-docs.alchemy.com-docs-alchemy-quickstart-guide.pdf
 Getting started with CAPE You're ready to spin up CAPE!,,https://docs.espressosys.com/cape/cape-user-guide/getting-started-with-cape,,cape-cape-user-guide-getting-started-with-cape.pdf
 SDK The Connext SDK allows developers to interact with the Connext protocol in standard Node.js or web environments. Seehere,,https://docs.connext.network/developers/guides/sdk-guides,,developers-guides-sdk-guides.pdf
-How can MEV Blocker OFA give you 90% refund?,,https://docs.cow.fi/mevblocker/concepts/order-flow-auction/how-it-works,,mevblocker-concepts-order-flow-auction-how-it-works.pdf
+How can ICM Blocker OFA give you 90% refund?,,https://docs.cow.fi/mevblocker/concepts/order-flow-auction/how-it-works,,mevblocker-concepts-order-flow-auction-how-it-works.pdf
 Using Kafka Connect Connectors with Conduit,,https://docs.conduit.io/docs/connectors/kafka-connect-connector,,docs-connectors-kafka-connect-connector.pdf
 "Custom Validation Module In this tutorial, we will look at how to create your own validation module.",,https://docs.biconomy.io/tutorials/customValidationModule,,tutorials-customValidationModule.pdf
 Overview,,https://docs.ethsigner.consensys.io/Concepts/Overview,,Concepts-Overview.pdf
@@ -7275,7 +7275,7 @@ Configure AWS Secrets Manager,,https://docs.tessera.consensys.io/HowTo/Configure
 Property Checking with Scribble and MythX,,https://docs.scribble.codes/tutorials/property-checking-with-scribble-and-mythx,,tutorials-property-checking-with-scribble-and-mythx.pdf
 Reference The Connext SDK allows developers to interact with the Connext protocol in standard Node.js or web environments.,,https://docs.connext.network/developers/reference,,developers-reference.pdf
 Avctl Hosting,,https://fetch.ai/docs/guides/avctl/avctl-hosting,,docs-guides-avctl-avctl-hosting.pdf
-How to send backrun bundles to MEV Blocker RPC,,https://docs.cow.fi/mevblocker/searchers/bidding-on-transactions,,mevblocker-searchers-bidding-on-transactions.pdf
+How to send backrun bundles to ICM Blocker RPC,,https://docs.cow.fi/mevblocker/searchers/bidding-on-transactions,,mevblocker-searchers-bidding-on-transactions.pdf
 Localization,,https://docs.metamask.io/snaps/features/localization/,,snaps-features-localization.pdf
 eth_getTransactionByBlockNumberAndIndex Returns information about a transaction given block number and transaction index position.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_gettransactionbyblocknumberandindex,,api-networks-arbitrum-json-rpc-methods-eth_gettransactionbyblocknumberandindex.pdf
 Multikey parameters,,https://docs.ethsigner.consensys.io/Reference/Multikey-Parameters,,Reference-Multikey-Parameters.pdf
@@ -7283,7 +7283,7 @@ Integration,,https://docs.biconomy.io/Account/integration,,Account-integration.p
 Gas Limits A breakdown of the gas cap limits for,,https://docs.alchemy.com/reference/gas-limits-for-eth_call-and-eth_estimategas,,reference-gas-limits-for-eth_call-and-eth_estimategas.pdf
 base64.encode,,https://docs.conduit.io/docs/processors/builtin/base64.encode,,docs-processors-builtin-base64.encode.pdf
 Configure Azure Key Vault,,https://docs.tessera.consensys.io/HowTo/Configure/KeyVault/Azure-Key-Vault,,HowTo-Configure-KeyVault-Azure-Key-Vault.pdf
-How to receive backrun bundles from MEV Blocker RPC,,https://docs.cow.fi/mevblocker/searchers/listening-for-transactions,,mevblocker-searchers-listening-for-transactions.pdf
+How to receive backrun bundles from ICM Blocker RPC,,https://docs.cow.fi/mevblocker/searchers/listening-for-transactions,,mevblocker-searchers-listening-for-transactions.pdf
 "Requesting more testnet CAPE If you skipped the faucet request step during wallet setup, or want to request additional testnet CAPE tokens, you may request additional zero-value testnet CAPE tokens for any CAPE address from Espresso's faucet at any time.",,https://docs.espressosys.com/cape/cape-user-guide/requesting-more-testnet-usdcape,,cape-cape-user-guide-requesting-more-testnet-usdcape.pdf
 eth_getTransactionByHash Returns information about a transaction for a given hash.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_gettransactionbyhash,,api-networks-arbitrum-json-rpc-methods-eth_gettransactionbyhash.pdf
 Responsible disclosure policy,,https://docs.ethsigner.consensys.io/Reference/Responsible-Disclosure,,Reference-Responsible-Disclosure.pdf
@@ -7293,7 +7293,7 @@ Property Checking with Scribble and Mythril,,https://docs.scribble.codes/tutoria
 custom.javascript,,https://docs.conduit.io/docs/processors/builtin/custom.javascript,,docs-processors-builtin-custom.javascript.pdf
 Non-EVM networks,,https://docs.metamask.io/snaps/features/non-evm-networks/,,snaps-features-non-evm-networks.pdf
 Configure HashiCorp Vault,,https://docs.tessera.consensys.io/HowTo/Configure/KeyVault/Hashicorp-Vault,,HowTo-Configure-KeyVault-Hashicorp-Vault.pdf
-MEV Blocker Endpoints,,https://docs.cow.fi/mevblocker/users-and-integrators/users/available-endpoints,,mevblocker-users-and-integrators-users-available-endpoints.pdf
+ICM Blocker Endpoints,,https://docs.cow.fi/mevblocker/users-and-integrators/users/available-endpoints,,mevblocker-users-and-integrators-users-available-endpoints.pdf
 eth_getTransactionCount Returns the number of transactions sent from an address.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_gettransactioncount,,api-networks-arbitrum-json-rpc-methods-eth_gettransactioncount.pdf
 🥧 Tokenomics,,https://docs.aperture.finance/docs/aperture-introduction/tokenomics,,docs-aperture-introduction-tokenomics.pdf
 "Signers ## 📄️Description  Biconomy Smart Accounts are flexible in allowing you to use any signer from an EIP-1193 provider, (or simply an ethers signer) to create a Smart Account. Let's take a look again at how we initialize a smart account: ## 🗃️Sign with EOA  3 items ## 📄️Dynamic  Dynamic.xyz is a web3 login solution for everyone, offering straightforward onboarding and embedded wallet options for newcomers and elegant and smart login flows for crypto-native users. We aim to abstract away the complexities of user management, offering powerful developer tools around authentication, authorization and onboarding. ## 📄️Particle Network  One way to utilize Social Logins is via Particle Network. This section will give you code snippets for creating Biconomy Smart Accounts with Particle Network. Particle Network allows you to introduce familiar Web2 experiences, with the following code snippets you can unlock: authentication with email to create a smart account as well as authentication with different social providers to create a Smart Account. ## 📄️Privy  Privy is a simple toolkit for progressive authentication in web3. With Privy you can add features that allow you to onboard users across traditional and web3 authentication methods. Users can sign in to your app with a crypto wallet, an email address, their phone number, or even a social profile (e.g., Twitter or Discord). Users don’t need to have a wallet to explore your product. ## 📄️Magic  Our Smart Accounts are signer agnostic, in this how to guide we'll show you how to incorporate Magic Link for creating a login experience that uses google login/email/or connect wallet all using the Magic Link UI. You can also add more features such as Social Login by building on top of these snippets, check out the official Magic Documentation for more information. ##",,https://docs.biconomy.io/Account/signers/,,Account-signers.pdf
@@ -7317,7 +7317,7 @@ SdkBase SDK class encapsulating bridge functions.,,https://docs.connext.network/
 field.rename,,https://docs.conduit.io/docs/processors/builtin/field.rename,,docs-processors-builtin-field.rename.pdf
 Configure TLS,,https://docs.tessera.consensys.io/HowTo/Configure/TLS,,HowTo-Configure-TLS.pdf
 https:-www.gitbook.com.pdf,,https://docs.scribble.codes/https://www.gitbook.com/?utm_source=content&utm_medium=trademark&utm_campaign=-M8HC-WPGFyn1pVhmUmu,,https:-www.gitbook.com.pdf
-Cancelling MEV Blocker Submitted Transactions,,https://docs.cow.fi/mevblocker/users-and-integrators/users/cancelling-transactions,,mevblocker-users-and-integrators-users-cancelling-transactions.pdf
+Cancelling ICM Blocker Submitted Transactions,,https://docs.cow.fi/mevblocker/users-and-integrators/users/cancelling-transactions,,mevblocker-users-and-integrators-users-cancelling-transactions.pdf
 eth_getUncleByBlockNumberAndIndex Returns information about a uncle of a block given the block number and the uncle index position.,,https://docs.infura.io/api/networks/arbitrum/json-rpc-methods/eth_getunclebyblocknumberandindex,,api-networks-arbitrum-json-rpc-methods-eth_getunclebyblocknumberandindex.pdf
 Create Smart Accounts with Ethers JS,,https://docs.biconomy.io/Account/signers/eoa/ethers,,Account-signers-eoa-ethers.pdf
 Static files,,https://docs.metamask.io/snaps/features/static-files/,,snaps-features-static-files.pdf
@@ -9344,7 +9344,7 @@ Default EVM Adapter,,https://web3auth.io/docs/sdk/pnp/web/adapters/default-evm-a
 Data Tracking Here are resources to track various data related to the Jito-Solana client:,,https://jito-foundation.gitbook.io/mev/jito-solana/data-tracking,,mev-jito-solana-data-tracking.pdf
 Default EVM Adapter,,https://web3auth.io/docs/sdk/pnp/web/adapters/default-solana-adapter,,docs-sdk-pnp-web-adapters-default-solana-adapter.pdf
 Tracking Jito-Solana Validators,,https://jito-foundation.gitbook.io/mev/jito-solana/data-tracking/tracking-jito-solana-validators,,mev-jito-solana-data-tracking-tracking-jito-solana-validators.pdf
-Tracking MEV Rewards,,https://jito-foundation.gitbook.io/mev/jito-solana/data-tracking/tracking-mev-rewards,,mev-jito-solana-data-tracking-tracking-mev-rewards.pdf
+Tracking ICM Rewards,,https://jito-foundation.gitbook.io/mev/jito-solana/data-tracking/tracking-mev-rewards,,mev-jito-solana-data-tracking-tracking-mev-rewards.pdf
 Solana Economics Overview,,https://solana.com/docs/economics,,docs-economics.pdf
 historical-data-historical-data-v1.pdf,,https://docs.drift.trade/historical-data/historical-data-v1,,historical-data-historical-data-v1.pdf
 historical-data-historical-data-v2.pdf,,https://docs.drift.trade/historical-data/historical-data-v2,,historical-data-historical-data-v2.pdf

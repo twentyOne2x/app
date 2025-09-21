@@ -13,10 +13,10 @@ import { Analytics } from '@vercel/analytics/react';
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: {
-    default: 'mev.fyi MEV Research Chatbot',
-    template: `%s - mev.fyi MEV Research Chatbot`
+    default: 'icm.fyi ICM Research Chatbot',
+    template: `%s - icm.fyi ICM Research Chatbot`
   },
-  description: 'The Flashbots-grantee Maximal Extractable Value (MEV) research chatbot',
+  description: '',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: 'white' },
     { media: '(prefers-color-scheme: dark)', color: 'black' }
@@ -30,23 +30,23 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: process.env.NEXTAUTH_URL || 'http://localhost:3000',
-    title: 'mev.fyi MEV Research Chatbot',
-    description: 'The Flashbots-grantee Maximal Extractable Value (MEV) research chatbot',
-    siteName: 'mev.fyi',
+    title: 'icm.fyi ICM Research Chatbot',
+    description: '',
+    siteName: 'icm.fyi',
     images: [
       {
         url: '/opengraph-image.png',
         width: 1200,
         height: 630,
-        alt: 'mev.fyi MEV Research Chatbot'
+        alt: 'icm.fyi ICM Research Chatbot'
       }
     ]
   },
   twitter: {
     card: 'summary_large_image',
     site: '@impliedval', // Replace with your Twitter handle
-    title: 'mev.fyi MEV Research Chatbot',
-    description: 'The Flashbots-grantee Maximal Extractable Value (MEV) research chatbot',
+    title: 'icm.fyi ICM Research Chatbot',
+    description: '',
     images: ['/twitter-image.png'] // Ensure this image exists in public/
   }
 }

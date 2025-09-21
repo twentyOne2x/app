@@ -1,6 +1,6 @@
-<a href="https://chat.mev.fyi/">
-  <img alt="Next.js 13 and Llama index chatbot with enriched sources and default questions." src="https://chat.mev.fyi/opengraph-image.png">
-  <h1 align="center">MEV.fyi Chatbot</h1>
+<a href="https://chat.icm.fyi/">
+  <img alt="Next.js 13 and Llama index chatbot with enriched sources and default questions." src="https://chat.icm.fyi/opengraph-image.png">
+  <h1 align="center">ICM.fyi Chatbot</h1>
 </a>
 
 <p align="center">
@@ -43,7 +43,7 @@ To facilitate user interaction, the chatbot comes preloaded with a set of defaul
 
 ## Deploy Your Own
 
-Deploy your personalized version of the MEV.fyi Chatbot using the following button. This will set up your project on Vercel, integrating all necessary components and configurations.
+Deploy your personalized version of the ICM.fyi Chatbot using the following button. This will set up your project on Vercel, integrating all necessary components and configurations.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone)
 
@@ -51,7 +51,7 @@ Ensure you have all necessary environment variables set up, including those for 
 
 ## Running Locally
 
-To run the MEV.fyi Chatbot locally, you'll need to follow these steps, ensuring you have all the required environment variables set up as described in the `.env.example` file.
+To run the ICM.fyi Chatbot locally, you'll need to follow these steps, ensuring you have all the required environment variables set up as described in the `.env.example` file.
 
 1. Install dependencies: `npm install` or `pnpm install`.
 2. Start the development server: `npm run dev` or `pnpm dev`.

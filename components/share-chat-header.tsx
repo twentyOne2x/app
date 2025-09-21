@@ -66,7 +66,7 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ userId, chatId, chat 
       if (result && 'error' in result) {
         toast.error(result.error);
       } else {
-        const shareUrl = `${process.env.NEXT_PUBLIC_NEXTAUTH_URL || 'https://mev.fyi'}${result.sharePath}`;
+        const shareUrl = `${process.env.NEXT_PUBLIC_NEXTAUTH_URL || 'https://icm.fyi'}${result.sharePath}`;
         copyToClipboard(shareUrl);
       }
     } catch (error) {

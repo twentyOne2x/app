@@ -12,13 +12,13 @@ export default async function SignInPage() {
   return (
     <div className="flex flex-col h-screen justify-start items-center pt-20 sm:pt-32">
       <div className="w-full max-w-sm sm:max-w-lg md:max-w-xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl px-3 mx-auto text-center">
-        <h1 className="mb-4 text-4xl font-bold">mev.fyi</h1>
+        <h1 className="mb-4 text-4xl font-bold">icm.fyi</h1>
         <h1 className="mb-4 text-2xl sm:text-3xl md:text-4xl font-bold">
-          The Flashbots-grantee Maximal Extractable Value (MEV) research chatbot
+          The Internet Capital Markets (ICM) research chatbot
         </h1>
         
         <p className="mb-6 text-base sm:text-lg leading-normal text-muted-foreground">
-          Find the latest MEV-related research, across mechanism design, auctions, information privacy, from docs, research papers, articles and YouTube videos.
+          Find the latest ICM-related content, across DeFi, DATs, CCM, from docs, research papers, articles, YouTube videos and Pump.fun streams.
         </p>
         
         <p className="my-4"></p>

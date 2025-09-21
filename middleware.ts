@@ -12,7 +12,7 @@ const RATE_LIMIT_WINDOW = 60; // Window size in seconds
 export async function middleware(req: NextRequest) {
   const response = NextResponse.next();
   const host = req.headers.get('host') || '';
-  const isMevMainDomain = host === 'mev.fyi' || host === `mev.fyi:${process.env.PORT}`;
+  const isMevMainDomain = host === 'icm.fyi' || host === `icm.fyi:${process.env.PORT}`;
   
   // Rate limiting
   const forwardedFor = req.headers.get('x-forwarded-for');
@@ -39,7 +39,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Handle anonymous users for mev.fyi
+  // Handle anonymous users for icm.fyi
   if (isMevMainDomain) {
     const anonymousIdCookie = req.cookies.get('anonymousId');
 

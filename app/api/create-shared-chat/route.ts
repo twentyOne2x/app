@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     const sharedChat = await shareChat(newChat, true);  // Pass true to use API key authentication
 
     if ('sharePath' in sharedChat) {
-      const shareUrl = `mev.fyi${sharedChat.sharePath}`; // Prepend mev.fyi
+      const shareUrl = `icm.fyi${sharedChat.sharePath}`; // Prepend icm.fyi
       return new Response(JSON.stringify({ message: 'Shared chat created successfully', sharedChatLink: shareUrl }), { status: 200 });
     } else {
       return new Response(JSON.stringify({ error: 'Failed to create shared chat' }), { status: 500 });

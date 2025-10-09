@@ -14,7 +14,7 @@ export default async function SignInPage() {
       <div className="w-full max-w-sm sm:max-w-lg md:max-w-xl lg:max-w-3xl xl:max-w-4xl 2xl:max-w-5xl px-3 mx-auto text-center">
         <h1 className="mb-4 text-4xl font-bold">icm.fyi</h1>
         <h1 className="mb-4 text-2xl sm:text-3xl md:text-4xl font-bold">
-          The Internet Capital Markets (ICM) research chatbot
+          The Internet Capital Markets (ICM) chatbot
         </h1>
         
         <p className="mb-6 text-base sm:text-lg leading-normal text-muted-foreground">

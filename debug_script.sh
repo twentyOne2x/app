@@ -2,15 +2,29 @@
 
 # Define an array of file paths
 FILES=(
-  "components/chat.tsx"
-  "components/metadata-list.tsx"
-  "components/ChatListContainer.module.css"
-  "components/Modal.module.css"
-  "components/Modal.tsx"
-  "components/chat-list.tsx"
-  "components/markdown.tsx"
+  
+  "app/page.tsx"
+  "app/layout.tsx"
+  "middleware.ts"
+  "auth.ts"
+  "app/actions.ts"
+  "lib/utils.ts"
+
+  "app/api/auth/[...nextauth]/route.ts"
+  "app/api/chat/route.ts"
+  "app/api/create-shared-chat/route.ts"
+  "app/chat/[id]/page.tsx"
+  "app/share/[id]/page.tsx"
+  
 )
 
+  # "components/chat.tsx"
+  # "components/metadata-list.tsx"
+  # "components/ChatListContainer.module.css"
+  # "components/Modal.module.css"
+  # "components/Modal.tsx"
+  # "components/chat-list.tsx"
+  # "components/markdown.tsx"
 
 
 remove_comments="${1:-true}"  # Default to true if no parameter is provided
@@ -63,11 +77,6 @@ if [ "$logs_processed" = true ]; then
 fi
 
 echo "\`\`\`"  # End triple backticks
-if [ "$logs_processed" = true ]; then
-    echo "Please fix"
-else
-    echo "Given the above: "
-fi
 } | xclip -selection clipboard
 
 echo "Logs and script content have been copied to clipboard."

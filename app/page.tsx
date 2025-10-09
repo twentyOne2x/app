@@ -27,14 +27,10 @@ export const metadata: Metadata = {
 export default async function IndexPage() {
   const session = await auth();
   const id = nanoid();
-  
   return (
     <>
       <Chat id={id} />
-      {/* Always render ShareChatHeader if userId is present */}
-      {session?.user?.id && (
-        <ShareChatHeader chatId={id} userId={session.user.id} />
-      )}
+      {session?.user?.id && <ShareChatHeader chatId={id} userId={session.user.id} />}
     </>
   );
 }

@@ -1,84 +1,37 @@
-import { type Message } from 'ai'
+// lib/types.ts
+import { type Message as AIMsg } from 'ai'
+import type { ParsedMetadataEntryV2 } from './utils'
 
-export interface Chat extends Record<string, any> {
+export type Message = AIMsg
+
+export type ServerActionResult<Result> = Promise<Result | { error: string }>
+
+/** Unified Chat shape used in KV and across routes/components. */
+export interface Chat {
   id: string
   title: string
-  createdAt: Date
   userId: string
+  createdAt: number        // ms since epoch (matches /api/chat + create-shared-chat)
   path: string
-  messages: Message[]
+  messages: AIMsg[]        // use Message type from 'ai'
+  structured_metadata: ParsedMetadataEntryV2[]  // V2 metadata everywhere
+  readOnly?: boolean
   sharePath?: string
+  originalChatId?: string
 }
 
-export type ServerActionResult<Result> = Promise<
-  | Result
-  | {
-      error: string
-    }
->
-
-export interface ParsedMetadataEntry {
-  index: number;
-  type: string;
-  title: string;
-  link: string;
-  extraInfo: string;
-  publishedDate: Date | null; // Allow this to be null
-  publishedDateString: string;
+/** Optional legacy metadata entry (keep only if some old code still references it). */
+export interface LegacyParsedMetadataEntry {
+  index: number
+  type: string
+  title: string
+  link: string
+  extraInfo: string
+  publishedDate: Date | null
+  publishedDateString: string
 }
 
-// Extend the Message type to include structured_metadata
-export interface ExtendedMessage extends Message {
-  structured_metadata?: ParsedMetadataEntry[]; // Use the correct metadata type here
-}
-
-// lib/types.ts
-export type Role = 'system' | 'user' | 'assistant' | 'function' | 'tool';
-
-export interface Message {
-  id?: string;
-  role: Role;
-  content: string;
-}
-
-export interface ClipItem {
-  // parent context
-  parentId?: string;                // if available later
-  parentTitle: string;
-  channel: string;
-  date?: string;
-  url?: string;                     // exact-start URL if we can resolve it
-  score?: number;
-
-  // clip details
-  startHMS?: string;
-  endHMS?: string;
-  startS?: number;
-  endS?: number;
-  speaker?: string;
-  excerpt?: string;                 // short “edges” excerpt when provided
-}
-
-export interface ParsedMetadataEntry {
-  // one parent row aggregating multiple clips
-  parentTitle: string;
-  channel: string;
-  date?: string;
-  url?: string;                     // canonical parent URL; first resolved exact-start ok
-  scoreMax?: number;                // best among clips
-  clips: ClipItem[];                // individual clips for hover “see clips”
-}
-
-// existing Chat shape used in KV
-export interface Chat {
-  id: string;
-  title: string;
-  userId: string;
-  createdAt: number | string | Date;
-  path: string;
-  messages: Message[];
-  structured_metadata?: ParsedMetadataEntry[];
-  readOnly?: boolean;
-  sharePath?: string;
-  originalChatId?: string;
+/** If you need to attach metadata to messages inline. */
+export interface ExtendedMessage extends AIMsg {
+  structured_metadata?: ParsedMetadataEntryV2[]
 }

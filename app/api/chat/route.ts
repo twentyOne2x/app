@@ -4,16 +4,11 @@ import { auth } from '@/auth'
 import { nanoid } from '@/lib/utils'
 import { extractSourcesBlock, parseMetadata, type ParsedMetadataEntryV2 } from '@/lib/utils'
 
-// Configuration for OpenAI API
 const configuration = new Configuration({ apiKey: process.env.OPENAI_API_KEY })
 
 export async function POST(req: Request) {
   let json: any
-  try {
-    json = await req.json()
-  } catch {
-    return new Response('Bad request', { status: 400 })
-  }
+  try { json = await req.json() } catch { return new Response('Bad request', { status: 400 }) }
 
   const { messages, previewToken } = json
   const session = await auth()
@@ -23,8 +18,7 @@ export async function POST(req: Request) {
 
   if (previewToken) configuration.apiKey = previewToken
 
-  const mostRecentMessageContent =
-    messages?.length > 0 ? messages[messages.length - 1].content : 'No messages yet.'
+  const mostRecentMessageContent = messages?.length > 0 ? messages[messages.length - 1].content : 'No messages yet.'
   const backendChatUrl = `${process.env.REACT_APP_BACKEND_URL}/chat`
 
   let chatResponse: Response
@@ -34,14 +28,10 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: mostRecentMessageContent, chat_history: messages })
     })
-  } catch {
-    return new Response('Internal Server Error', { status: 500 })
-  }
+  } catch { return new Response('Internal Server Error', { status: 500 }) }
 
   if (!chatResponse.ok) {
-    return new Response(`Error from backend service: ${chatResponse.statusText}`, {
-      status: chatResponse.status
-    })
+    return new Response(`Error from backend service: ${chatResponse.statusText}`, { status: chatResponse.status })
   }
 
   const responseBody = await chatResponse.json()
@@ -50,13 +40,11 @@ export async function POST(req: Request) {
       ? responseBody
       : (responseBody.response?.response ?? responseBody.response ?? '')
 
-  // Prefer parsing from the answer's trailing sources block; fall back to legacy formatted_metadata
   let structuredMetadata: ParsedMetadataEntryV2[] = []
   const sourcesBlock = extractSourcesBlock(rawAnswer)
   if (sourcesBlock) {
     structuredMetadata = parseMetadata(sourcesBlock, rawAnswer)
   } else if (responseBody.formatted_metadata) {
-    // legacy fallback: still store something, parsed against the same function
     structuredMetadata = parseMetadata(String(responseBody.formatted_metadata), rawAnswer)
   }
 
@@ -65,7 +53,6 @@ export async function POST(req: Request) {
   const createdAt = Date.now()
   const path = `/chat/${id}`
 
-  // simple content normalization
   const processResponseContent = (content: string): string =>
     (content || '')
       .replace(/ICM \(Internet Capital Markets\)/g, 'ICM')
@@ -75,41 +62,21 @@ export async function POST(req: Request) {
   const processedResponseContent = processResponseContent(rawAnswer)
 
   const payload = {
-    id,
-    title,
-    userId,
-    createdAt,
-    path,
-    messages: [
-      ...(messages || []),
-      {
-        content: processedResponseContent,
-        role: 'assistant'
-      }
-    ],
+    id, title, userId, createdAt, path,
+    messages: [ ...(messages || []), { content: processedResponseContent, role: 'assistant' } ],
     structured_metadata: structuredMetadata
   }
 
   try {
     await kv.hmset(`chat:${id}`, payload)
-    if (!isAnonymous) {
-      await kv.zadd(`user:chat:${session!.user!.id}`, { score: createdAt, member: `chat:${id}` })
-    }
-  } catch {
-    return new Response('Internal Server Error', { status: 500 })
-  }
+    if (!isAnonymous) await kv.zadd(`user:chat:${session!.user!.id}`, { score: createdAt, member: `chat:${id}` })
+  } catch { return new Response('Internal Server Error', { status: 500 }) }
 
   const responsePayload = {
-    id: payload.id,
-    title: payload.title,
-    userId: payload.userId,
-    createdAt: payload.createdAt,
-    path: payload.path,
+    id: payload.id, title: payload.title, userId: payload.userId, createdAt: payload.createdAt, path: payload.path,
     message: { content: processedResponseContent, role: 'assistant' },
     structured_metadata: payload.structured_metadata
   }
 
-  return new Response(JSON.stringify(responsePayload), {
-    headers: { 'Content-Type': 'application/json' }
-  })
+  return new Response(JSON.stringify(responsePayload), { headers: { 'Content-Type': 'application/json' } })
 }

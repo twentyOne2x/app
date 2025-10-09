@@ -9,6 +9,9 @@ FILES=(
   "auth.ts"
   "app/actions.ts"
   "lib/utils.ts"
+  "app/globals.css"
+  "components/ChatListContainer.module.css"
+  "components/metadata-list.tsx"
 
   "app/api/auth/[...nextauth]/route.ts"
   "app/api/chat/route.ts"

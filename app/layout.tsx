@@ -32,7 +32,6 @@ const UI_ICONS: string[] = [
   '/ui_icons/user_2.svg',
 ]
 
-// Assistant/User avatars you want to show instantly (pick the ones you use)
 const ASSISTANT_AVATAR = '/ui_icons/chatbot_1.svg'
 const USER_AVATAR = '/ui_icons/user_1.svg'
 
@@ -57,34 +56,9 @@ export const metadata: Metadata = {
 function PreloadUiIcons() {
   return (
     <>
-      {/* Preload all icons so they’re cache-hot before UI renders */}
-      {UI_ICONS.map((href) => (
-        <link key={href} rel="preload" as="image" href={href} />
-      ))}
-
-      {/* Force eager decode for the two avatars used in chat bubbles/header */}
-      <img
-        src={ASSISTANT_AVATAR}
-        alt=""
-        width={1}
-        height={1}
-        loading="eager"
-        fetchPriority="high"
-        decoding="sync"
-        aria-hidden="true"
-        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-      />
-      <img
-        src={USER_AVATAR}
-        alt=""
-        width={1}
-        height={1}
-        loading="eager"
-        fetchPriority="high"
-        decoding="sync"
-        aria-hidden="true"
-        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-      />
+      {UI_ICONS.map((href) => (<link key={href} rel="preload" as="image" href={href} />))}
+      <img src={ASSISTANT_AVATAR} alt="" width={1} height={1} loading="eager" fetchPriority="high" decoding="sync" aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
+      <img src={USER_AVATAR} alt="" width={1} height={1} loading="eager" fetchPriority="high" decoding="sync" aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
     </>
   )
 }
@@ -94,9 +68,7 @@ interface RootLayoutProps { children: React.ReactNode }
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <head>
-        <PreloadUiIcons />
-      </head>
+      <head><PreloadUiIcons /></head>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
         <Toaster />
         <Providers attribute="class" defaultTheme="dark" enableSystem={false}>

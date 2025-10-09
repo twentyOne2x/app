@@ -1,150 +1,111 @@
-// actions.ts
-
+// app/actions.ts
 'use server'
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { kv } from '@vercel/kv'
-
 import { auth } from '@/auth'
-import { type Chat } from '@/lib/types'
+import type { Chat } from '@/lib/types'
 import { nanoid } from '@/lib/utils'
 
+const API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
+
+/** Helper: make a shallow Record copy suitable for hmset */
+const toKV = (obj: unknown): Record<string, unknown> => ({ ...(obj as any) })
+
 export async function getChats(userId?: string | null) {
-  if (!userId) {
-    return []
-  }
-
+  if (!userId) return []
   try {
-    const pipeline = kv.pipeline()
-    const chats: string[] = await kv.zrange(`user:chat:${userId}`, 0, -1, {
+    const chatKeys = (await kv.zrange(`user:chat:${userId}`, 0, -1, {
       rev: true
-    })
+    })) as unknown as string[]
 
-    for (const chat of chats) {
-      pipeline.hgetall(chat)
-    }
+    if (!chatKeys?.length) return []
 
-    const results = await pipeline.exec()
+    const pipeline = kv.pipeline()
+    for (const key of chatKeys) pipeline.hgetall(key)
+    const results = (await pipeline.exec()) ?? []
 
-    return results as Chat[]
-  } catch (error) {
+    // Cast only at the boundary
+    const chats = results
+      .map((r: unknown) => (r ? (r as Chat) : null))
+      .filter(Boolean) as Chat[]
+
+    return chats
+  } catch {
     return []
   }
 }
 
 export async function getChat(id: string, userId: string) {
-  const chat = await kv.hgetall<Chat>(`chat:${id}`)
-
-  if (!chat || (userId && chat.userId !== userId)) {
-    console.log("Chat not found or userId mismatch:", id, userId);
-    return null
-  }
-
-  console.log("Chat found:", chat);
+  const raw = await kv.hgetall(`chat:${id}`)
+  const chat = (raw || null) as Chat | null
+  if (!chat || (userId && chat.userId !== userId)) return null
   return chat
 }
 
-
 export async function removeChat({ id, path }: { id: string; path: string }) {
   const session = await auth()
+  if (!session) return { error: 'Unauthorized' }
 
-  if (!session) {
-    return {
-      error: 'Unauthorized'
-    }
-  }
-
-  const uid = await kv.hget<string>(`chat:${id}`, 'userId')
-
-  if (uid !== session?.user?.id) {
-    return {
-      error: 'Unauthorized'
-    }
-  }
+  const uid = (await kv.hget(`chat:${id}`, 'userId')) as string | null
+  if (uid !== session?.user?.id) return { error: 'Unauthorized' }
 
   await kv.del(`chat:${id}`)
   await kv.zrem(`user:chat:${session.user.id}`, `chat:${id}`)
-
   revalidatePath('/')
   return revalidatePath(path)
 }
 
 export async function clearChats() {
   const session = await auth()
+  if (!session?.user?.id) return { error: 'Unauthorized' }
 
-  if (!session?.user?.id) {
-    return {
-      error: 'Unauthorized'
-    }
-  }
+  const chats = (await kv.zrange(
+    `user:chat:${session.user.id}`,
+    0,
+    -1
+  )) as unknown as string[]
 
-  const chats: string[] = await kv.zrange(`user:chat:${session.user.id}`, 0, -1)
-  if (!chats.length) {
-    return redirect('/')
-  }
+  if (!chats.length) return redirect('/')
+
   const pipeline = kv.pipeline()
-
-  for (const chat of chats) {
-    pipeline.del(chat)
-    pipeline.zrem(`user:chat:${session.user.id}`, chat)
+  for (const chatKey of chats) {
+    pipeline.del(chatKey)
+    pipeline.zrem(`user:chat:${session.user.id}`, chatKey)
   }
-
   await pipeline.exec()
-
   revalidatePath('/')
   return redirect('/')
 }
 
 export async function getSharedChat(id: string) {
-  const chat = await kv.hgetall<Chat>(`chat:${id}`)
-
-  if (!chat || !chat.sharePath) {
-    return null
-  }
-
+  const raw = await kv.hgetall(`chat:${id}`)
+  const chat = (raw || null) as Chat | null
+  if (!chat || !chat.sharePath) return null
   return chat
 }
 
 export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
-  // Ensure userId is always a string
-  let userId: string;
+  let userId: string
   if (!useApiKeyAuth) {
-    const session = await auth();
-    userId = session?.user?.id ?? 'default-legacy-user-id'; // Ensure userId is string
+    const session = await auth()
+    userId = session?.user?.id ?? 'default-legacy-user-id'
   } else {
-    userId = process.env.APP_BACKEND_USER_ID || 'default-legacy-user-id';
-  }
-  console.log("Entering shareChat function");
-
-  let isAuthorized = chat.userId === userId;
-
-  if (!isAuthorized) {
-    console.error("Unauthorized access attempt in shareChat: chat.userId:", chat.userId, "userId:", userId);
-    return {
-      error: 'Unauthorized'
-    };
+    userId = process.env.APP_BACKEND_USER_ID || 'default-legacy-user-id'
   }
 
-  // Generate a new ID for the shared chat
-  const sharedChatId = nanoid();
-  const sharedPayload = {
+  if (chat.userId !== userId) return { error: 'Unauthorized' }
+
+  const sharedChatId = nanoid()
+  const sharedPayload: Chat = {
     ...chat,
     id: sharedChatId,
-    originalChatId: chat.id, // Reference to the original chat
-    readOnly: true, // Mark as read-only
-    sharePath: `/share/${sharedChatId}`
-  };
-
-  // console.log("Payload for shared chat:", sharedPayload);
-
-  try {
-    await kv.hmset(`chat:${sharedChatId}`, sharedPayload);
-    console.log("Shared chat stored successfully");
-  } catch (error) {
-    console.error("Error in storing shared chat:", error);
-    return { error: 'Internal Server Error' };
+    originalChatId: chat.id,
+    readOnly: true,
+    sharePath: `/share/${sharedChatId}`,
   }
 
-  return sharedPayload;
+  await kv.hmset(`chat:${sharedChatId}`, toKV(sharedPayload))
+  return sharedPayload
 }

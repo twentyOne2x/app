@@ -23,6 +23,20 @@
   padding-top: 50px;
 }
 
+.leftPanelContent {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.leftPanelFilter {
+  width: 100%;
+}
+
 .rightPanel {
   flex: 0 1 30%; /* Reduce the flex-basis to 30% and allow them to shrink if necessary */
   min-width: 350px; /* Minimum width */

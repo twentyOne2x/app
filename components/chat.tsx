@@ -11,7 +11,6 @@ import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { toast } from 'react-hot-toast'
 import SourceList from '@/components/source-list';
 import ClipDrawer, { type ClipPlayback } from '@/components/clip-drawer';
-import QueryProgress from '@/components/query-progress';
 import ChannelFilterPanel from '@/components/channel-filter';
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import QuestionsOverlayStyles from './QuestionsOverlay.module.css'; // Import the CSS module
@@ -20,6 +19,7 @@ import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
+import { DEFAULT_PIPELINE, normalizeProgress } from '@/lib/progress-display';
 
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
@@ -442,14 +442,63 @@ export function Chat({
   [styles.rightPanelNoPaddingTop]: noPaddingTop,
   });
 
+  const progressSummary = useMemo(() => {
+    if (!isProcessingQuery) return null
+    const normalized = normalizeProgress(currentDiagnostics?.progress ?? undefined)
+    let activeLabel = 'Processing'
+    let completed = 0
+    let total = DEFAULT_PIPELINE.length
+
+    if (normalized.length) {
+      total = normalized.length
+      completed = normalized.filter((stage) => stage.status === 'completed').length
+      const currentStage = [...normalized].reverse().find((stage) => stage.status === 'running')
+        ?? normalized.find((stage) => stage.status === 'pending')
+        ?? normalized[normalized.length - 1]
+      if (currentStage?.label) activeLabel = currentStage.label
+    } else {
+      const labels = DEFAULT_PIPELINE.map((stage) => stage.label)
+      const index = stageHintTick % labels.length
+      activeLabel = labels[index]
+      completed = Math.max(0, Math.min(index, labels.length - 1))
+      total = labels.length
+    }
+
+    const statusLine = `Progress ${Math.min(completed, total)}/${total}`
+    return `▍ Working… ${activeLabel}\n\n${statusLine}`
+  }, [isProcessingQuery, currentDiagnostics, stageHintTick])
+
+  const displayMessages = useMemo(() => {
+    if (!progressSummary) return newMessages
+    const progressMessage: MetadataMessage = {
+      id: `progress-status-${newMessages.length}`,
+      role: 'assistant',
+      content: progressSummary,
+      structured_metadata: [],
+      diagnostics: null
+    }
+    return [...newMessages, progressMessage]
+  }, [newMessages, progressSummary])
+
   return (
     <>
       <div className={styles.layoutContainer}>
         <div className={styles.leftPanel}>
-          <div className={leftPanelOverlayClass} onAnimationEnd={onAnimationEnd}>
-            {/* Render conditionally based on fadeOutCompleted and shared_chat */}
-            {!shared_chat && (showLeftPanelOverlay || !fadeOutCompleted) ? (
-              <QuestionsOverlayLeftPanel onSubmit={handleUserInputSubmit} showOverlay={showLeftPanelOverlay} />
+          <div className={styles.leftPanelContent}>
+            <div className={leftPanelOverlayClass} onAnimationEnd={onAnimationEnd}>
+              {/* Render conditionally based on fadeOutCompleted and shared_chat */}
+              {!shared_chat && (showLeftPanelOverlay || !fadeOutCompleted) ? (
+                <QuestionsOverlayLeftPanel onSubmit={handleUserInputSubmit} showOverlay={showLeftPanelOverlay} />
+              ) : null}
+            </div>
+            {!shared_chat && !isMobile ? (
+              <div className={styles.leftPanelFilter}>
+                <ChannelFilterPanel
+                  channels={availableChannels}
+                  excluded={excludedChannelNames}
+                  onExcludedChange={handleExcludedChannelsChange}
+                />
+              </div>
             ) : null}
           </div>
         </div>
@@ -461,7 +510,7 @@ export function Chat({
               <div className={QuestionsOverlayStyles.fadeIn}>
                 <ChatList 
                   ref={chatListEndRef} 
-                  messages={newMessages} 
+                  messages={displayMessages} 
                   lastMessageRole={lastMessageRole}
                   onViewSources={() => setIsModalOpen(true)}
                   isMobile={isMobile}
@@ -486,20 +535,15 @@ export function Chat({
 
           {!shared_chat && (
             <div className={styles.chatPanel}>
-              <div className="mb-4 space-y-4">
-                <ChannelFilterPanel
-                  channels={availableChannels}
-                  excluded={excludedChannelNames}
-                  onExcludedChange={handleExcludedChannelsChange}
-                />
-                {(isProcessingQuery || currentDiagnostics) && (
-                  <QueryProgress
-                    loading={isProcessingQuery}
-                    diagnostics={currentDiagnostics}
-                    stageHintIndex={stageHintTick}
+              {isMobile && (
+                <div className="mb-4">
+                  <ChannelFilterPanel
+                    channels={availableChannels}
+                    excluded={excludedChannelNames}
+                    onExcludedChange={handleExcludedChannelsChange}
                   />
-                )}
-              </div>
+                </div>
+              )}
               <ChatPanel
                 id={id}
                 isLoading={isLoading}

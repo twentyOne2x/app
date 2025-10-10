@@ -12,25 +12,7 @@ export const size = {
 }
 export const contentType = 'image/png'
 
-// Function to log the directory structure
-function logDirectoryTree(dir: string, depth = 0) {
-  const files = fs.readdirSync(dir);
-  files.forEach(file => {
-    const fullPath = path.join(dir, file);
-    const stats = fs.statSync(fullPath);
-    const indent = ' '.repeat(depth * 2); // Indentation for tree structure
-    console.log(`${indent}${file}`);
-    if (stats.isDirectory()) {
-      logDirectoryTree(fullPath, depth + 1); // Recursively log subdirectories
-    }
-  });
-}
-
 // Manually load font data for Edge runtime
-console.log('Current working directory (process.cwd()):', process.cwd());
-// Log the directory structure of process.cwd() for debugging
-console.log('Directory structure of current working directory:');
-logDirectoryTree(process.cwd(), 0);
 const interRegular = fs.readFileSync(path.join(process.cwd(), 'app/share/[id]/fonts/Inter-Regular.woff'))
 const interBold = fs.readFileSync(path.join(process.cwd(), 'app/share/[id]/fonts/Inter-Bold.woff'))
 

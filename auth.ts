@@ -1,5 +1,4 @@
 import { getServerSession, type NextAuthOptions } from 'next-auth'
-import type { DefaultSession } from 'next-auth'
 import TwitterProvider from 'next-auth/providers/twitter'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import type { Session, DefaultSession } from 'next-auth'

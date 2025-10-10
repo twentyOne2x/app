@@ -123,9 +123,9 @@ type EntryCodeFormState = { error: string | null }
 const defaultEntryCodeFormState: EntryCodeFormState = { error: null }
 
 export async function authorizeEntryCode(
-  _prevState: EntryCodeFormState = defaultEntryCodeFormState,
+  prevState: EntryCodeFormState,
   formData: FormData
-): Promise<EntryCodeFormState | void> {
+): Promise<EntryCodeFormState> {
   const rawCode = formData.get('entryCode')
   if (typeof rawCode !== 'string') {
     return { error: 'Please enter an access code.' }
@@ -159,4 +159,5 @@ export async function authorizeEntryCode(
   })
 
   redirect(nextPath)
+  return prevState
 }

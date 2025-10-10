@@ -1,27 +1,29 @@
 'use client'
 
 import React from 'react'
-import { useFormState, useFormStatus } from 'react-dom'
 import { authorizeEntryCode } from '@/app/actions'
 import Link from 'next/link'
 
 const initialState = { error: null as string | null }
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <button
-      type="submit"
-      className="w-full rounded-md bg-white/90 px-4 py-2 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
-      disabled={pending}
-    >
-      {pending ? 'Checking…' : 'Unlock'}
-    </button>
-  )
-}
-
 export default function EntryAccessForm({ redirectTo }: { redirectTo: string }) {
-  const [state, formAction] = useFormState(authorizeEntryCode, initialState)
+  const [state, setState] = React.useState(initialState)
+  const [isPending, startTransition] = React.useTransition()
+
+  const handleSubmit = React.useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      const formData = new FormData(event.currentTarget)
+      setState(initialState)
+      startTransition(async () => {
+        const nextState = await authorizeEntryCode(initialState, formData)
+        if (nextState?.error) {
+          setState(nextState)
+        }
+      })
+    },
+    []
+  )
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 rounded-2xl border border-white/10 bg-zinc-950/70 p-8 shadow-lg backdrop-blur">
@@ -32,7 +34,7 @@ export default function EntryAccessForm({ redirectTo }: { redirectTo: string }) 
         </p>
       </div>
 
-      <form action={formAction} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input type="hidden" name="next" value={redirectTo} />
         <label className="block text-sm font-medium text-zinc-200" htmlFor="entryCode">
           Access code
@@ -52,7 +54,13 @@ export default function EntryAccessForm({ redirectTo }: { redirectTo: string }) 
             {state.error}
           </p>
         ) : null}
-        <SubmitButton />
+        <button
+          type="submit"
+          className="w-full rounded-md bg-white/90 px-4 py-2 text-sm font-semibold text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={isPending}
+        >
+          {isPending ? 'Checking…' : 'Unlock'}
+        </button>
       </form>
 
       <p className="text-xs text-zinc-500">

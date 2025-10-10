@@ -35,7 +35,7 @@ export function Providers({ children, entryProfile, ...props }: ProvidersProps) 
         loginMethods: ['wallet'],
         appearance: { theme: 'dark', accentColor: '#22c55e' },
         embeddedWallets: {
-          createOnLogin: 'all'
+          createOnLogin: 'all-users'
         }
       }}
     >

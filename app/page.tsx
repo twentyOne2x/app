@@ -27,7 +27,7 @@ export const metadata: Metadata = {
 
 export default async function IndexPage() {
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!session) {
     redirect('/sign-in?callbackUrl=/')
   }
   const id = nanoid();

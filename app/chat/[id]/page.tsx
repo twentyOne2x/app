@@ -34,10 +34,10 @@ function adaptMessagesForChat(messages: any[] = []) {
 
 export default async function ChatPage({ params }: ChatPageProps) {
   const session = await auth()
-  if (!session?.user?.id) {
+  if (!session) {
     redirect(`/sign-in?callbackUrl=/chat/${params.id}`)
   }
-  const userId = session.user.id
+  const userId = session.user?.id ?? ''
 
   const chat = await getChat(params.id, userId)
   if (!chat) return notFound()
@@ -45,7 +45,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     if (chat.sharePath) return redirect(chat.sharePath as string)
     return notFound()
   }
-  if (chat.userId && chat.userId !== userId) return notFound()
+  if (!userId || (chat.userId && chat.userId !== userId)) return notFound()
 
   return (
     <>
@@ -57,7 +57,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
       <div className="px-4 pb-16">
         <SourceListInline entries={chat.structured_metadata as any} className="mt-6" />
       </div>
-      {chat.userId === userId && (
+      {userId && chat.userId === userId && (
         <ShareChatHeader chatId={chat.id} userId={userId} chat={chat} />
       )}
     </>

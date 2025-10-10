@@ -28,7 +28,7 @@ export default async function SignInPage() {
         </p>
 
         <p className="text-base sm:text-lg leading-normal text-muted-foreground">
-          Wallet logins are powered by Privy, so both Solana and EVM (Ethereum/BNB) users can come straight in.
+          Wallet logins are powered by Privy, so both Solana and EVM users can come straight in.
         </p>
 
         <p className="text-base sm:text-lg leading-normal text-muted-foreground">

@@ -1,9 +1,13 @@
+'use client'
+
 import { QuestionsOverlayLeftPanel, QuestionsOverlayPropsLeftPanel } from './question-overlay';
 import { useState, useEffect } from 'react';
 import styles from './QuestionsOverlay.module.css';
+import { useEntryProfile } from '@/components/entry-profile-context';
 
 export function EmptyScreen({ onSubmit, isVisible }: QuestionsOverlayPropsLeftPanel & { isVisible: boolean }) {
   const [isMobile, setIsMobile] = useState(false);
+  const entryProfile = useEntryProfile();
 
   useEffect(() => {
     const handleResize = () => {
@@ -37,13 +41,13 @@ export function EmptyScreen({ onSubmit, isVisible }: QuestionsOverlayPropsLeftPa
   const fadeInOutClass = isVisible ? styles.fadeIn : styles.fadeOut;
   
   return (
-    <div className={`flex flex-col w-full pb-12 ${fadeInOutClass}`}> {/* pb-12 is for padding-bottom */}
+    <div className={`flex flex-col w-full pb-12 ${fadeInOutClass}`}>
       <div className="w-full rounded-lg border bg-background p-8 text-left">
         <h1 className="mb-2 text-lg font-semibold text-white">
-          icm.fyi is the Internet Capital Markets (ICM) chatbot.
+          {entryProfile.headline}
         </h1>
         <p className="mb-4 leading-normal text-muted-foreground">
-          Find the latest ICM-related content, across DeFi, DATs, CCM, from docs, research papers, articles, YouTube videos and Pump.fun streams.
+          {entryProfile.description}
         </p>
       </div>
       

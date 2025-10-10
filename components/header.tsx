@@ -6,7 +6,7 @@ import { clearChats } from '@/app/actions';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Sidebar } from '@/components/sidebar';
 import { SidebarList } from '@/components/sidebar-list';
-import { IconNextChat, IconSeparator, IconVercel, IconGitHub, IconGoogle } from '@/components/ui/icons';
+import { IconNextChat, IconSeparator } from '@/components/ui/icons';
 import { SidebarFooter } from '@/components/sidebar-footer';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { ClearHistory } from '@/components/clear-history';
@@ -47,10 +47,12 @@ export async function Header() {
           )}
         </div>
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        <LoginButton loginType="github" text="Login with GitHub" showIcon />
-        <LoginButton loginType="google" text="Login with Google" showIcon />
-      </div>
+      {!session?.user && (
+        <div className="flex items-center justify-end space-x-2">
+          <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon />
+          <LoginButton loginType="privy" text="Connect wallet" showIcon />
+        </div>
+      )}
     </header>
   )
 }

@@ -11,10 +11,16 @@ export async function POST(req: Request) {
   try { json = await req.json() } catch { return new Response('Bad request', { status: 400 }) }
 
   const { messages, previewToken } = json
+  const channelFilter = json.channel_filter ?? undefined
+  const entryProfileCode: string | undefined =
+    typeof json.entryProfileCode === 'string' && json.entryProfileCode.trim().length
+      ? json.entryProfileCode.trim()
+      : undefined
   const session = await auth()
-
-  const isAnonymous = !session?.user?.id || session.user.id === null
-  const userId = isAnonymous ? 'anonymous' : session.user.id
+  if (!session?.user?.id) {
+    return new Response('Unauthorized', { status: 401 })
+  }
+  const userId = session.user.id
 
   if (previewToken) configuration.apiKey = previewToken
 
@@ -26,7 +32,12 @@ export async function POST(req: Request) {
     chatResponse = await fetch(backendChatUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: mostRecentMessageContent, chat_history: messages })
+      body: JSON.stringify({
+        message: mostRecentMessageContent,
+        chat_history: messages,
+        entry_profile_code: entryProfileCode,
+        channel_filter: channelFilter
+      })
     })
   } catch { return new Response('Internal Server Error', { status: 500 }) }
 
@@ -39,6 +50,9 @@ export async function POST(req: Request) {
     typeof responseBody === 'string'
       ? responseBody
       : (responseBody.response?.response ?? responseBody.response ?? '')
+  const diagnostics = typeof responseBody === 'object' ? (responseBody.diagnostics ?? null) : null
+  const requestId =
+    typeof responseBody === 'object' ? (responseBody.request_id ?? diagnostics?.request_id ?? null) : null
 
   let structuredMetadata: ParsedMetadataEntryV2[] = []
   const sourcesBlock = extractSourcesBlock(rawAnswer)
@@ -64,18 +78,26 @@ export async function POST(req: Request) {
   const payload = {
     id, title, userId, createdAt, path,
     messages: [ ...(messages || []), { content: processedResponseContent, role: 'assistant' } ],
-    structured_metadata: structuredMetadata
+    structured_metadata: structuredMetadata,
+    entryProfileCode
   }
 
   try {
     await kv.hmset(`chat:${id}`, payload)
-    if (!isAnonymous) await kv.zadd(`user:chat:${session!.user!.id}`, { score: createdAt, member: `chat:${id}` })
+    await kv.zadd(`user:chat:${session.user.id}`, { score: createdAt, member: `chat:${id}` })
   } catch { return new Response('Internal Server Error', { status: 500 }) }
 
   const responsePayload = {
-    id: payload.id, title: payload.title, userId: payload.userId, createdAt: payload.createdAt, path: payload.path,
+    id: payload.id,
+    title: payload.title,
+    userId: payload.userId,
+    createdAt: payload.createdAt,
+    path: payload.path,
     message: { content: processedResponseContent, role: 'assistant' },
-    structured_metadata: payload.structured_metadata
+    structured_metadata: payload.structured_metadata,
+    entryProfileCode: payload.entryProfileCode,
+    diagnostics,
+    request_id: requestId
   }
 
   return new Response(JSON.stringify(responsePayload), { headers: { 'Content-Type': 'application/json' } })

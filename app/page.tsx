@@ -4,6 +4,7 @@ import { nanoid } from '@/lib/utils';
 import { Chat } from '@/components/chat';
 import ShareChatHeader from '@/components/share-chat-header';
 import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Home - icm.fyi ICM Research Chatbot',
@@ -26,6 +27,9 @@ export const metadata: Metadata = {
 
 export default async function IndexPage() {
   const session = await auth();
+  if (!session?.user?.id) {
+    redirect('/sign-in?callbackUrl=/')
+  }
   const id = nanoid();
   return (
     <>

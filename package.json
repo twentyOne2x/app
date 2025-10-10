@@ -3,7 +3,7 @@
   "version": "0.0.2",
   "private": true,
   "engines": {
-    "node": "18.x"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -13,6 +13,7 @@
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
     "type-check": "tsc --noEmit",
+    "test:progress": "node --test tests/query-progress.test.js",
     "format:write": "prettier --write \"{app,lib,components}/**/*.{ts,tsx,mdx}\" --cache",
     "format:check": "prettier --check \"{app,lib,components}/**/*.{ts,tsx,mdx}\" --cache"
   },
@@ -31,6 +32,8 @@
     "@vercel/analytics": "1.3.1",
     "@vercel/kv": "^2.0.0",
     "@vercel/og": "^0.6.3",
+    "@privy-io/react-auth": "^1.59.1",
+    "@privy-io/server-auth": "^1.6.0",
     "ai": "^3.4.0",
     "class-variance-authority": "0.7.0",
     "clsx": "^2.1.1",

@@ -1,7 +1,6 @@
 import { auth } from '@/auth'
 import { LoginButton } from '@/components/login-button'
 import { redirect } from 'next/navigation'
-import Image from 'next/image';
 
 export default async function SignInPage() {
   const session = await auth()
@@ -24,24 +23,24 @@ export default async function SignInPage() {
         <p className="my-4"></p>
         
         <p className="text-base sm:text-lg leading-normal text-muted-foreground">
-          To keep our platform friendly and secure, we use GitHub or Google login solely as a spam prevention measure. 
-          We promise not to collect any data from you! 
+          To keep access invitational and prevent spoofing, please authenticate with Twitter or connect a verified wallet.
+          We only use this to understand who&apos;s testing the product—nothing more.
         </p>
 
         <p className="text-base sm:text-lg leading-normal text-muted-foreground">
-          Once you&apos;re logged in, you&apos;re all set to explore without any hassle.
-        </p>  
+          Wallet logins are powered by Privy, so both Solana and EVM (Ethereum/BNB) users can come straight in.
+        </p>
 
         <p className="text-base sm:text-lg leading-normal text-muted-foreground">
-          Thanks for helping us keep the community safe and sound!
+          Once you&apos;re authenticated, you can explore every feature with full context.
         </p>
       </div>
       
       <p className="my-4"></p>
       
-      <div className="w-full px-3 mx-auto flex justify-center">
-        <LoginButton loginType="github" text="Login with GitHub" showIcon />
-        <LoginButton loginType="google" text="Login with Google" showIcon />
+      <div className="w-full px-3 mx-auto flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon className="w-full sm:w-auto" />
+        <LoginButton loginType="privy" text="Connect wallet with Privy" showIcon className="w-full sm:w-auto" />
       </div>
     </div>
   );

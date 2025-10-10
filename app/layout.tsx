@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
 import { Analytics } from '@vercel/analytics/react';
+import { cookies } from 'next/headers'
+import { ENTRY_PROFILE_COOKIE, getEntryProfileByCode } from '@/lib/entry-profiles'
 
 const UI_ICONS: string[] = [
   '/ui_icons/chatbot_1_32px.png',
@@ -66,12 +68,16 @@ function PreloadUiIcons() {
 interface RootLayoutProps { children: React.ReactNode }
 
 export default function RootLayout({ children }: RootLayoutProps) {
+  const cookieStore = cookies()
+  const entryCode = cookieStore.get(ENTRY_PROFILE_COOKIE)?.value
+  const entryProfile = getEntryProfileByCode(entryCode)
+
   return (
     <html lang="en">
       <head><PreloadUiIcons /></head>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
         <Toaster />
-        <Providers attribute="class" defaultTheme="dark" enableSystem={false}>
+        <Providers attribute="class" defaultTheme="dark" enableSystem={false} entryProfile={entryProfile}>
           <div className="flex flex-col min-h-screen">
             <main className="flex flex-col flex-1 bg-muted/50">{children}</main>
           </div>

@@ -7,6 +7,13 @@ import { kv } from '@vercel/kv'
 import { auth } from '@/auth'
 import type { Chat } from '@/lib/types'
 import { nanoid } from '@/lib/utils'
+import { cookies } from 'next/headers'
+import {
+  ENTRY_PROFILE_COOKIE,
+  getEntryProfileByCode,
+  isValidEntryCode,
+  normalizeEntryCode,
+} from '@/lib/entry-profiles'
 
 const API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
 
@@ -46,7 +53,7 @@ export async function getChat(id: string, userId: string) {
 
 export async function removeChat({ id, path }: { id: string; path: string }) {
   const session = await auth()
-  if (!session) return { error: 'Unauthorized' }
+  if (!session?.user?.id) return { error: 'Unauthorized' }
 
   const uid = (await kv.hget(`chat:${id}`, 'userId')) as string | null
   if (uid !== session?.user?.id) return { error: 'Unauthorized' }
@@ -90,7 +97,8 @@ export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
   let userId: string
   if (!useApiKeyAuth) {
     const session = await auth()
-    userId = session?.user?.id ?? 'default-legacy-user-id'
+    if (!session?.user?.id) return { error: 'Unauthorized' }
+    userId = session.user.id
   } else {
     userId = process.env.APP_BACKEND_USER_ID || 'default-legacy-user-id'
   }
@@ -108,4 +116,47 @@ export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
 
   await kv.hmset(`chat:${sharedChatId}`, toKV(sharedPayload))
   return sharedPayload
+}
+
+type EntryCodeFormState = { error: string | null }
+
+const defaultEntryCodeFormState: EntryCodeFormState = { error: null }
+
+export async function authorizeEntryCode(
+  _prevState: EntryCodeFormState = defaultEntryCodeFormState,
+  formData: FormData
+): Promise<EntryCodeFormState | void> {
+  const rawCode = formData.get('entryCode')
+  if (typeof rawCode !== 'string') {
+    return { error: 'Please enter an access code.' }
+  }
+
+  const normalized = normalizeEntryCode(rawCode)
+  if (!normalized) {
+    return { error: 'Please enter an access code.' }
+  }
+
+  if (!isValidEntryCode(normalized)) {
+    return { error: 'That access code is not recognized.' }
+  }
+
+  const profile = getEntryProfileByCode(normalized)
+  const nextPath = (() => {
+    const rawNext = formData.get('next')
+    if (typeof rawNext !== 'string') return '/'
+    if (!rawNext.startsWith('/')) return '/'
+    return rawNext === '/access' ? '/' : rawNext
+  })()
+  const cookieStore = cookies()
+  cookieStore.set({
+    name: ENTRY_PROFILE_COOKIE,
+    value: profile.code,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30, // 30 days
+  })
+
+  redirect(nextPath)
 }

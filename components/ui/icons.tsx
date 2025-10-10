@@ -151,6 +151,34 @@ function IconGoogle({ className, ...props }: React.ComponentProps<'svg'>) {
   )
 }
 
+function IconTwitter({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="currentColor"
+      className={cn('h-4 w-4', className)}
+      {...props}
+    >
+      <path d="M21.543 4.5c-.77.342-1.597.57-2.465.674a4.3 4.3 0 0 0 1.887-2.374 8.59 8.59 0 0 1-2.723 1.04 4.28 4.28 0 0 0-7.29 3.9A12.146 12.146 0 0 1 3.15 3.74a4.28 4.28 0 0 0 1.325 5.708 4.25 4.25 0 0 1-1.94-.536v.055a4.28 4.28 0 0 0 3.434 4.196 4.3 4.3 0 0 1-1.935.073 4.29 4.29 0 0 0 4.004 2.975 8.59 8.59 0 0 1-5.317 1.834c-.345 0-.688-.02-1.028-.06a12.116 12.116 0 0 0 6.557 1.92c7.872 0 12.18-6.52 12.18-12.18l-.014-.555A8.69 8.69 0 0 0 24 4.59a8.5 8.5 0 0 1-2.457.672Z" />
+    </svg>
+  )
+}
+
+function IconWallet({ className, ...props }: React.ComponentProps<'svg'>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={cn('h-4 w-4', className)}
+      {...props}
+    >
+      <path d="M19 7h-1V5a3 3 0 0 0-3-3H6A3 3 0 0 0 3 5v14a3 3 0 0 0 3 3h13a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3ZM5 5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v2H6a3 3 0 0 0-1 .17Zm15 14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1Zm-3-5a1 1 0 0 1-2 0 1 1 0 0 1 2 0Z" />
+    </svg>
+  )
+}
+
 function IconSeparator({ className, ...props }: React.ComponentProps<'svg'>) {
   return (
     <svg
@@ -625,5 +653,7 @@ export {
   IconDownArrow,
   IconRecycle,
   IconBroom,
-  IconReloadQuestions
+  IconReloadQuestions,
+  IconTwitter,
+  IconWallet
 }

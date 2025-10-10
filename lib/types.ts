@@ -15,6 +15,7 @@ export interface Chat {
   path: string
   messages: AIMsg[]        // use Message type from 'ai'
   structured_metadata: ParsedMetadataEntryV2[]  // V2 metadata everywhere
+  entryProfileCode?: string
   readOnly?: boolean
   sharePath?: string
   originalChatId?: string
@@ -34,4 +35,38 @@ export interface LegacyParsedMetadataEntry {
 /** If you need to attach metadata to messages inline. */
 export interface ExtendedMessage extends AIMsg {
   structured_metadata?: ParsedMetadataEntryV2[]
+  diagnostics?: DiagnosticsPayload
+}
+
+export type ProgressStageStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'error'
+
+export interface ProgressTraceEntry {
+  stage?: string
+  name?: string
+  status?: string
+  started_ms?: number
+  completed_ms?: number
+  duration_ms?: number
+  total_ms?: number
+  meta?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export interface DiagnosticsPayload {
+  request_id?: string
+  total_ms?: number
+  timings?: Record<string, unknown>
+  progress?: ProgressTraceEntry[]
+  progress_metadata?: Record<string, unknown>
+  models?: Record<string, unknown>
+  final_kept?: unknown
+  config?: Record<string, unknown>
+  early_abort?: Record<string, unknown>
+}
+
+export interface ChannelFilterPayload {
+  include_ids?: string[]
+  exclude_ids?: string[]
+  include_names?: string[]
+  exclude_names?: string[]
 }

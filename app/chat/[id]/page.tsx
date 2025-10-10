@@ -34,8 +34,10 @@ function adaptMessagesForChat(messages: any[] = []) {
 
 export default async function ChatPage({ params }: ChatPageProps) {
   const session = await auth()
-  const isAnonymous = !session?.user || session.user.id === null
-  const userId: string = isAnonymous ? 'anonymous' : (session.user.id ?? 'anonymous')
+  if (!session?.user?.id) {
+    redirect(`/sign-in?callbackUrl=/chat/${params.id}`)
+  }
+  const userId = session.user.id
 
   const chat = await getChat(params.id, userId)
   if (!chat) return notFound()
@@ -43,7 +45,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     if (chat.sharePath) return redirect(chat.sharePath as string)
     return notFound()
   }
-  if (!isAnonymous && chat.userId && chat.userId !== userId) return notFound()
+  if (chat.userId && chat.userId !== userId) return notFound()
 
   return (
     <>

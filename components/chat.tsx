@@ -1,25 +1,30 @@
 // components/chat.tsx
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useChat, type Message } from 'ai/react';
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
 import { EmptyScreen } from '@/components/empty-screen'
-import ShareButton from '@/components/share-button'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { toast } from 'react-hot-toast'
-import MetadataList from '@/components/metadata-list';
+import SourceList from '@/components/source-list';
+import ClipDrawer, { type ClipPlayback } from '@/components/clip-drawer';
+import QueryProgress from '@/components/query-progress';
+import ChannelFilterPanel from '@/components/channel-filter';
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import QuestionsOverlayStyles from './QuestionsOverlay.module.css'; // Import the CSS module
 import { QuestionsOverlay, QuestionsOverlayLeftPanel } from './question-overlay';
-import { ParsedMetadataEntry } from 'lib/types';
+import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils';
 import Modal from '@/components/Modal'; // Import the Modal component
+import { useEntryProfile } from '@/components/entry-profile-context';
+import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
 
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
-  structured_metadata?: ParsedMetadataEntry[]; // Ideally, define a more specific type instead of any[]
+  structured_metadata?: ParsedMetadataEntryV2[]; // Ideally, define a more specific type instead of any[]
+  diagnostics?: DiagnosticsPayload | null;
 }
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
@@ -28,7 +33,7 @@ export interface ChatProps extends React.ComponentProps<'div'> {
   id?: string;
   showQuestionsOverlay?: boolean; // Prop to toggle QuestionsOverlay visibility
   shared_chat?: boolean; // Prop to toggle shared_chat visibility
-  structured_metadata?: ParsedMetadataEntry[]; // Optional structured metadata prop
+  structured_metadata?: ParsedMetadataEntryV2[]; // Optional structured metadata prop
   noPaddingTop?: boolean; // New optional bottom padding property
 }
 
@@ -45,9 +50,10 @@ export function Chat({
     'ai-token',
     null
   )
+  const entryProfile = useEntryProfile();
 
   // State to hold structured metadata entries
-  const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntry[]>(structured_metadata);
+  const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(structured_metadata);
   // State to control the visibility of "Top Sources" title
   const [showTopSources, setShowTopSources] = useState(false);
   const [newMessages, setMessages] = useState(initialMessages || []);
@@ -73,12 +79,33 @@ export function Chat({
 
   // State for Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedClip, setSelectedClip] = useState<{
+    parent: ParsedMetadataEntryV2
+    clip: ClipItemV2
+    playback: ClipPlayback
+  } | null>(null);
+  const [isProcessingQuery, setIsProcessingQuery] = useState(false);
+  const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
+  const [stageHintTick, setStageHintTick] = useState(0);
+  const [availableChannels, setAvailableChannels] = useState<string[]>([]);
 
+  const channelFilterStorageKey = useMemo(
+    () => `channel-filter:${entryProfile.code}`,
+    [entryProfile.code]
+  );
+  const [excludedChannelNames, setExcludedChannelNames] = useLocalStorage<string[]>(
+    channelFilterStorageKey,
+    []
+  );
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    setAvailableChannels([]);
+  }, [entryProfile.code]);
 
   // Effect to toggle visibility of metadataContainer based on structuredMetadataEntries
   useEffect(() => {
@@ -114,8 +141,32 @@ export function Chat({
     return processedContent;
   };
 
+  const handleClipSelect = useCallback(
+    (payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback }) => {
+      setSelectedClip(payload);
+    },
+    []
+  );
+
+  const handleCloseClipDrawer = useCallback(() => {
+    setSelectedClip(null);
+  }, []);
+
+  const handleExcludedChannelsChange = useCallback(
+    (next: string[]) => {
+      const unique = Array.from(new Set(next.filter(Boolean)));
+      setExcludedChannelNames(unique);
+    },
+    [setExcludedChannelNames]
+  );
+
+  const channelFilterPayload = useMemo<ChannelFilterPayload | undefined>(() => {
+    const unique = Array.from(new Set(excludedChannelNames.filter(Boolean)));
+    return unique.length ? { exclude_names: unique } : undefined;
+  }, [excludedChannelNames]);
+
   // Function to parse messages and apply structured metadata
-  const parseMessagesAndMetadata = (messages: MetadataMessage[], metadata: ParsedMetadataEntry[]) => {
+  const parseMessagesAndMetadata = (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
     const parsedMessages = messages.map((message) => {
       if (message.role === 'assistant') {
         try {
@@ -158,6 +209,20 @@ export function Chat({
   }, [shared_chat]);
 
   useEffect(() => {
+    if (!structured_metadata?.length && structuredMetadataEntries.length === 0) return;
+    setAvailableChannels((prev) => {
+      const next = new Set(prev);
+      const source = structuredMetadataEntries.length ? structuredMetadataEntries : structured_metadata;
+      source?.forEach((entry) => {
+        if (entry.channel) next.add(entry.channel);
+      });
+      const sorted = Array.from(next);
+      sorted.sort((a, b) => a.localeCompare(b));
+      return sorted;
+    });
+  }, [structuredMetadataEntries, structured_metadata]);
+
+  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
     };
@@ -197,11 +262,16 @@ export function Chat({
       setShowChatList(true); // Show ChatList with fade-in
     }, 300); // Delay should match the fade-out duration
   
+    setIsProcessingQuery(true);
+    setCurrentDiagnostics(null);
+    setStageHintTick(0);
+  
     const newUserMessage: MetadataMessage = {
       id: id || '',  // Provide a fallback value for 'id' to ensure it's not undefined
       content: value,
       role: 'user',  // Assuming 'user' is an acceptable value for 'role'
-      structured_metadata: []  // Assuming this matches the type in MetadataMessage
+      structured_metadata: [],  // Assuming this matches the type in MetadataMessage
+      diagnostics: null
     };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
     append(newUserMessage);
@@ -250,47 +320,80 @@ export function Chat({
     return () => clearTimeout(timeoutId);
   }, [newMessages, lastMessageRole]);
 
+  const chatRequestBody = useMemo(
+    () => ({
+      id,
+      previewToken,
+      entryProfileCode: entryProfile.code,
+      channel_filter: channelFilterPayload
+    }),
+    [id, previewToken, entryProfile.code, channelFilterPayload]
+  );
+
   const { messages, append, reload, stop, isLoading, input, setInput } =
     useChat({
       initialMessages,
       id,
-      body: {
-        id,
-        previewToken
-      },
+      body: chatRequestBody,
       onResponse: async (originalResponse) => {
         if (originalResponse.status === 401) {
+          setIsProcessingQuery(false);
+          setCurrentDiagnostics(null);
           toast.error(originalResponse.statusText);
-        } else if (originalResponse.ok) {
-          const response = originalResponse.clone();
-          try {
-            const responseData = await response.json();
-      
-            // Adjust for the simplified payload structure
-            const newMessageFromServer = {
-              id: responseData.message.id || '', // Generate or use an existing ID
-              role: responseData.message.role,
-              content: processResponseContent(responseData.message.content),
-              structured_metadata: responseData.message.structured_metadata || []
-            };
-            // Update the chat list with the new message from the server
-            setMessages(prevMessages => [...prevMessages, newMessageFromServer]);
-            
-            // Update structured metadata state if it's part of the response
-            if (responseData.structured_metadata) {
-              setStructuredMetadataEntries(responseData.structured_metadata);
-            }
-      
-            // Update structured metadata state
-            setLastMessageRole('assistant');
-
-            // Show the "View Sources" button when assistant responds
-
-          } catch (error) {
-            console.error('Error reading response data:', error);
-            toast.error('Error reading response data');
-          }
+          return;
         }
+
+        if (!originalResponse.ok) {
+          setIsProcessingQuery(false);
+          setCurrentDiagnostics(null);
+          toast.error(originalResponse.statusText);
+          return;
+        }
+
+        const response = originalResponse.clone();
+        try {
+          const responseData = await response.json();
+
+          const diagnostics: DiagnosticsPayload | null = responseData.diagnostics ?? null;
+          const responseRequestId: string | null =
+            responseData.request_id ??
+            diagnostics?.request_id ??
+            null;
+
+          const newMessageFromServer: MetadataMessage = {
+            id: responseData.message?.id || '',
+            role: responseData.message?.role ?? 'assistant',
+            content: processResponseContent(responseData.message?.content ?? ''),
+            structured_metadata: responseData.message?.structured_metadata || [],
+            diagnostics
+          };
+
+          setMessages(prevMessages => [...prevMessages, newMessageFromServer]);
+
+          if (responseData.structured_metadata) {
+            setStructuredMetadataEntries(responseData.structured_metadata);
+          }
+
+          setLastMessageRole('assistant');
+          setCurrentDiagnostics(
+            diagnostics ??
+            (responseRequestId ? ({ request_id: responseRequestId } as DiagnosticsPayload) : null)
+          );
+          setIsProcessingQuery(false);
+        } catch (error) {
+          console.error('Error reading response data:', error);
+          toast.error('Error reading response data');
+          setIsProcessingQuery(false);
+          setCurrentDiagnostics(null);
+        }
+      },
+      onError: (error) => {
+        console.error('Chat error:', error);
+        setIsProcessingQuery(false);
+        setCurrentDiagnostics(null);
+      },
+      onFinish: () => {
+        setIsProcessingQuery(false);
       }
     })
 
@@ -301,6 +404,17 @@ export function Chat({
   
     return () => clearTimeout(timer); // Cleanup the timer
   }, []);
+
+  useEffect(() => {
+    if (!isProcessingQuery) {
+      setStageHintTick(0);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setStageHintTick((tick) => tick + 1);
+    }, 1400);
+    return () => window.clearInterval(timer);
+  }, [isProcessingQuery]);
 
   // Determine the overlay class for QuestionsOverlay
   const overlayClass = isMobile 
@@ -372,6 +486,20 @@ export function Chat({
 
           {!shared_chat && (
             <div className={styles.chatPanel}>
+              <div className="mb-4 space-y-4">
+                <ChannelFilterPanel
+                  channels={availableChannels}
+                  excluded={excludedChannelNames}
+                  onExcludedChange={handleExcludedChannelsChange}
+                />
+                {(isProcessingQuery || currentDiagnostics) && (
+                  <QueryProgress
+                    loading={isProcessingQuery}
+                    diagnostics={currentDiagnostics}
+                    stageHintIndex={stageHintTick}
+                  />
+                )}
+              </div>
               <ChatPanel
                 id={id}
                 isLoading={isLoading}
@@ -402,7 +530,7 @@ export function Chat({
             {newMessages.length > 0 && (
               <div className={styles.metadataTitle}>Top Sources</div>
             )}
-            <MetadataList entries={structuredMetadataEntries} />
+            <SourceList entries={structuredMetadataEntries} onSelectClip={handleClipSelect} />
           </div>
         </div>
       </div>
@@ -410,8 +538,15 @@ export function Chat({
       {/* Modal to display MetadataList on mobile */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <h2 className={styles.metadataTitle}>Top Sources</h2>
-        <MetadataList entries={structuredMetadataEntries} />
+        <SourceList entries={structuredMetadataEntries} onSelectClip={handleClipSelect} />
       </Modal>
+      <ClipDrawer
+        isOpen={Boolean(selectedClip)}
+        parent={selectedClip?.parent}
+        clip={selectedClip?.clip}
+        playback={selectedClip?.playback}
+        onClose={handleCloseClipDrawer}
+      />
     </>
   );
 }

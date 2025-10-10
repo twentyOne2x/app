@@ -49,7 +49,11 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
       'What are the key takeaways from Orangie’s latest YouTube deep dive on web3 storytelling?',
       'Summarize Orangie’s collaborations with other creators over the past month.',
       'How is Orangie explaining crypto culture trends to the broader audience right now?',
-      'Pull highlights from Orangie’s recent live streams that resonated with viewers.'
+      'Pull highlights from Orangie’s recent live streams that resonated with viewers.',
+      'Which on-chain metrics does Orangie track to evaluate a new project before covering it?',
+      'Collect the top audience questions that came up during Orangie’s last three Twitter Spaces.',
+      'Find the most-shared clips where Orangie discusses creator monetization strategies in web3.',
+      'Where has Orangie spoken about the tooling stack used to produce and distribute content?'
     ]
   },
   [THREADGUY_PROFILE_CODE]: {

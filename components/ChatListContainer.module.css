@@ -21,6 +21,7 @@
   align-items: center; /* Horizontally center */
   position: relative; /* Change to relative to make the left property effective */
   padding-top: 50px;
+  height: 100%;
 }
 
 .leftPanelContent {
@@ -28,13 +29,17 @@
   max-width: 320px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   gap: 24px;
   padding: 0 16px;
   box-sizing: border-box;
+  height: 100%;
 }
 
 .leftPanelFilter {
   width: 100%;
+  margin-top: auto;
+  padding-bottom: 32px;
 }
 
 .rightPanel {

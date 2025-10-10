@@ -45,7 +45,7 @@ export default function EntryAccessForm({ redirectTo }: { redirectTo: string }) 
           required
           minLength={2}
           maxLength={64}
-          placeholder="e.g. orangie"
+          placeholder="Enter access code"
           className="w-full rounded-md border border-white/15 bg-black/60 px-4 py-2 text-sm text-white placeholder:text-zinc-500 focus:border-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
           autoFocus
         />

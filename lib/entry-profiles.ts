@@ -8,7 +8,20 @@ export interface EntryProfile {
 }
 
 export const ENTRY_PROFILE_COOKIE = 'entry_profile';
-export const DEFAULT_ENTRY_PROFILE_CODE = 'default';
+
+const DEFAULT_PROFILE_CODE = 'prf-default-e9b6fbea';
+const ORANGIE_PROFILE_CODE = 'prf-orangie-4c17a89d';
+const THREADGUY_PROFILE_CODE = 'prf-threadguy-93f1d2ba';
+const ASHROBIN_PROFILE_CODE = 'prf-ashrobin-1de848f6';
+
+const CODE_ALIASES: Record<string, string> = {
+  default: DEFAULT_PROFILE_CODE,
+  orangie: ORANGIE_PROFILE_CODE,
+  threadguy: THREADGUY_PROFILE_CODE,
+  ashrobin: ASHROBIN_PROFILE_CODE,
+};
+
+export const DEFAULT_ENTRY_PROFILE_CODE = DEFAULT_PROFILE_CODE;
 
 const DEFAULT_QUESTIONS: string[] = [
   'What are the latest trends in Internet Capital Markets this week?',
@@ -18,16 +31,16 @@ const DEFAULT_QUESTIONS: string[] = [
 ];
 
 const ENTRY_PROFILES: Record<string, EntryProfile> = {
-  [DEFAULT_ENTRY_PROFILE_CODE]: {
-    code: DEFAULT_ENTRY_PROFILE_CODE,
+  [DEFAULT_PROFILE_CODE]: {
+    code: DEFAULT_PROFILE_CODE,
     label: 'Default ICM Research Feed',
     headline: 'icm.fyi is the Internet Capital Markets (ICM) chatbot.',
     description:
       'Discover the latest ICM-related content across DeFi, DATs, CCM, research papers, articles, YouTube videos, and Pump.fun streams.',
     questions: DEFAULT_QUESTIONS
   },
-  orangie: {
-    code: 'orangie',
+  [ORANGIE_PROFILE_CODE]: {
+    code: ORANGIE_PROFILE_CODE,
     label: 'Orangie Web3 Creator Spotlight',
     headline: 'Welcome Orangie 👋 — let’s dive into your Web3 content.',
     description:
@@ -39,8 +52,8 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
       'Pull highlights from Orangie’s recent live streams that resonated with viewers.'
     ]
   },
-  threadguy: {
-    code: 'threadguy',
+  [THREADGUY_PROFILE_CODE]: {
+    code: THREADGUY_PROFILE_CODE,
     label: 'Threadguy Spaces + Threads',
     headline: 'Hey Threadguy — here’s the fastest way to review your spaces and threads.',
     description:
@@ -52,8 +65,8 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
       'Highlight viral community reactions pulled from Threadguy’s latest threads.'
     ]
   },
-  ashrobin: {
-    code: 'ashrobin',
+  [ASHROBIN_PROFILE_CODE]: {
+    code: ASHROBIN_PROFILE_CODE,
     label: 'Ash Robin Builder Briefing',
     headline: 'Welcome Ash — let’s surface the smartest takes from your build logs.',
     description:
@@ -77,14 +90,15 @@ export function normalizeEntryCode(code?: string | null): string | null {
 
 export function getEntryProfileByCode(code?: string | null): EntryProfile {
   const normalized = normalizeEntryCode(code);
-  if (!normalized) return ENTRY_PROFILES[DEFAULT_ENTRY_PROFILE_CODE];
-  return ENTRY_PROFILES[normalized] ?? ENTRY_PROFILES[DEFAULT_ENTRY_PROFILE_CODE];
+  const resolved = normalized ? CODE_ALIASES[normalized] ?? normalized : DEFAULT_PROFILE_CODE;
+  return ENTRY_PROFILES[resolved] ?? ENTRY_PROFILES[DEFAULT_PROFILE_CODE];
 }
 
 export function isValidEntryCode(code?: string | null): boolean {
   const normalized = normalizeEntryCode(code);
   if (!normalized) return false;
-  return normalized in ENTRY_PROFILES;
+  const resolved = CODE_ALIASES[normalized] ?? normalized;
+  return resolved in ENTRY_PROFILES;
 }
 
 export function getEntryProfiles(): EntryProfile[] {

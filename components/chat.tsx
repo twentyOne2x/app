@@ -184,8 +184,6 @@ export function Chat({
   const [input, setInput] = useState('');
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
-  const streamAbortRef = useRef<AbortController | null>(null)
-  const lastAssistantMessageIdRef = useRef<string | null>(null)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
@@ -196,13 +194,6 @@ export function Chat({
     channelFilterStorageKey,
     []
   );
-
-  const removeAssistantDraft = useCallback(() => {
-    const draftId = lastAssistantMessageIdRef.current
-    if (!draftId) return
-    lastAssistantMessageIdRef.current = null
-    setMessages((prev) => prev.filter((message) => message.id !== draftId))
-  }, [setMessages])
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
@@ -405,247 +396,6 @@ export function Chat({
     [channelFilterPayload, entryProfile.code, id, previewToken]
   )
 
-  const streamChat = useCallback(
-    async (history: MetadataMessage[], userMessageId: string) => {
-      const controller = new AbortController()
-      streamAbortRef.current = controller
-      let assistantId: string | null = null
-      let assistantContent = ''
-      let structuredMetadata: ParsedMetadataEntryV2[] = []
-      let finalDiagnostics: DiagnosticsPayload | null = null
-
-      const ensureAssistantMessage = (content: string) => {
-        if (!assistantId) {
-          assistantId = nanoid()
-          const newAssistantMessage: MetadataMessage = {
-            id: assistantId,
-            role: 'assistant',
-            content: processResponseContent(stripSourcesBlock(content)),
-            structured_metadata: structuredMetadata,
-            diagnostics: null
-          }
-          setMessages((prev) => [...prev, newAssistantMessage])
-          lastAssistantMessageIdRef.current = assistantId
-        } else {
-          setMessages((prev) =>
-            prev.map((message) =>
-              message.id === assistantId
-                ? {
-                    ...message,
-                    content: processResponseContent(stripSourcesBlock(content)),
-                    structured_metadata: structuredMetadata
-                  }
-                : message
-            )
-          )
-          lastAssistantMessageIdRef.current = assistantId
-        }
-        setLastMessageRole('assistant')
-      }
-
-      const handlePayload = (eventName: string, payload: any) => {
-        const type = payload?.type ?? eventName ?? 'message'
-        if (type === 'progress') {
-          if (Array.isArray(payload?.progress)) {
-            setLiveProgress(payload.progress as Array<Record<string, unknown>>)
-          } else if (payload?.stage) {
-            setLiveProgress((prev) => {
-              const stageKey = payload.stage ?? payload.name
-              const next = prev.filter(
-                (entry) =>
-                  entry?.stage !== stageKey &&
-                  entry?.name !== stageKey &&
-                  entry?.key !== stageKey
-              )
-              return [...next, payload]
-            })
-          }
-          return
-        }
-
-        if (type === 'token' || type === 'delta' || type === 'partial') {
-          const token =
-            payload?.token ??
-            payload?.delta ??
-            payload?.partial ??
-            payload?.content ??
-            ''
-          if (!token) return
-          assistantContent += token
-          ensureAssistantMessage(assistantContent)
-          return
-        }
-
-        if (type === 'metadata' || type === 'structured_metadata') {
-          if (Array.isArray(payload?.structured_metadata)) {
-            structuredMetadata = payload.structured_metadata as ParsedMetadataEntryV2[]
-            setStructuredMetadataEntries(structuredMetadata)
-            if (assistantId) {
-              setMessages((prev) =>
-                prev.map((message) =>
-                  message.id === assistantId
-                    ? { ...message, structured_metadata: structuredMetadata }
-                    : message
-                )
-              )
-            }
-          } else if (Array.isArray(payload?.data)) {
-            structuredMetadata = payload.data as ParsedMetadataEntryV2[]
-            setStructuredMetadataEntries(structuredMetadata)
-          }
-          return
-        }
-
-        if (type === 'diagnostics') {
-          const diagnostics = payload?.diagnostics ?? payload ?? null
-          if (diagnostics) {
-            finalDiagnostics = diagnostics as DiagnosticsPayload
-            if (Array.isArray(finalDiagnostics?.progress)) {
-              setLiveProgress(finalDiagnostics.progress as Array<Record<string, unknown>>)
-            }
-          }
-          return
-        }
-
-        if (type === 'result' || type === 'response' || type === 'done') {
-          if (Array.isArray(payload?.structured_metadata)) {
-            structuredMetadata = payload.structured_metadata as ParsedMetadataEntryV2[]
-            setStructuredMetadataEntries(structuredMetadata)
-          }
-          if (payload?.diagnostics) {
-            finalDiagnostics = payload.diagnostics as DiagnosticsPayload
-            if (Array.isArray(finalDiagnostics?.progress)) {
-              setLiveProgress(finalDiagnostics.progress as Array<Record<string, unknown>>)
-            }
-          }
-          if (payload?.message?.content) {
-            assistantContent = payload.message.content
-          } else if (typeof payload?.content === 'string') {
-            assistantContent = payload.content
-          } else if (typeof payload?.response === 'string') {
-            assistantContent = payload.response
-          }
-          ensureAssistantMessage(assistantContent)
-          return
-        }
-
-        if (type === 'error') {
-          throw new Error(
-            payload?.message ??
-              'The chat service encountered an error. Please try again.'
-          )
-        }
-      }
-
-      const parseEvent = (rawEvent: string) => {
-        const lines = rawEvent.split('\n')
-        let eventName = 'message'
-        const dataLines: string[] = []
-        for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed) continue
-          if (trimmed.startsWith('event:')) {
-            eventName = trimmed.slice(6).trim()
-          } else if (trimmed.startsWith('data:')) {
-            dataLines.push(trimmed.slice(5).trim())
-          }
-        }
-        if (!dataLines.length) return null
-        return { eventName, data: dataLines.join('\n') }
-      }
-
-      try {
-        const response = await fetch('/api/chat/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildChatRequestPayload(history)),
-          signal: controller.signal
-        })
-
-        if (!response.ok || !response.body) {
-          const message = await extractErrorMessage(response)
-          throw new Error(
-            message ?? 'The chat service encountered an error. Please try again.'
-          )
-        }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder()
-        let buffer = ''
-
-        while (true) {
-          const { value, done } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-
-          let separatorIndex
-          while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
-            const rawEvent = buffer.slice(0, separatorIndex).trim()
-            buffer = buffer.slice(separatorIndex + 2)
-            if (!rawEvent) continue
-            const parsed = parseEvent(rawEvent)
-            if (!parsed) continue
-            let payload: any = parsed.data
-            try {
-              payload = JSON.parse(parsed.data)
-            } catch {
-              payload = { type: parsed.eventName, data: parsed.data }
-            }
-            handlePayload(parsed.eventName, payload)
-          }
-        }
-
-        if (buffer.trim()) {
-          const parsed = parseEvent(buffer.trim())
-          if (parsed) {
-            let payload: any = parsed.data
-            try {
-              payload = JSON.parse(parsed.data)
-            } catch {
-              payload = { type: parsed.eventName, data: parsed.data }
-            }
-            handlePayload(parsed.eventName, payload)
-          }
-        }
-
-        if (assistantContent) {
-          const sourcesBlock = extractSourcesBlock(assistantContent) ?? ''
-          if (!structuredMetadata.length && sourcesBlock) {
-            structuredMetadata = parseMetadata(sourcesBlock, assistantContent)
-            if (structuredMetadata.length) {
-              setStructuredMetadataEntries(structuredMetadata)
-            }
-          }
-          ensureAssistantMessage(assistantContent)
-        }
-
-        if (finalDiagnostics) {
-          setCurrentDiagnostics(finalDiagnostics)
-        } else {
-          setCurrentDiagnostics(null)
-          setLiveProgress([])
-        }
-
-      } catch (error) {
-        if (controller.signal.aborted) return
-        console.error('chat: stream error', error)
-        throw error
-      } finally {
-        streamAbortRef.current = null
-      }
-    },
-    [
-      buildChatRequestPayload,
-      processResponseContent,
-      stripSourcesBlock,
-      setLastMessageRole,
-      setMessages,
-      setStructuredMetadataEntries,
-      setCurrentDiagnostics,
-      setLiveProgress
-    ]
-  )
-
   const sendChatLegacy = useCallback(
     async (history: MetadataMessage[]) => {
       const payload = buildChatRequestPayload(history)
@@ -711,7 +461,6 @@ export function Chat({
         diagnostics
       }
       setMessages((prev) => [...prev, assistantMessage])
-      lastAssistantMessageIdRef.current = assistantMessage.id
       setLastMessageRole('assistant')
 
       if (diagnostics) {
@@ -824,14 +573,6 @@ export function Chat({
     }
   }, [shared_chat]);
 
-  useEffect(() => {
-    return () => {
-      if (streamAbortRef.current) {
-        streamAbortRef.current.abort()
-      }
-    }
-  }, [])
-
   // Function to handle user input submission
   const handleUserInputSubmit = useCallback(
     async (value: string) => {
@@ -848,10 +589,6 @@ export function Chat({
       setShowChatList(true); // Show ChatList with fade-in
     }, 300); // Delay should match the fade-out duration
   
-    if (streamAbortRef.current) {
-      streamAbortRef.current.abort()
-    }
-
     setIsProcessingQuery(true);
     setCurrentDiagnostics(null);
     setLiveProgress([]);
@@ -869,24 +606,18 @@ export function Chat({
     setLastMessageRole('user');
 
     try {
-      await streamChat(nextMessages, messageId);
+      await sendChatLegacy(nextMessages)
     } catch (error) {
-      console.error('chat: failed to stream message', error);
-      removeAssistantDraft()
-      try {
-        await sendChatLegacy(nextMessages);
-      } catch (fallbackError) {
-        console.error('chat: fallback error', fallbackError)
-        toast.error(
-          fallbackError instanceof Error && fallbackError.message
-            ? fallbackError.message
-            : 'Unable to reach the chat service. Please try again.'
-        )
-        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-        setCurrentDiagnostics(null);
-        setLiveProgress([]);
-        setLastMessageRole('user')
-      }
+      console.error('chat: failed to fetch message', error)
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Unable to reach the chat service. Please try again.'
+      )
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      setCurrentDiagnostics(null);
+      setLiveProgress([]);
+      setLastMessageRole('user')
     } finally {
       setIsProcessingQuery(false);
     }
@@ -906,13 +637,11 @@ export function Chat({
     setIsProcessingQuery,
     setCurrentDiagnostics,
     setMessages,
-    streamChat,
     sendChatLegacy,
     setLastMessageRole,
     setShowLeftPanelOverlay,
     setFadeOutCompleted,
-    setLiveProgress,
-    removeAssistantDraft
+    setLiveProgress
   ]);
   
   // Add an animation end handler

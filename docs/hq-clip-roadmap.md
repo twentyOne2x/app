@@ -33,6 +33,14 @@ Tech stack: **Python 3.11**, **FastAPI**, packaged with **ffmpeg** in a Docker i
 
 > **Note:** A FastAPI implementation now lives in `clip-service/` with an ffmpeg worker that downloads sources (yt-dlp or GCS), deduplicates payloads, and serves finished clips at `/clips/{id}/file`. The Next.js proxy rewrites those relative URLs to `/api/clips/{id}/stream` so the web app can stream/download without CORS issues.
 
+**Deployment status**
+- Container image: `gcr.io/just-skyline-474622-e1/clip-service`
+- Cloud Run service URL: `https://clip-service-406386298457.us-central1.run.app`
+- Required env vars for clients:
+  - `CLIP_SERVICE_URL=https://clip-service-406386298457.us-central1.run.app`
+  - `CLIP_SERVICE_TOKEN=<current bearer token>` (set in Cloud Run as `CLIP_SERVICE_AUTH_TOKEN`)
+- Frontend `/api/clips` proxy already reads these values; set them in your local/Vercel environment to route requests to Cloud Run.
+
 ### Frontend (Next.js)
 
 Tech stack: **Next.js 13**, **React 18**, **TypeScript**, using SWR-style polling or custom hooks for async fetch. Video playback via **hls.js** for HLS streams and native `<video>` for MP4.

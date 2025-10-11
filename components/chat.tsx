@@ -199,6 +199,17 @@ export function Chat({
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
+  const channelCatalogStateRef = useRef<{
+    code: string
+    lastFetched: number
+    fetchInFlight: boolean
+    defaultsApplied: boolean
+  }>({
+    code: '',
+    lastFetched: 0,
+    fetchInFlight: false,
+    defaultsApplied: false
+  })
   const currentTraceIdRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
@@ -209,6 +220,22 @@ export function Chat({
     channelFilterStorageKey,
     []
   );
+
+  useEffect(() => {
+    console.debug('chat: component mounted', {
+      entryProfileCode: entryProfile.code,
+      shared_chat,
+      chatId: id ?? null
+    })
+    return () => {
+      console.debug('chat: component unmounted', {
+        entryProfileCode: entryProfile.code,
+        shared_chat,
+        chatId: id ?? null
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
@@ -287,8 +314,53 @@ export function Chat({
   }, [showEmptyScreen, showChatList, showMiddlePanelOverlay, showLeftPanelOverlay])
 
   useEffect(() => {
+    console.debug('chat: top sources visibility toggled', {
+      showTopSources,
+      traceId: currentTraceIdRef.current
+    })
+  }, [showTopSources])
+
+  useEffect(() => {
+    console.debug('chat: metadata container visibility toggled', {
+      metadataContainerVisible,
+      traceId: currentTraceIdRef.current
+    })
+  }, [metadataContainerVisible])
+
+  useEffect(() => {
+    console.debug('chat: available channels updated', {
+      count: availableChannels.length,
+      preview: availableChannels.slice(0, 10)
+    })
+  }, [availableChannels])
+
+  useEffect(() => {
+    console.debug('chat: excluded channels updated', {
+      count: excludedChannelNames.length,
+      excluded: excludedChannelNames
+    })
+  }, [excludedChannelNames])
+
+  useEffect(() => {
     channelDefaultsAppliedRef.current = null
+    channelCatalogStateRef.current = {
+      code: '',
+      lastFetched: 0,
+      fetchInFlight: false,
+      defaultsApplied: false
+    }
+    console.debug('chat: entry profile changed, resetting channel catalog state', {
+      entryProfileCode: entryProfile.code
+    })
   }, [entryProfile.code])
+
+  useEffect(() => {
+    console.debug('chat: input value updated', {
+      length: input.length,
+      isEmpty: input.length === 0,
+      traceId: currentTraceIdRef.current
+    })
+  }, [input])
 
   useEffect(() => {
     if (!availableChannels.length) return
@@ -301,14 +373,68 @@ export function Chat({
   }, [availableChannels, setExcludedChannelNames])
 
   useEffect(() => {
+    const now = Date.now()
+    const state = channelCatalogStateRef.current
+    const sameProfile = state.code === entryProfile.code
+    const hasStoredSelection = excludedChannelNames.length > 0
+    const catalogAlreadyLoaded = sameProfile && availableChannels.length > 0
+    const recentlyFetched = sameProfile && now - state.lastFetched < 15000
+
+    if (state.fetchInFlight) {
+      console.debug('chat: channel catalog fetch already in-flight', {
+        entryProfileCode: entryProfile.code,
+        traceId: currentTraceIdRef.current,
+        hasStoredSelection,
+        availableChannelCount: availableChannels.length
+      })
+      return
+    }
+
+    if (catalogAlreadyLoaded && recentlyFetched) {
+      console.debug('chat: skipping channel catalog fetch (cached)', {
+        entryProfileCode: entryProfile.code,
+        traceId: currentTraceIdRef.current,
+        lastFetchedMsAgo: now - state.lastFetched,
+        availableChannelCount: availableChannels.length,
+        hasStoredSelection
+      })
+      return
+    }
+
     let cancelled = false
+    channelCatalogStateRef.current = {
+      code: entryProfile.code,
+      lastFetched: state.lastFetched,
+      fetchInFlight: true,
+      defaultsApplied: state.defaultsApplied
+    }
+
+    console.debug('chat: requesting channel catalog', {
+      entryProfileCode: entryProfile.code,
+      traceId: currentTraceIdRef.current,
+      hasStoredSelection,
+      cachedChannels: availableChannels.length
+    })
 
     const loadChannelCatalog = async () => {
       try {
         const response = await fetch('/api/channels?scope=videos', { method: 'GET' })
-        if (!response.ok) return
+        if (!response.ok) {
+          console.warn('chat: channel catalog request failed', {
+            status: response.status,
+            traceId: currentTraceIdRef.current
+          })
+          return
+        }
         const data = await response.json().catch(() => null)
-        if (!data || cancelled) return
+        if (!data || cancelled) {
+          console.debug('chat: channel catalog response ignored', {
+            cancelled,
+            hasData: Boolean(data),
+            traceId: currentTraceIdRef.current
+          })
+          return
+        }
 
         const channelEntries: unknown[] = Array.isArray(data)
           ? (data as unknown[])
@@ -317,6 +443,7 @@ export function Chat({
           : Array.isArray((data as { channelDetails?: unknown }).channelDetails)
           ? ((data as { channelDetails: unknown[] }).channelDetails as unknown[])
           : []
+
         const names = channelEntries
           .map((entry) => {
             if (typeof entry === 'string') return entry.trim()
@@ -331,12 +458,35 @@ export function Chat({
           })
           .filter((name): name is string => Boolean(name))
 
-        const sanitized = Array.from(new Set(names)).filter(Boolean).sort((a, b) => a.localeCompare(b))
+        const sanitized = Array.from(new Set(names))
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b))
+        console.debug('chat: channel catalog sanitized', {
+          traceId: currentTraceIdRef.current,
+          receivedCount: channelEntries.length,
+          sanitizedCount: sanitized.length
+        })
         if (!sanitized.length) return
-        setAvailableChannels(sanitized)
 
-        const hasStoredSelection = excludedChannelNames.length > 0
-        if (!hasStoredSelection && channelDefaultsAppliedRef.current !== entryProfile.code) {
+        setAvailableChannels((prev) => {
+          if (prev.length === sanitized.length && prev.every((name, idx) => name === sanitized[idx])) {
+            console.debug('chat: channel catalog unchanged', {
+              traceId: currentTraceIdRef.current,
+              count: sanitized.length
+            })
+            return prev
+          }
+          console.debug('chat: channel catalog updated', {
+            traceId: currentTraceIdRef.current,
+            previousCount: prev.length,
+            nextCount: sanitized.length
+          })
+          return sanitized
+        })
+
+        let defaultsApplied = state.defaultsApplied
+        const hasStoredSelectionNow = excludedChannelNames.length > 0
+        if (!hasStoredSelectionNow && channelDefaultsAppliedRef.current !== entryProfile.code) {
           const defaultsSource =
             (data as { defaultSelected?: unknown }).defaultSelected ??
             (data as { default_selected?: unknown }).default_selected ??
@@ -348,11 +498,32 @@ export function Chat({
             : sanitized
           const defaultSet = new Set<string>(defaults)
           const excluded: string[] = sanitized.filter((name) => !defaultSet.has(name))
+          console.debug('chat: applying default channel selection', {
+            traceId: currentTraceIdRef.current,
+            defaultCount: defaults.length,
+            excludedCount: excluded.length
+          })
           setExcludedChannelNames(excluded)
           channelDefaultsAppliedRef.current = entryProfile.code
+          defaultsApplied = true
+        }
+
+        channelCatalogStateRef.current = {
+          code: entryProfile.code,
+          lastFetched: Date.now(),
+          fetchInFlight: false,
+          defaultsApplied
         }
       } catch (error) {
         console.error('chat: failed to load channel catalog', error)
+      } finally {
+        if (channelCatalogStateRef.current.fetchInFlight) {
+          channelCatalogStateRef.current = {
+            ...channelCatalogStateRef.current,
+            fetchInFlight: false,
+            lastFetched: Date.now()
+          }
+        }
       }
     }
 
@@ -361,7 +532,12 @@ export function Chat({
     return () => {
       cancelled = true
     }
-  }, [entryProfile.code, excludedChannelNames.length, setExcludedChannelNames])
+  }, [
+    entryProfile.code,
+    excludedChannelNames,
+    availableChannels.length,
+    setExcludedChannelNames
+  ])
 
   const selectionScope = useMemo(() => {
     if (shared_chat && id) return `shared-chat:${id}`
@@ -374,14 +550,25 @@ export function Chat({
     autoOpen: (open) => setBundleDrawerOpen(open)
   })
   const handleGenerateBundle = useCallback(() => {
+    console.debug('chat: generate bundle requested', {
+      traceId: currentTraceIdRef.current,
+      selectionCount: clipSelection.selectionCount
+    })
     void bundleHandle.startBundle()
-  }, [bundleHandle])
+  }, [bundleHandle, clipSelection.selectionCount])
 
   const handleClearSelection = useCallback(() => {
+    console.debug('chat: clear selection requested', {
+      traceId: currentTraceIdRef.current,
+      selectionCount: clipSelection.selectionCount
+    })
     bundleHandle.clearBundle()
-  }, [bundleHandle])
+  }, [bundleHandle, clipSelection.selectionCount])
 
   const handleCloseBundleDrawer = useCallback(() => {
+    console.debug('chat: closing bundle drawer', {
+      traceId: currentTraceIdRef.current
+    })
     setBundleDrawerOpen(false)
     bundleHandle.closeBundle()
   }, [bundleHandle])
@@ -392,15 +579,25 @@ export function Chat({
     let timer2: number | null = null;
 
     if (structuredMetadataEntries.length > 0) {
+      console.debug('chat: scheduling metadata container transitions', {
+        traceId: currentTraceIdRef.current,
+        entryCount: structuredMetadataEntries.length
+      })
       setShowTopSources(true); // Show "Top Sources" once there are entries
 
       // Set a timeout to fade out first
       timer1 = window.setTimeout(() => {
+        console.debug('chat: metadata container fade-out executing', {
+          traceId: currentTraceIdRef.current
+        })
         setMetadataContainerVisible(false);
       }, 500); // Adjust this duration to match your CSS transition
 
       // Set another timeout to fade back in
       timer2 = window.setTimeout(() => {
+        console.debug('chat: metadata container fade-in executing', {
+          traceId: currentTraceIdRef.current
+        })
         setMetadataContainerVisible(true);
       }, 500); // This starts after the first timer completes
     }
@@ -413,35 +610,77 @@ export function Chat({
 
   // Process the response content to replace specified phrases with "ICM"
   const processResponseContent = useCallback((content: string): string => {
-    let processedContent = content;
+    const original = content ?? ''
+    console.debug('chat: processResponseContent invoked', {
+      originalLength: original.length,
+      traceId: currentTraceIdRef.current
+    })
+    let processedContent = original;
     processedContent = processedContent.replace(/ICM \(Internet Capital Markets\)/g, "ICM");
     processedContent = processedContent.replace(/Internet Capital Markets \(ICM\)/g, "ICM");
     processedContent = processedContent.replace(/Internet Capital Markets/g, "ICM");
+    if (processedContent !== original) {
+      console.debug('chat: processResponseContent normalized terms', {
+        traceId: currentTraceIdRef.current
+      })
+    }
+    console.debug('chat: processResponseContent completed', {
+      resultLength: processedContent.length,
+      traceId: currentTraceIdRef.current
+    })
     return processedContent;
   }, []);
 
   const stripSourcesBlock = useCallback((content: string) => {
-    if (!content) return content
+    if (!content) {
+      console.debug('chat: stripSourcesBlock skipped (empty content)', {
+        traceId: currentTraceIdRef.current
+      })
+      return content
+    }
     const marker = 'Fetched based on the following sources:'
     const index = content.lastIndexOf(marker)
-    if (index === -1) return content
-    return content.slice(0, index).trimEnd()
+    if (index === -1) {
+      console.debug('chat: stripSourcesBlock marker not found', {
+        traceId: currentTraceIdRef.current
+      })
+      return content
+    }
+    const stripped = content.slice(0, index).trimEnd()
+    console.debug('chat: stripSourcesBlock removed sources block', {
+      originalLength: content.length,
+      strippedLength: stripped.length,
+      traceId: currentTraceIdRef.current
+    })
+    return stripped
   }, [])
 
   const handleClipSelect = useCallback(
     (payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback }) => {
+      console.debug('chat: clip selected', {
+        traceId: currentTraceIdRef.current,
+        parentTitle: payload.parent?.parentTitle ?? null,
+        clipStart: payload.clip?.startHMS ?? null,
+        clipUrl: payload.clip?.url ?? null
+      })
       setSelectedClip(payload);
     },
     []
   );
 
   const handleCloseClipDrawer = useCallback(() => {
+    console.debug('chat: clip drawer closed', { traceId: currentTraceIdRef.current })
     setSelectedClip(null);
   }, []);
 
   const handleExcludedChannelsChange = useCallback(
     (next: string[]) => {
       const unique = Array.from(new Set(next.filter(Boolean)));
+      console.debug('chat: excluded channels change requested', {
+        incomingCount: next.length,
+        uniqueCount: unique.length,
+        traceId: currentTraceIdRef.current
+      })
       setExcludedChannelNames(unique);
     },
     [setExcludedChannelNames]
@@ -492,11 +731,143 @@ export function Chat({
         traceId: options?.clientTraceId ?? null,
         historyCount: history.length,
         channelFilter: channelFilterPayload,
-        hasPreviewToken: Boolean(previewToken)
+        hasPreviewToken: Boolean(previewToken),
+        lastRole: history.length ? history[history.length - 1].role : null,
+        lastMessageLength: history.length ? coerceContent(history[history.length - 1].content).length : 0
       })
       return payload
     },
     [channelFilterPayload, entryProfile.code, id, previewToken]
+  )
+
+  const renderAssistantPayload = useCallback(
+    (payload: unknown, traceId: string) => {
+      const data =
+        payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
+      console.debug('chat: renderAssistantPayload invoked', {
+        traceId,
+        payloadKeys: Object.keys(data),
+        hasMessage: Boolean(data.message),
+        hasDiagnostics: Boolean(data.diagnostics)
+      })
+
+      const rawAssistantContentValue =
+        typeof data.response === 'string'
+          ? data.response
+          : data.message &&
+            typeof data.message === 'object' &&
+            typeof (data.message as { content?: unknown }).content === 'string'
+          ? ((data.message as { content: string }).content)
+          : typeof data.content === 'string'
+          ? data.content
+          : ''
+      const rawAssistantContent = coerceContent(rawAssistantContentValue)
+
+      let metadata: ParsedMetadataEntryV2[] = Array.isArray(
+        data.message && typeof data.message === 'object'
+          ? (data.message as { structured_metadata?: unknown }).structured_metadata
+          : null
+      )
+        ? ((data.message as { structured_metadata: ParsedMetadataEntryV2[] }).structured_metadata)
+        : Array.isArray(data.structured_metadata)
+        ? (data.structured_metadata as ParsedMetadataEntryV2[])
+        : []
+
+      if ((!metadata || metadata.length === 0) && rawAssistantContent) {
+        const sourcesBlock = extractSourcesBlock(rawAssistantContent) ?? ''
+        if (sourcesBlock) {
+          metadata = parseMetadata(sourcesBlock, rawAssistantContent)
+        }
+      }
+
+      if (metadata?.length) {
+        console.debug('chat: structured metadata received', {
+          traceId,
+          count: metadata.length
+        })
+        setStructuredMetadataEntries(metadata)
+      } else {
+        console.debug('chat: no structured metadata present', {
+          traceId
+        })
+      }
+
+      const sanitizedContent = processResponseContent(
+        stripSourcesBlock(rawAssistantContent)
+      )
+
+      const diagnostics: DiagnosticsPayload | null =
+        (data.diagnostics as DiagnosticsPayload | undefined) ??
+        ((data.message as { diagnostics?: DiagnosticsPayload })?.diagnostics ?? null)
+
+      const rawRole = (data.message as { role?: string })?.role ?? null
+      const allowedRoles: MetadataMessage['role'][] = [
+        'user',
+        'assistant',
+        'system',
+        'tool',
+        'function'
+      ]
+      const safeRole = allowedRoles.includes(rawRole as MetadataMessage['role'])
+        ? ((rawRole as MetadataMessage['role']))
+        : 'assistant'
+      if (rawRole && safeRole !== rawRole) {
+        console.debug('chat: normalizing assistant role', { traceId, rawRole, safeRole })
+      }
+
+      const assistantMessage: MetadataMessage = {
+        id:
+          (data.message as { id?: string })?.id ??
+          (typeof data.id === 'string' ? data.id : undefined) ??
+          nanoid(),
+        role: safeRole,
+        content: sanitizedContent,
+        structured_metadata: metadata ?? [],
+        diagnostics
+      }
+
+      console.debug('chat: assistant content prepared', {
+        traceId,
+        contentLength: sanitizedContent.length
+      })
+
+      setMessages((prev) => {
+        const next = [...prev, assistantMessage]
+        console.debug('chat: assistant message appended', {
+          traceId,
+          messageId: assistantMessage.id,
+          totalMessages: next.length
+        })
+        return next
+      })
+      setLastMessageRole('assistant')
+
+      if (diagnostics) {
+        console.debug('chat: diagnostics payload applied', {
+          traceId,
+          progressCount: Array.isArray(diagnostics.progress) ? diagnostics.progress.length : 0
+        })
+        setCurrentDiagnostics(diagnostics)
+        if (Array.isArray(diagnostics.progress)) {
+          setLiveProgress(diagnostics.progress as Array<Record<string, unknown>>)
+        }
+      } else {
+        setCurrentDiagnostics(null)
+        setLiveProgress([])
+        console.debug('chat: diagnostics missing, cleared progress state', { traceId })
+      }
+
+      return assistantMessage
+    },
+    [
+      processResponseContent,
+      stripSourcesBlock,
+      setMessages,
+      setLastMessageRole,
+      setStructuredMetadataEntries,
+      setCurrentDiagnostics,
+      setLiveProgress
+    ]
   )
 
   const sendChatLegacy = useCallback(
@@ -556,86 +927,13 @@ export function Chat({
         responseKeys: data ? Object.keys(data) : []
       })
 
-      const rawAssistantContentValue =
-        typeof data.response === 'string'
-          ? data.response
-          : data.message?.content ?? ''
-      const rawAssistantContent = coerceContent(rawAssistantContentValue)
-
-      let metadata: ParsedMetadataEntryV2[] = Array.isArray(
-        data.message?.structured_metadata
-      )
-        ? (data.message.structured_metadata as ParsedMetadataEntryV2[])
-        : Array.isArray(data.structured_metadata)
-        ? (data.structured_metadata as ParsedMetadataEntryV2[])
-        : []
-
-      if ((!metadata || metadata.length === 0) && rawAssistantContent) {
-        const sourcesBlock = extractSourcesBlock(rawAssistantContent) ?? ''
-        if (sourcesBlock) {
-          metadata = parseMetadata(sourcesBlock, rawAssistantContent)
-        }
-      }
-
-      if (metadata?.length) {
-        console.debug('chat: structured metadata received', {
-          traceId,
-          count: metadata.length
-        })
-        setStructuredMetadataEntries(metadata)
-      }
-
-      const sanitizedContent = processResponseContent(
-        stripSourcesBlock(rawAssistantContent)
-      )
-
-      const diagnostics: DiagnosticsPayload | null =
-        (data.diagnostics as DiagnosticsPayload | undefined) ?? null
-
-      const assistantMessage: MetadataMessage = {
-        id: data.message?.id || nanoid(),
-        role: data.message?.role ?? 'assistant',
-        content: sanitizedContent,
-        structured_metadata: metadata ?? [],
-        diagnostics
-      }
-      setMessages((prev) => {
-        const next = [...prev, assistantMessage]
-        console.debug('chat: assistant message appended', {
-          traceId,
-          messageId: assistantMessage.id,
-          totalMessages: next.length
-        })
-        return next
-      })
-      setLastMessageRole('assistant')
-
-      if (diagnostics) {
-        console.debug('chat: diagnostics payload applied', {
-          traceId,
-          progressCount: Array.isArray(diagnostics.progress) ? diagnostics.progress.length : 0
-        })
-        setCurrentDiagnostics(diagnostics)
-        if (Array.isArray(diagnostics.progress)) {
-          setLiveProgress(diagnostics.progress as Array<Record<string, unknown>>)
-        }
-      } else {
-        setCurrentDiagnostics(null)
-        setLiveProgress([])
-        console.debug('chat: diagnostics missing, cleared progress state', { traceId })
-      }
+      renderAssistantPayload(data, traceId)
 
       return data
     },
     [
       buildChatRequestPayload,
-      processResponseContent,
-      stripSourcesBlock,
-      setMessages,
-      setStructuredMetadataEntries,
-      setLastMessageRole,
-      setCurrentDiagnostics,
-      setLiveProgress
+      renderAssistantPayload
     ]
   )
 
@@ -817,18 +1115,26 @@ export function Chat({
 
     // Fade out EmptyScreen and QuestionsOverlay
     setShowMiddlePanelOverlay(false);
+    console.debug('chat: scheduling overlay transitions', {
+      traceId: currentTraceIdRef.current,
+      hideDelayMs: 300,
+      showDelayMs: 300
+    })
 
     // Set a timeout to hide the EmptyScreen after the fade-out animation
-    setTimeout(() => {
+    window.setTimeout(() => {
+      console.debug('chat: hide empty screen timer fired', { traceId: currentTraceIdRef.current })
       setShowEmptyScreen(false);
     }, 300); // This should match the duration of the fade-out animation
 
     // Delay the fade-in of ChatList
-    setTimeout(() => {
+    window.setTimeout(() => {
+      console.debug('chat: show chat list timer fired', { traceId: currentTraceIdRef.current })
       setShowChatList(true); // Show ChatList with fade-in
     }, 300); // Delay should match the fade-out duration
   
     setIsProcessingQuery(true);
+    console.debug('chat: processing flag set', { traceId: currentTraceIdRef.current })
     setCurrentDiagnostics(null);
     setLiveProgress([]);
   

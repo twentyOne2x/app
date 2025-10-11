@@ -29,7 +29,7 @@ import {
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
-import { normalizeProgress } from '@/lib/progress-display';
+import { DEFAULT_PIPELINE, normalizeProgress } from '@/lib/progress-display';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 
 // Extend the Message type to include structured_metadata
@@ -185,6 +185,8 @@ export function Chat({
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const streamAbortRef = useRef<AbortController | null>(null)
+  const lastAssistantMessageIdRef = useRef<string | null>(null)
+  const channelDefaultsAppliedRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
     () => `channel-filter:${entryProfile.code}`,
@@ -195,56 +197,94 @@ export function Chat({
     []
   );
 
-useEffect(() => {
-  // Set initialLoad to false after the component has mounted
-  setInitialLoad(false);
-}, []);
+  const removeAssistantDraft = useCallback(() => {
+    const draftId = lastAssistantMessageIdRef.current
+    if (!draftId) return
+    lastAssistantMessageIdRef.current = null
+    setMessages((prev) => prev.filter((message) => message.id !== draftId))
+  }, [setMessages])
 
-useEffect(() => {
-  if (!availableChannels.length) return
-  setExcludedChannelNames((prev) => {
-    if (!prev?.length) return prev ?? []
-    const availableSet = new Set(availableChannels)
-    const filtered = prev.filter((name) => availableSet.has(name))
-    return filtered.length === prev.length ? prev : filtered
-  })
-}, [availableChannels, setExcludedChannelNames])
+  useEffect(() => {
+    // Set initialLoad to false after the component has mounted
+    setInitialLoad(false);
+  }, []);
 
-useEffect(() => {
-  let cancelled = false
-  setAvailableChannels([])
+  useEffect(() => {
+    channelDefaultsAppliedRef.current = null
+  }, [entryProfile.code])
 
-  const loadChannelCatalog = async () => {
-    try {
-      const response = await fetch('/api/channels?scope=videos', { method: 'GET' })
-      if (!response.ok) return
-      const data = await response.json().catch(() => null)
-      const fetched: string[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.channels)
-        ? data.channels
-        : []
-      if (!fetched.length || cancelled) return
-      const sanitized = Array.from(new Set(fetched.filter((value): value is string => typeof value === 'string')))
-        .map((name) => name.trim())
-        .filter(Boolean)
-      if (!sanitized.length) return
-      setAvailableChannels((prev) => {
-        const next = new Set(prev)
-        sanitized.forEach((name) => next.add(name))
-        return Array.from(next).sort((a, b) => a.localeCompare(b))
-      })
-    } catch (error) {
-      console.error('chat: failed to load channel catalog', error)
+  useEffect(() => {
+    if (!availableChannels.length) return
+    setExcludedChannelNames((prev) => {
+      if (!prev?.length) return prev ?? []
+      const availableSet = new Set(availableChannels)
+      const filtered = prev.filter((name) => availableSet.has(name))
+      return filtered.length === prev.length ? prev : filtered
+    })
+  }, [availableChannels, setExcludedChannelNames])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadChannelCatalog = async () => {
+      try {
+        const response = await fetch('/api/channels?scope=videos', { method: 'GET' })
+        if (!response.ok) return
+        const data = await response.json().catch(() => null)
+        if (!data || cancelled) return
+
+        const channelEntries: unknown[] = Array.isArray(data)
+          ? (data as unknown[])
+          : Array.isArray((data as { channels?: unknown }).channels)
+          ? ((data as { channels: unknown[] }).channels as unknown[])
+          : Array.isArray((data as { channelDetails?: unknown }).channelDetails)
+          ? ((data as { channelDetails: unknown[] }).channelDetails as unknown[])
+          : []
+        const names = channelEntries
+          .map((entry) => {
+            if (typeof entry === 'string') return entry.trim()
+            if (
+              entry &&
+              typeof entry === 'object' &&
+              typeof (entry as { name?: unknown }).name === 'string'
+            ) {
+              return ((entry as { name: string }).name).trim()
+            }
+            return ''
+          })
+          .filter((name): name is string => Boolean(name))
+
+        const sanitized = Array.from(new Set(names)).filter(Boolean).sort((a, b) => a.localeCompare(b))
+        if (!sanitized.length) return
+        setAvailableChannels(sanitized)
+
+        const hasStoredSelection = excludedChannelNames.length > 0
+        if (!hasStoredSelection && channelDefaultsAppliedRef.current !== entryProfile.code) {
+          const defaultsSource =
+            (data as { defaultSelected?: unknown }).defaultSelected ??
+            (data as { default_selected?: unknown }).default_selected ??
+            sanitized
+          const defaults = Array.isArray(defaultsSource)
+            ? (defaultsSource as unknown[])
+                .map((name) => (typeof name === 'string' ? name.trim() : ''))
+                .filter((name): name is string => Boolean(name))
+            : sanitized
+          const defaultSet = new Set<string>(defaults)
+          const excluded: string[] = sanitized.filter((name) => !defaultSet.has(name))
+          setExcludedChannelNames(excluded)
+          channelDefaultsAppliedRef.current = entryProfile.code
+        }
+      } catch (error) {
+        console.error('chat: failed to load channel catalog', error)
+      }
     }
-  }
 
-  void loadChannelCatalog()
+    void loadChannelCatalog()
 
-  return () => {
-    cancelled = true
-  }
-}, [entryProfile.code])
+    return () => {
+      cancelled = true
+    }
+  }, [entryProfile.code, excludedChannelNames.length, setExcludedChannelNames])
 
   const selectionScope = useMemo(() => {
     if (shared_chat && id) return `shared-chat:${id}`
@@ -347,19 +387,22 @@ useEffect(() => {
     return { include_names: selectedChannelNames }
   }, [availableChannels, selectedChannelNames]);
 
-  const buildStreamRequestPayload = useCallback(
-    (history: MetadataMessage[]) => ({
-      id,
-      previewToken,
-      entryProfileCode: entryProfile.code,
-      scope: shared_chat ? undefined : selectionScope,
-      channel_filter: channelFilterPayload,
-      messages: history.map((message) => ({
+  const buildChatRequestPayload = useCallback(
+    (history: MetadataMessage[]) => {
+      const wireMessages = history.map((message) => ({
         role: message.role,
         content: message.content
       }))
-    }),
-    [channelFilterPayload, entryProfile.code, id, previewToken, selectionScope, shared_chat]
+      return {
+        id,
+        previewToken,
+        entryProfileCode: entryProfile.code,
+        channel_filter: channelFilterPayload,
+        messages: wireMessages,
+        chat_history: wireMessages
+      }
+    },
+    [channelFilterPayload, entryProfile.code, id, previewToken]
   )
 
   const streamChat = useCallback(
@@ -382,6 +425,7 @@ useEffect(() => {
             diagnostics: null
           }
           setMessages((prev) => [...prev, newAssistantMessage])
+          lastAssistantMessageIdRef.current = assistantId
         } else {
           setMessages((prev) =>
             prev.map((message) =>
@@ -394,6 +438,7 @@ useEffect(() => {
                 : message
             )
           )
+          lastAssistantMessageIdRef.current = assistantId
         }
         setLastMessageRole('assistant')
       }
@@ -513,7 +558,7 @@ useEffect(() => {
         const response = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(buildStreamRequestPayload(history)),
+          body: JSON.stringify(buildChatRequestPayload(history)),
           signal: controller.signal
         })
 
@@ -576,6 +621,9 @@ useEffect(() => {
 
         if (finalDiagnostics) {
           setCurrentDiagnostics(finalDiagnostics)
+        } else {
+          setCurrentDiagnostics(null)
+          setLiveProgress([])
         }
 
       } catch (error) {
@@ -587,12 +635,102 @@ useEffect(() => {
       }
     },
     [
-      buildStreamRequestPayload,
+      buildChatRequestPayload,
       processResponseContent,
       stripSourcesBlock,
       setLastMessageRole,
       setMessages,
       setStructuredMetadataEntries,
+      setCurrentDiagnostics,
+      setLiveProgress
+    ]
+  )
+
+  const sendChatLegacy = useCallback(
+    async (history: MetadataMessage[]) => {
+      const payload = buildChatRequestPayload(history)
+      let response: Response
+      try {
+        response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+      } catch (error) {
+        throw error instanceof Error ? error : new Error('Failed to reach the chat service.')
+      }
+
+      if (!response.ok) {
+        const message = await extractErrorMessage(response)
+        throw new Error(
+          message ?? 'The chat service encountered an error. Please try again.'
+        )
+      }
+
+      const data = await response.json().catch(() => null)
+      if (!data) {
+        throw new Error('The chat service returned an unexpected response.')
+      }
+
+      const rawAssistantContent: string =
+        typeof data.response === 'string'
+          ? data.response
+          : data.message?.content ?? ''
+
+      let metadata: ParsedMetadataEntryV2[] = Array.isArray(
+        data.message?.structured_metadata
+      )
+        ? (data.message.structured_metadata as ParsedMetadataEntryV2[])
+        : Array.isArray(data.structured_metadata)
+        ? (data.structured_metadata as ParsedMetadataEntryV2[])
+        : []
+
+      if ((!metadata || metadata.length === 0) && rawAssistantContent) {
+        const sourcesBlock = extractSourcesBlock(rawAssistantContent) ?? ''
+        if (sourcesBlock) {
+          metadata = parseMetadata(sourcesBlock, rawAssistantContent)
+        }
+      }
+
+      if (metadata?.length) {
+        setStructuredMetadataEntries(metadata)
+      }
+
+      const sanitizedContent = processResponseContent(
+        stripSourcesBlock(rawAssistantContent)
+      )
+
+      const diagnostics: DiagnosticsPayload | null =
+        (data.diagnostics as DiagnosticsPayload | undefined) ?? null
+
+      const assistantMessage: MetadataMessage = {
+        id: data.message?.id || nanoid(),
+        role: data.message?.role ?? 'assistant',
+        content: sanitizedContent,
+        structured_metadata: metadata ?? [],
+        diagnostics
+      }
+      setMessages((prev) => [...prev, assistantMessage])
+      lastAssistantMessageIdRef.current = assistantMessage.id
+      setLastMessageRole('assistant')
+
+      if (diagnostics) {
+        setCurrentDiagnostics(diagnostics)
+        if (Array.isArray(diagnostics.progress)) {
+          setLiveProgress(diagnostics.progress as Array<Record<string, unknown>>)
+        }
+      } else {
+        setCurrentDiagnostics(null)
+        setLiveProgress([])
+      }
+    },
+    [
+      buildChatRequestPayload,
+      processResponseContent,
+      stripSourcesBlock,
+      setMessages,
+      setStructuredMetadataEntries,
+      setLastMessageRole,
       setCurrentDiagnostics,
       setLiveProgress
     ]
@@ -734,14 +872,21 @@ useEffect(() => {
       await streamChat(nextMessages, messageId);
     } catch (error) {
       console.error('chat: failed to stream message', error);
-      toast.error(
-        error instanceof Error && error.message
-          ? error.message
-          : 'Unable to reach the chat service. Please try again.'
-      );
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      setCurrentDiagnostics(null);
-      setLiveProgress([]);
+      removeAssistantDraft()
+      try {
+        await sendChatLegacy(nextMessages);
+      } catch (fallbackError) {
+        console.error('chat: fallback error', fallbackError)
+        toast.error(
+          fallbackError instanceof Error && fallbackError.message
+            ? fallbackError.message
+            : 'Unable to reach the chat service. Please try again.'
+        )
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        setCurrentDiagnostics(null);
+        setLiveProgress([]);
+        setLastMessageRole('user')
+      }
     } finally {
       setIsProcessingQuery(false);
     }
@@ -762,10 +907,12 @@ useEffect(() => {
     setCurrentDiagnostics,
     setMessages,
     streamChat,
+    sendChatLegacy,
     setLastMessageRole,
     setShowLeftPanelOverlay,
     setFadeOutCompleted,
-    setLiveProgress
+    setLiveProgress,
+    removeAssistantDraft
   ]);
   
   // Add an animation end handler
@@ -845,7 +992,10 @@ useEffect(() => {
         ? liveProgress
         : (currentDiagnostics?.progress as Array<Record<string, unknown>> | undefined)
     const normalized = normalizeProgress(progressSource)
-    if (!normalized.length) return null
+    if (!normalized.length) {
+      const initialLabel = DEFAULT_PIPELINE[0]?.label ?? 'Processing'
+      return `▍ Working… ${initialLabel}\n\nWaiting for backend progress…`
+    }
 
     const total = normalized.length
     const completed = normalized.filter((stage) => stage.status === 'completed').length

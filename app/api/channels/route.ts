@@ -53,22 +53,45 @@ export async function GET(request: Request) {
     return NextResponse.json({ channels: [] }, { status: 200 })
   }
 
-  let channels: string[] = []
-  if (Array.isArray(data)) {
-    channels = data.filter((value): value is string => typeof value === 'string')
-  } else if (data && typeof data === 'object') {
-    const maybeChannels =
-      (data as { channels?: unknown }).channels ??
-      (data as { data?: unknown }).data ??
-      (data as { results?: unknown }).results
-    if (Array.isArray(maybeChannels)) {
-      channels = maybeChannels.filter((value): value is string => typeof value === 'string')
-    }
+  const channelEntries = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { channels?: unknown }).channels)
+    ? (data as { channels: unknown[] }).channels
+    : Array.isArray((data as { channelDetails?: unknown }).channelDetails)
+    ? (data as { channelDetails: unknown[] }).channelDetails
+    : []
+
+  const channelNames = channelEntries
+    .map((entry: any) => {
+      if (typeof entry === 'string') return entry.trim()
+      if (entry && typeof entry.name === 'string') return entry.name.trim()
+      return ''
+    })
+    .filter(Boolean)
+
+  const channels = Array.from(new Set(channelNames)).sort((a, b) => a.localeCompare(b))
+
+  const defaultsSource =
+    data && typeof data === 'object'
+      ? ((data as { defaultSelected?: unknown }).defaultSelected ??
+          (data as { default_selected?: unknown }).default_selected)
+      : undefined
+  const defaultSelected = Array.from(
+    new Set(
+      (Array.isArray(defaultsSource) ? defaultsSource : channels).map((name: any) =>
+        typeof name === 'string' ? name.trim() : ''
+      )
+    )
+  ).filter(Boolean)
+
+  const responseBody = {
+    scope:
+      data && typeof (data as { scope?: unknown }).scope === 'string'
+        ? ((data as { scope: string }).scope as string)
+        : scope,
+    channels,
+    defaultSelected
   }
 
-  channels = Array.from(new Set(channels.map((channel) => channel.trim()).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b)
-  )
-
-  return NextResponse.json({ channels }, { status: 200 })
+  return NextResponse.json(responseBody, { status: 200 })
 }

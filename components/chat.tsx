@@ -24,7 +24,7 @@ import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
-import { DEFAULT_PIPELINE, normalizeProgress } from '@/lib/progress-display';
+import { normalizeProgress } from '@/lib/progress-display';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 
 // Extend the Message type to include structured_metadata
@@ -175,7 +175,6 @@ export function Chat({
   } | null>(null);
   const [isProcessingQuery, setIsProcessingQuery] = useState(false);
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
-  const [stageHintTick, setStageHintTick] = useState(0);
   const [liveProgress, setLiveProgress] = useState<Array<Record<string, unknown>>>([]);
   const [input, setInput] = useState('');
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
@@ -697,7 +696,6 @@ useEffect(() => {
     setIsProcessingQuery(true);
     setCurrentDiagnostics(null);
     setLiveProgress([]);
-    setStageHintTick(0);
   
     const messageId = nanoid();
     const newUserMessage: MetadataMessage = {
@@ -741,7 +739,6 @@ useEffect(() => {
     setShowChatList,
     setIsProcessingQuery,
     setCurrentDiagnostics,
-    setStageHintTick,
     setMessages,
     streamChat,
     setLastMessageRole,
@@ -794,17 +791,6 @@ useEffect(() => {
     return () => clearTimeout(timer); // Cleanup the timer
   }, []);
 
-  useEffect(() => {
-    if (!isProcessingQuery) {
-      setStageHintTick(0);
-      return;
-    }
-    const timer = window.setInterval(() => {
-      setStageHintTick((tick) => tick + 1);
-    }, 1400);
-    return () => window.clearInterval(timer);
-  }, [isProcessingQuery]);
-
   // Determine the overlay class for QuestionsOverlay
   const overlayClass = isMobile 
     ? `${styles.questionsOverlay} ${styles.mobileHide}` 
@@ -838,28 +824,19 @@ useEffect(() => {
         ? liveProgress
         : (currentDiagnostics?.progress as Array<Record<string, unknown>> | undefined)
     const normalized = normalizeProgress(progressSource)
-    let activeLabel = 'Processing'
-    let completed = 0
-    let total = DEFAULT_PIPELINE.length
+    if (!normalized.length) return null
 
-    if (normalized.length) {
-      total = normalized.length
-      completed = normalized.filter((stage) => stage.status === 'completed').length
-      const currentStage = [...normalized].reverse().find((stage) => stage.status === 'running')
-        ?? normalized.find((stage) => stage.status === 'pending')
-        ?? normalized[normalized.length - 1]
-      if (currentStage?.label) activeLabel = currentStage.label
-    } else {
-      const labels = DEFAULT_PIPELINE.map((stage) => stage.label)
-      const index = stageHintTick % labels.length
-      activeLabel = labels[index]
-      completed = Math.max(0, Math.min(index, labels.length - 1))
-      total = labels.length
-    }
+    const total = normalized.length
+    const completed = normalized.filter((stage) => stage.status === 'completed').length
+    const currentStage =
+      [...normalized].reverse().find((stage) => stage.status === 'running') ??
+      normalized.find((stage) => stage.status === 'pending') ??
+      normalized[normalized.length - 1]
 
+    const activeLabel = currentStage?.label ?? 'Processing'
     const statusLine = `Progress ${Math.min(completed, total)}/${total}`
     return `▍ Working… ${activeLabel}\n\n${statusLine}`
-  }, [isProcessingQuery, liveProgress, currentDiagnostics, stageHintTick])
+  }, [isProcessingQuery, liveProgress, currentDiagnostics])
 
   const displayMessages = useMemo(() => {
     if (!progressSummary) return newMessages

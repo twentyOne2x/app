@@ -12,7 +12,7 @@ interface QuestionListProps {
   onSubmit: (value: string) => void; // Function to submit the chat input
   showOverlay: boolean; // Add this prop to control the visibility
 }
-  
+
 const DEFAULT_QUESTION_FALLBACK = getDefaultQuestions()
 
 export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, showOverlay }) => {
@@ -104,23 +104,41 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
 
   return (
     <div className={containerClass}>
-      
-      <Button
-        variant="outline"
-        className={`${styles.shuffleButton} rounded-full w-10 h-10`}
-        onClick={pickRandomQuestions}
-      >
-        <span className="sr-only">Shuffle Questions</span>
-      </Button>
-      
+      <div className="flex w-full items-center justify-between px-2">
+        <Button
+          variant="outline"
+          className={`${styles.shuffleButton} rounded-full w-10 h-10`}
+          onClick={pickRandomQuestions}
+        >
+          <span className="sr-only">Shuffle Questions</span>
+        </Button>
+        <Button
+          variant="ghost"
+          className="h-10 w-10 rounded-full border border-white/15 text-xs text-zinc-200 hover:bg-white/10"
+          onClick={() => setSelectedQuestions(selectRandomQuestions())}
+        >
+          ↻
+        </Button>
+      </div>
+
       <div className={styles.questionsOverlayLeftPanel}>
-        {selectedQuestions.map((question, index) => (
-          <div key={index} className={styles.questionBoxLeftPanel} onClick={() => handleQuestionSelect(question)}>
-            <div className={cn(styles.question, styles.fullWidthButton)}>
-              {question}
-            </div>
+        {selectedQuestions.length === 0 ? (
+          <div className="w-full rounded-lg border border-white/10 bg-white/5 p-4 text-center text-sm text-zinc-200">
+            No suggestions available.
           </div>
-        ))}
+        ) : (
+          selectedQuestions.map((question, index) => (
+            <div key={index} className={styles.questionBoxLeftPanel}>
+              <button
+                type="button"
+                className={cn(styles.question, styles.fullWidthButton)}
+                onClick={() => handleQuestionSelect(question)}
+              >
+                {question}
+              </button>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

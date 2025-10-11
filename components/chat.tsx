@@ -20,7 +20,12 @@ import { useClipBundle } from '@/lib/hooks/use-clip-bundle'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import QuestionsOverlayStyles from './QuestionsOverlay.module.css'; // Import the CSS module
 import { QuestionsOverlay, QuestionsOverlayLeftPanel } from './question-overlay';
-import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils';
+import {
+  extractSourcesBlock,
+  parseMetadata,
+  type ParsedMetadataEntryV2,
+  type ClipItemV2
+} from '@/lib/utils';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
@@ -298,6 +303,14 @@ useEffect(() => {
     return processedContent;
   }, []);
 
+  const stripSourcesBlock = useCallback((content: string) => {
+    if (!content) return content
+    const marker = 'Fetched based on the following sources:'
+    const index = content.lastIndexOf(marker)
+    if (index === -1) return content
+    return content.slice(0, index).trimEnd()
+  }, [])
+
   const handleClipSelect = useCallback(
     (payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback }) => {
       setSelectedClip(payload);
@@ -364,7 +377,7 @@ useEffect(() => {
           const newAssistantMessage: MetadataMessage = {
             id: assistantId,
             role: 'assistant',
-            content: processResponseContent(content),
+            content: processResponseContent(stripSourcesBlock(content)),
             structured_metadata: structuredMetadata,
             diagnostics: null
           }
@@ -375,7 +388,7 @@ useEffect(() => {
               message.id === assistantId
                 ? {
                     ...message,
-                    content: processResponseContent(content),
+                    content: processResponseContent(stripSourcesBlock(content)),
                     structured_metadata: structuredMetadata
                   }
                 : message
@@ -551,6 +564,13 @@ useEffect(() => {
         }
 
         if (assistantContent) {
+          const sourcesBlock = extractSourcesBlock(assistantContent) ?? ''
+          if (!structuredMetadata.length && sourcesBlock) {
+            structuredMetadata = parseMetadata(sourcesBlock, assistantContent)
+            if (structuredMetadata.length) {
+              setStructuredMetadataEntries(structuredMetadata)
+            }
+          }
           ensureAssistantMessage(assistantContent)
         }
 
@@ -569,6 +589,7 @@ useEffect(() => {
     [
       buildStreamRequestPayload,
       processResponseContent,
+      stripSourcesBlock,
       setLastMessageRole,
       setMessages,
       setStructuredMetadataEntries,
@@ -582,28 +603,28 @@ useEffect(() => {
     (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
       const parsedMessages = messages.map((message) => {
         if (message.role === 'assistant') {
+          let nextContent = message.content
           try {
             // Try to parse the content as JSON
-            const parsedContent = JSON.parse(message.content);
-          
-          // Check if parsedContent has a messages array and it's not empty
-          if (parsedContent.message) {
-            // Replace content with the last message of the messages array
-            message.content = processResponseContent(parsedContent.message.content);
+            const parsedContent = JSON.parse(message.content)
+
+            if (parsedContent.message?.content) {
+              nextContent = parsedContent.message.content
+            }
+          } catch (error) {
+            console.error('Error parsing message content:', error)
           }
-        } catch (error) {
-          // If parsing fails or doesn't meet criteria, leave content as is
-          console.error("Error parsing message content:", error);
+
+          message.content = processResponseContent(stripSourcesBlock(nextContent))
         }
-      }
-      return message;
-    });
-  
+        return message
+      })
+
     // Apply structured metadata
     setMessages(parsedMessages);
     setLastMessageRole('assistant');
     setStructuredMetadataEntries(metadata);
-  }, [processResponseContent, setMessages, setLastMessageRole, setStructuredMetadataEntries]);
+  }, [processResponseContent, stripSourcesBlock, setMessages, setLastMessageRole, setStructuredMetadataEntries]);
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted

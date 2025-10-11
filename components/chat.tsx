@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast'
 import SourceList from '@/components/source-list';
 import ClipDrawer, { type ClipPlayback } from '@/components/clip-drawer';
 import ChannelFilterPanel from '@/components/channel-filter';
+import { LoginButton } from '@/components/login-button';
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import QuestionsOverlayStyles from './QuestionsOverlay.module.css'; // Import the CSS module
 import { QuestionsOverlay, QuestionsOverlayLeftPanel } from './question-overlay';
@@ -29,6 +30,23 @@ export interface MetadataMessage extends Message {
 }
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
+
+function RightPanelAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
+  if (isAuthenticated) return null
+
+  return (
+    <div className="mb-4 flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-black/60 p-4 text-center shadow-[0_20px_45px_-25px_rgba(34,197,94,0.45)]">
+      <h3 className="text-sm font-semibold text-zinc-100">Sign in for extras</h3>
+      <p className="mt-1 text-xs text-zinc-400 max-w-[220px]">
+        Connect Twitter or a wallet to save chats, share threads, and unlock future features.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+        <LoginButton loginType="twitter" text="Twitter" showIcon />
+        <LoginButton loginType="privy" text="Privy" showIcon />
+      </div>
+    </div>
+  )
+}
 export interface ChatProps extends React.ComponentProps<'div'> {
   initialMessages?: MetadataMessage[];
   id?: string;
@@ -36,6 +54,11 @@ export interface ChatProps extends React.ComponentProps<'div'> {
   shared_chat?: boolean; // Prop to toggle shared_chat visibility
   structured_metadata?: ParsedMetadataEntryV2[]; // Optional structured metadata prop
   noPaddingTop?: boolean; // New optional bottom padding property
+  currentUser?: {
+    id?: string | null
+    name?: string | null
+    email?: string | null
+  } | null
 }
 
 export function Chat({
@@ -46,6 +69,7 @@ export function Chat({
   shared_chat = false,
   structured_metadata = [], // Initialize structured_metadata with an empty array
   noPaddingTop = false, // New boolean prop for bottom padding
+  currentUser = null
 }: ChatProps) {
   const [previewToken, setPreviewToken] = useLocalStorage<string | null>(
     'ai-token',
@@ -578,6 +602,7 @@ export function Chat({
 
         <div className={rightPanelClass}>
           <div className={metadataContainerClass}>
+            <RightPanelAuthCta isAuthenticated={Boolean(currentUser)} />
             {newMessages.length > 0 && (
               <div className={styles.metadataTitle}>Top Sources</div>
             )}
@@ -594,6 +619,7 @@ export function Chat({
       {/* Modal to display MetadataList on mobile */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <h2 className={styles.metadataTitle}>Top Sources</h2>
+        <RightPanelAuthCta isAuthenticated={Boolean(currentUser)} />
         <SourceList
           entries={structuredMetadataEntries}
           onSelectClip={handleClipSelect}

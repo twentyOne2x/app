@@ -1,9 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-import { cn } from '@/lib/utils';
 import { clearChats } from '@/app/actions';
-import { Button, buttonVariants } from '@/components/ui/button';
 import { Sidebar } from '@/components/sidebar';
 import { SidebarList } from '@/components/sidebar-list';
 import { IconNextChat, IconSeparator } from '@/components/ui/icons';
@@ -12,7 +10,6 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { ClearHistory } from '@/components/clear-history';
 import { UserMenu } from '@/components/user-menu';
 import { auth } from '@/auth'
-import { LoginButton } from '@/components/login-button'
 
 export async function Header() {
   const session = await auth();
@@ -38,21 +35,9 @@ export async function Header() {
         )}
         <div className="flex items-center">
           <IconSeparator className="w-6 h-6 text-muted-foreground/50" />
-          {session?.user ? (
-            <UserMenu user={session.user} />
-          ) : (
-            <Button variant="link" asChild className="-ml-2">
-              <Link href="/sign-in?callbackUrl=/">Login</Link>
-            </Button>
-          )}
+          {session?.user ? <UserMenu user={session.user} /> : null}
         </div>
       </div>
-      {!session?.user && (
-        <div className="flex items-center justify-end space-x-2">
-          <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon />
-          <LoginButton loginType="privy" text="Connect wallet" showIcon />
-        </div>
-      )}
     </header>
   )
 }

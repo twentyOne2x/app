@@ -12,26 +12,39 @@ const {
 test('normalizeProgress maps backend entries into display stages', () => {
   const progress = [
     { stage: 'retrieve', status: 'running', duration_ms: 120.4 },
-    { stage: 'rerank', status: 'completed', total_ms: 52 },
+    { stage: 'rerank_cross_encoder', status: 'completed', total_ms: 52 },
     { stage: 'review_docs', status: 'skipped', meta: { skipped: true } },
-    { stage: 'synthesize', status: 'error', meta: { error: true } }
+    { stage: 'fallback', status: 'error', meta: { error: true } }
   ]
 
   const stages = normalizeProgress(progress)
-  assert.equal(stages.length, 4)
-  assert.equal(stages[0].key, 'retrieve')
-  assert.equal(stages[0].label, 'Fetching documents')
-  assert.equal(stages[0].status, 'running')
-  assert.equal(stages[0].durationMs, 120.4)
+  assert.equal(stages.length, DEFAULT_PIPELINE.length + 1)
 
-  assert.equal(stages[1].status, 'completed')
-  assert.equal(stages[1].durationMs, 52)
+  const retrieveStage = stages.find((stage) => stage.key === 'retrieve')
+  assert.ok(retrieveStage)
+  assert.equal(retrieveStage.status, 'running')
+  assert.equal(retrieveStage.durationMs, 120.4)
+  assert.equal(retrieveStage.label, 'Finding likely sources (vector retrieval) (retrieve)')
 
-  assert.equal(stages[2].status, 'skipped')
-  assert.equal(stages[2].label, 'Reviewing docs')
+  const rerankStage = stages.find((stage) => stage.key === 'rerank_cross_encoder')
+  assert.ok(rerankStage)
+  assert.equal(rerankStage.status, 'completed')
+  assert.equal(rerankStage.durationMs, 52)
+  assert.equal(rerankStage.label, 'Re-scoring sources (cross-encoder rerank) (rerank_cross_encoder)')
 
-  assert.equal(stages[3].status, 'error')
-  assert.equal(stages[3].label, 'Composing answer')
+  const reviewStage = stages.find((stage) => stage.key === 'review_docs')
+  assert.ok(reviewStage)
+  assert.equal(reviewStage.status, 'skipped')
+  assert.equal(reviewStage.label, 'Cleaning and enriching notes (post-processing pipeline) (review_docs)')
+
+  const stitchStage = stages.find((stage) => stage.key === 'stitch')
+  assert.ok(stitchStage)
+  assert.equal(stitchStage.status, 'pending')
+
+  const fallbackStage = stages.find((stage) => stage.key === 'fallback')
+  assert.ok(fallbackStage)
+  assert.equal(fallbackStage.status, 'error')
+  assert.equal(fallbackStage.label, 'Fallback strategy (fallback)')
 })
 
 test('normalizeProgress handles empty or missing progress', () => {
@@ -57,6 +70,8 @@ test('formatDuration renders human-friendly labels', () => {
 
 test('mapStatus and humanizeStage provide sensible fallbacks', () => {
   assert.equal(mapStatus('COMPLETED'), 'completed')
+  assert.equal(mapStatus('queued'), 'running')
+  assert.equal(mapStatus('not_implemented'), 'skipped')
   assert.equal(mapStatus('unknown'), 'completed')
   assert.equal(mapStatus(undefined, { skipped: true }), 'skipped')
   assert.equal(mapStatus(undefined, { error: true }), 'error')

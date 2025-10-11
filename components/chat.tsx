@@ -1536,15 +1536,19 @@ export function Chat({
       return `▍ Working… ${initialLabel}\n\nWaiting for backend progress…`
     }
 
-    const total = normalized.length
-    const completed = normalized.filter((stage) => stage.status === 'completed').length
+    const pipelineKeys = new Set(DEFAULT_PIPELINE.map((stage) => stage.key))
+    const pipelineStages = normalized.filter((stage) => pipelineKeys.has(stage.key))
+    const stagesForSummary = pipelineStages.length ? pipelineStages : normalized
+    const plannedTotal = DEFAULT_PIPELINE.length
+    const total = plannedTotal || stagesForSummary.length
+    const completed = stagesForSummary.filter((stage) => stage.status === 'completed' || stage.status === 'skipped' || stage.status === 'error').length
     const currentStage =
-      [...normalized].reverse().find((stage) => stage.status === 'running') ??
-      normalized.find((stage) => stage.status === 'pending') ??
-      normalized[normalized.length - 1]
+      stagesForSummary.find((stage) => stage.status === 'running') ??
+      stagesForSummary.find((stage) => stage.status === 'pending') ??
+      stagesForSummary[stagesForSummary.length - 1]
 
     const activeLabel = currentStage?.label ?? 'Processing'
-    const statusLine = `Progress ${Math.min(completed, total)}/${total}`
+    const statusLine = total > 0 ? `Progress ${Math.min(completed, total)}/${total}` : 'Tracking progress…'
     return `▍ Working… ${activeLabel}\n\n${statusLine}`
   }, [isProcessingQuery, liveProgress, currentDiagnostics])
 

@@ -70,3 +70,30 @@ export interface ChannelFilterPayload {
   include_names?: string[]
   exclude_names?: string[]
 }
+
+export type ClipGenerationStatus = 'idle' | 'queued' | 'processing' | 'ready' | 'error'
+
+export interface ClipGenerationRequestPayload {
+  sourceUrl?: string
+  parentTitle?: string
+  clipLabel?: string
+  channel?: string
+  start: number
+  end: number
+  contextMode: 'seconds' | 'sentence'
+  padBefore: number
+  padAfter: number
+}
+
+export interface ClipGenerationRecord {
+  clipId?: string
+  id?: string
+  status: ClipGenerationStatus
+  streamUrl?: string
+  downloadUrl?: string
+  errorMessage?: string
+  requestPayload?: ClipGenerationRequestPayload
+  lastUpdated: number | string
+}
+
+export type ClipGenerationStore = Record<string, ClipGenerationRecord>

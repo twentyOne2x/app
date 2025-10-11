@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect } from 'react'
+import { ChangeEvent, useCallback, useEffect } from 'react'
+import { useClipGeneration } from '@/lib/hooks/use-clip-generation'
+import { useClipPadding } from '@/lib/hooks/use-clip-padding'
 import { cn } from '@/lib/utils'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
 
@@ -106,19 +108,94 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
     }
   }, [isOpen])
 
+  const {
+    settings,
+    setMode,
+    setSmartPadSeconds,
+    setPadBeforeSeconds,
+    setPadAfterSeconds,
+    adjustPadBefore,
+    adjustPadAfter,
+    reset: resetPadding
+  } = useClipPadding(parent, clip)
+
+  const handleSmartPadChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setSmartPadSeconds(Number(event.target.value) || 0)
+    },
+    [setSmartPadSeconds]
+  )
+
+  const handlePadBeforeChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setPadBeforeSeconds(Number(event.target.value) || 0)
+    },
+    [setPadBeforeSeconds]
+  )
+
+  const handlePadAfterChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      setPadAfterSeconds(Number(event.target.value) || 0)
+    },
+    [setPadAfterSeconds]
+  )
+
+  const handleResetToManualDefault = useCallback(() => {
+    setMode('manual')
+    setPadBeforeSeconds(5)
+    setPadAfterSeconds(5)
+  }, [setMode, setPadAfterSeconds, setPadBeforeSeconds])
+
+  const handleResetAll = useCallback(() => {
+    resetPadding()
+  }, [resetPadding])
+
+  const {
+    status: generationStatus,
+    isGenerating,
+    isReady,
+    streamUrl,
+    downloadUrl,
+    error: generationError,
+    generate
+  } = useClipGeneration(parent, clip, settings)
+
+  const handleGenerate = useCallback(async () => {
+    try {
+      await generate()
+    } catch (error) {
+      console.error(error)
+    }
+  }, [generate])
+
   if (!isOpen || !clip || !parent) return null
 
   const data = playback ?? buildClipPlayback(parent, clip)
+  const isSmart = settings.mode === 'smart'
+  const smartPresets = [0, 5, 10, 15]
+  const startSeconds = clip.startS ?? hmsToSeconds(clip.startHMS)
+  const endSeconds = clip.endS ?? hmsToSeconds(clip.endHMS)
+  const hasBoundaries = typeof startSeconds === 'number' && typeof endSeconds === 'number' && endSeconds > startSeconds
+  const cannotGenerateReason = !hasBoundaries ? 'Clip timestamps are unavailable — generation disabled' : undefined
+  const showHqVideo = isReady && Boolean(streamUrl)
+  const showYouTubeEmbed = !showHqVideo && Boolean(data.embedUrl)
+  const buttonLabel = isGenerating
+    ? generationStatus === 'queued'
+      ? 'Queued…'
+      : 'Processing…'
+    : isReady
+      ? 'Regenerate HQ'
+      : 'Generate HQ'
 
   return (
-    <div className="fixed inset-0 z-[1200] flex flex-col justify-end pointer-events-none">
+    <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end">
       <button
         type="button"
         className="pointer-events-auto flex-1 bg-black/50"
         aria-label="Close clip viewer"
         onClick={onClose}
       />
-      <div className="pointer-events-auto w-full bg-zinc-950 border-t border-white/10 shadow-2xl">
+      <div className="pointer-events-auto w-full border-t border-white/10 bg-zinc-950 shadow-2xl">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
@@ -141,7 +218,17 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
           </div>
 
           <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black">
-            {data.embedUrl ? (
+            {showHqVideo ? (
+              <video
+                key={streamUrl}
+                controls
+                preload="metadata"
+                className="h-64 w-full bg-black sm:h-80"
+              >
+                <source src={streamUrl ?? ''} />
+                Your browser does not support inline playback for the generated clip.
+              </video>
+            ) : showYouTubeEmbed ? (
               <iframe
                 title={`Clip from ${clip.parentTitle || parent.parentTitle}`}
                 src={data.embedUrl}
@@ -155,6 +242,11 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                 Inline playback is available for YouTube links. Use the external link below to view this clip.
               </div>
             )}
+            {isGenerating ? (
+              <div className="absolute left-3 top-3 rounded-full bg-black/80 px-3 py-1 text-xs font-medium text-zinc-200">
+                {generationStatus === 'queued' ? 'Queued' : 'Processing'}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -172,42 +264,216 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
               >
                 Open on YouTube
               </a>
+              {downloadUrl ? (
+                <a
+                  href={downloadUrl}
+                  className="rounded-md border border-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-400/10"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Download HQ
+                </a>
+              ) : null}
               <button
                 type="button"
-                disabled
-                className="cursor-not-allowed rounded-md border border-white/15 px-3 py-1 text-xs font-medium text-zinc-400"
-                title="Clip generation service coming soon"
+                onClick={handleGenerate}
+                disabled={!hasBoundaries || isGenerating}
+                className={cn(
+                  'rounded-md border px-3 py-1 text-xs font-medium transition',
+                  !hasBoundaries
+                    ? 'cursor-not-allowed border-white/20 text-zinc-500'
+                    : isReady
+                      ? 'border-emerald-400/30 text-emerald-200 hover:bg-emerald-400/10'
+                      : 'border-white/15 text-zinc-100 hover:bg-white/10',
+                  isGenerating ? 'cursor-progress opacity-80' : ''
+                )}
+                title={cannotGenerateReason}
               >
-                Generate HQ (coming soon)
+                {buttonLabel}
               </button>
             </div>
           </div>
 
-          <div className="rounded-lg border border-dashed border-white/10 bg-black/30 p-3">
-            <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Pad presets</div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[-10, -5, 5, 10].map((pad) => (
-                <button
-                  key={pad}
-                  type="button"
-                  disabled
-                  className={cn(
-                    'cursor-not-allowed rounded-md border border-white/10 px-2 py-1 text-xs',
-                    pad < 0 ? 'text-rose-300/80' : 'text-emerald-300/80'
-                  )}
-                  title="Pad controls will be enabled once HQ clips are available"
-                >
-                  {pad > 0 ? `+${pad}s` : `${pad}s`}
-                </button>
-              ))}
-              <button
-                type="button"
-                disabled
-                className="cursor-not-allowed rounded-md border border-white/10 px-2 py-1 text-xs text-zinc-300"
-              >
-                Custom…
-              </button>
+          {generationError ? (
+            <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+              {generationError}
             </div>
+          ) : null}
+
+          {!hasBoundaries ? (
+            <div className="rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-200">
+              The structured metadata for this clip is missing start/end timestamps. HQ clips require timestamps, so this
+              request is disabled until the source data includes them.
+            </div>
+          ) : null}
+
+          <div className="rounded-lg border border-dashed border-white/10 bg-black/30 p-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Context padding</div>
+                <p className="mt-1 text-xs text-zinc-400">
+                  Choose how much extra audio to include before and after the selected segment.
+                </p>
+              </div>
+              <div className="inline-flex overflow-hidden rounded-md border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setMode('smart')}
+                  className={cn(
+                    'px-3 py-1 text-xs font-medium transition',
+                    isSmart ? 'bg-white/15 text-zinc-50' : 'bg-transparent text-zinc-300 hover:bg-white/10'
+                  )}
+                  aria-pressed={isSmart}
+                >
+                  Smart context
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('manual')}
+                  className={cn(
+                    'px-3 py-1 text-xs font-medium transition',
+                    !isSmart ? 'bg-white/15 text-zinc-50' : 'bg-transparent text-zinc-300 hover:bg-white/10'
+                  )}
+                  aria-pressed={!isSmart}
+                >
+                  Manual padding
+                </button>
+              </div>
+            </div>
+
+            {isSmart ? (
+              <div className="mt-3 space-y-3 rounded-md border border-white/5 bg-black/40 p-3">
+                <p className="text-sm text-zinc-200">
+                  We&apos;ll request transcript-aware boundaries plus{' '}
+                  <span className="font-semibold text-zinc-50">{settings.smartPadSeconds}s</span> of buffer on each side.
+                </p>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Quick presets</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {smartPresets.map((pad) => {
+                      const isActive = settings.smartPadSeconds === pad
+                      return (
+                        <button
+                          key={pad}
+                          type="button"
+                          onClick={() => setSmartPadSeconds(pad)}
+                          className={cn(
+                            'rounded-md border border-white/10 px-3 py-1 text-xs font-medium transition',
+                            isActive ? 'bg-white/15 text-zinc-50' : 'text-zinc-300 hover:bg-white/10'
+                          )}
+                        >
+                          {pad === 0 ? 'No buffer' : `±${pad}s`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <label className="flex max-w-xs items-center gap-3 text-sm text-zinc-300">
+                  Custom
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={settings.smartPadSeconds}
+                    onChange={handleSmartPadChange}
+                    className="w-24 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-right text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                    aria-label="Custom smart padding in seconds"
+                  />
+                  <span className="text-xs text-zinc-400">seconds</span>
+                </label>
+              </div>
+            ) : (
+              <div className="mt-3 space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md border border-white/5 bg-black/40 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Pad before</div>
+                    <p className="mt-1 text-xs text-zinc-400">Add extra lead-in ahead of the clip.</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => adjustPadBefore(-5)}
+                        disabled={settings.padBeforeSeconds === 0}
+                        className={cn(
+                          'rounded-md border border-white/10 px-2 py-1 text-xs font-medium transition',
+                          settings.padBeforeSeconds === 0
+                            ? 'cursor-not-allowed text-zinc-500'
+                            : 'text-zinc-300 hover:bg-white/10'
+                        )}
+                      >
+                        −5s
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={settings.padBeforeSeconds}
+                        onChange={handlePadBeforeChange}
+                        className="w-20 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-center text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                        aria-label="Pad before in seconds"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adjustPadBefore(5)}
+                        className="rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                      >
+                        +5s
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rounded-md border border-white/5 bg-black/40 p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Pad after</div>
+                    <p className="mt-1 text-xs text-zinc-400">Keep trailing context after the clip.</p>
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => adjustPadAfter(-5)}
+                        disabled={settings.padAfterSeconds === 0}
+                        className={cn(
+                          'rounded-md border border-white/10 px-2 py-1 text-xs font-medium transition',
+                          settings.padAfterSeconds === 0
+                            ? 'cursor-not-allowed text-zinc-500'
+                            : 'text-zinc-300 hover:bg-white/10'
+                        )}
+                      >
+                        −5s
+                      </button>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={settings.padAfterSeconds}
+                        onChange={handlePadAfterChange}
+                        className="w-20 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-center text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                        aria-label="Pad after in seconds"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => adjustPadAfter(5)}
+                        className="rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                      >
+                        +5s
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResetToManualDefault}
+                    className="rounded-md border border-white/10 px-3 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                  >
+                    Reset to 5s / 5s
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResetAll}
+                    className="rounded-md border border-white/10 px-3 py-1 text-xs font-medium text-rose-200/80 transition hover:bg-white/10"
+                  >
+                    Clear saved preference
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {clip.excerpt ? (

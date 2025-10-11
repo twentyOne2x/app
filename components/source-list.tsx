@@ -5,6 +5,11 @@ import { cn } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
+import {
+  useClipSelection,
+  type ClipSelectionHandle,
+  buildClipSelectionKey
+} from '@/lib/hooks/use-clip-selection'
 
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
@@ -14,6 +19,8 @@ export interface SourceListProps {
     clip: ClipItemV2
     playback: ClipPlayback
   }) => void
+  selectionScope?: string
+  selection?: ClipSelectionHandle
 }
 
 function secondsOrHms(startS?: number, startHMS?: string) {
@@ -40,10 +47,22 @@ function parentScore(scoreMax?: number) {
   return `${pct}% match`
 }
 
-export function SourceList({ entries, className, onSelectClip }: SourceListProps) {
+function clipKey(parent: ParsedMetadataEntryV2, clip: ClipItemV2) {
+  return buildClipSelectionKey(parent, clip)
+}
+
+export function SourceList({
+  entries,
+  className,
+  onSelectClip,
+  selectionScope,
+  selection
+}: SourceListProps) {
   const parents = useMemo(() => entries ?? [], [entries])
   const [expandedParent, setExpandedParent] = useState<string | null>(null)
   const [hoveredParent, setHoveredParent] = useState<string | null>(null)
+  const fallbackSelection = useClipSelection(selectionScope ?? 'global')
+  const selectionHandle = selection ?? fallbackSelection
 
   const handleToggle = useCallback(
     (key: string) => {
@@ -61,11 +80,19 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
     [onSelectClip]
   )
 
+  const handleCheckboxToggle = useCallback(
+    (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
+      selectionHandle.toggleClip(parent, clip)
+    },
+    [selectionHandle]
+  )
+
   if (!parents.length) return null
 
   return (
-    <div className={cn('space-y-4', className)}>
-      {parents.map((parent, idx) => {
+    <>
+      <div className={cn('space-y-4', className)}>
+        {parents.map((parent, idx) => {
         const key = `${parent.parentTitle}__${parent.channel}__${idx}`
         const isActive = expandedParent === key || hoveredParent === key
         const clipCount = parent.clips?.length ?? 0
@@ -89,7 +116,7 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
                     </span>
                   ) : null}
                 </div>
-                <h3 className="mt-1 text-base font-semibold text-zinc-100 line-clamp-2">{parent.parentTitle}</h3>
+                <h3 className="mt-1 line-clamp-2 text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {parent.url ? (
@@ -118,15 +145,28 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
                 {parent.clips.map((clip, clipIdx) => {
                   const clipKey = `${key}__${clipIdx}`
                   const clipScore = formatScore(clip.score)
+                  const selected = selectionHandle.isSelected(parent, clip)
 
                   const playback = buildClipPlayback(parent, clip)
 
                   return (
                     <li
                       key={clipKey}
-                      className="rounded-xl border border-white/10 bg-black/40 p-3"
+                      className={cn(
+                        'rounded-xl border border-white/10 bg-black/40 p-3 transition',
+                        selected ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]' : ''
+                      )}
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-start gap-3">
+                        <label className="shrink-0 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            className="size-4 rounded border-zinc-600 bg-transparent text-emerald-400 focus:ring-emerald-400"
+                            checked={selected}
+                            onChange={() => handleCheckboxToggle(parent, clip)}
+                            aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
+                          />
+                        </label>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-medium text-emerald-200/80">
                             {clipWindow(clip)}
@@ -134,14 +174,14 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
                             {clip.speaker ? ` · ${clip.speaker}` : ''}
                           </p>
                           {clip.excerpt ? (
-                            <p className="mt-1 text-sm text-zinc-100 line-clamp-3">{clip.excerpt}</p>
+                            <p className="mt-1 line-clamp-3 text-sm text-zinc-100">{clip.excerpt}</p>
                           ) : (
-                            <p className="mt-1 text-sm text-zinc-300 line-clamp-3">
+                            <p className="mt-1 line-clamp-3 text-sm text-zinc-300">
                               Click play to jump straight to this segment.
                             </p>
                           )}
                         </div>
-                        <div className="flex flex-shrink-0 items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
                             onClick={() => handleClipSelect(parent, clip)}
@@ -159,42 +199,6 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
                           </a>
                         </div>
                       </div>
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          disabled
-                          className="cursor-not-allowed rounded-md border border-dashed border-white/20 px-3 py-1 text-xs font-medium text-zinc-400"
-                          title="High quality clips will be available once the clip service ships"
-                        >
-                          Generate HQ (coming soon)
-                        </button>
-                        <div className="flex items-center gap-2 text-xs text-zinc-500">
-                          Pad presets:
-                          <div className="flex items-center gap-1">
-                            {[-10, -5, 5, 10].map((pad) => (
-                              <button
-                                type="button"
-                                key={`${clipKey}-pad-${pad}`}
-                                disabled
-                                className={cn(
-                                  'cursor-not-allowed rounded border border-white/15 px-2 py-0.5',
-                                  pad < 0 ? 'text-rose-300/80' : 'text-emerald-300/80'
-                                )}
-                              >
-                                {pad > 0 ? `+${pad}s` : `${pad}s`}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              disabled
-                              className="cursor-not-allowed rounded border border-white/15 px-2 py-0.5 text-zinc-300"
-                            >
-                              Custom…
-                            </button>
-                          </div>
-                        </div>
-                      </div>
                     </li>
                   )
                 })}
@@ -204,6 +208,49 @@ export function SourceList({ entries, className, onSelectClip }: SourceListProps
         )
       })}
     </div>
+      {selectionHandle.selectionCount > 0 ? (
+        <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-xl border border-white/20 bg-black/70 p-4 backdrop-blur">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-50">
+              {selectionHandle.selectionCount} clip
+              {selectionHandle.selectionCount > 1 ? 's selected' : ' selected'}
+            </p>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-400">
+              {selectionHandle.selectedEntries.slice(0, 3).map((entry) => (
+                <span
+                  key={entry.key}
+                  className="rounded-full border border-white/15 px-2 py-0.5"
+                >
+                  {entry.parent.parentTitle} · {entry.clip.startHMS ?? entry.clip.startS ?? 'start'}
+                </span>
+              ))}
+              {selectionHandle.selectionCount > 3 ? (
+                <span className="rounded-full border border-white/10 px-2 py-0.5">
+                  +{selectionHandle.selectionCount - 3} more
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled
+              className="cursor-not-allowed rounded-md border border-dashed border-white/25 px-3 py-1 text-xs font-medium text-zinc-400"
+              title="Batch generation coming soon"
+            >
+              Generate bundle (soon)
+            </button>
+            <button
+              type="button"
+              onClick={selectionHandle.clearSelection}
+              className="rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
 

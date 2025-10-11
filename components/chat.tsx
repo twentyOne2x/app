@@ -20,6 +20,7 @@ import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
 import { DEFAULT_PIPELINE, normalizeProgress } from '@/lib/progress-display';
+import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
@@ -106,6 +107,12 @@ export function Chat({
   useEffect(() => {
     setAvailableChannels([]);
   }, [entryProfile.code]);
+
+  const selectionScope = useMemo(() => {
+    if (shared_chat && id) return `shared-chat:${id}`
+    return `chat:${entryProfile.code}:${id ?? 'local'}`
+  }, [shared_chat, id, entryProfile.code])
+  const clipSelection = useClipSelection(selectionScope)
 
   // Effect to toggle visibility of metadataContainer based on structuredMetadataEntries
   useEffect(() => {
@@ -574,7 +581,12 @@ export function Chat({
             {newMessages.length > 0 && (
               <div className={styles.metadataTitle}>Top Sources</div>
             )}
-            <SourceList entries={structuredMetadataEntries} onSelectClip={handleClipSelect} />
+            <SourceList
+              entries={structuredMetadataEntries}
+              onSelectClip={handleClipSelect}
+              selectionScope={selectionScope}
+              selection={clipSelection}
+            />
           </div>
         </div>
       </div>
@@ -582,7 +594,12 @@ export function Chat({
       {/* Modal to display MetadataList on mobile */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <h2 className={styles.metadataTitle}>Top Sources</h2>
-        <SourceList entries={structuredMetadataEntries} onSelectClip={handleClipSelect} />
+        <SourceList
+          entries={structuredMetadataEntries}
+          onSelectClip={handleClipSelect}
+          selectionScope={selectionScope}
+          selection={clipSelection}
+        />
       </Modal>
       <ClipDrawer
         isOpen={Boolean(selectedClip)}

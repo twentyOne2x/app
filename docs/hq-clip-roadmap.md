@@ -60,8 +60,8 @@ Tech stack: same as Phase B; library view uses Next.js pages/components, persist
 
 | Status | Item | Tests |
 | --- | --- | --- |
-| ⬜️ | Add checkboxes to clip cards; maintain selection per chat (KV/local storage). | - Jest: selection reducer handles add/remove/reset.<br>- Playwright: select multiple clips, reload page, selections persist. |
-| ⬜️ | Library UI: dedicated panel listing saved clips (title, start–end, speaker, channel). | - Jest: library component sorts by creation date.<br>- Playwright: user opens library, plays saved clip. |
+| ✅ | Add checkboxes to clip cards; maintain selection per chat (KV/local storage). | - Node test (`tests/clip-selection-hook.test.js`) drives the shared selection hook and verifies persistence across renders.<br>- UI now shows inline checkboxes plus a persistent selection bar with clear action. |
+| 🔄 | Library UI: dedicated panel listing saved clips (title, start–end, speaker, channel). | - Pending: surface dedicated library view populated from the shared selection store. |
 | ⬜️ | Batch API: `POST /clips/batch` → returns `batch_id`; `GET /clips/batch/:id` → per-clip statuses, aggregate status. | - Pytest: payload validation; integration ensures worker enqueues all items.<br>- Load: k6 test with ~20 clips ensures queue handles it. |
 | ⬜️ | Batch ZIP assembly & download link. | - Integration: after clips ready, zipped file stored & signed URL returned.<br>- Playwright: user downloads ZIP, file contains expected MP4s. |
 

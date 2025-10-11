@@ -73,11 +73,31 @@ async function extractErrorMessage(response: Response): Promise<string | null> {
   return null
 }
 
-function AuthButtonStack() {
+function AuthButtonsCallout({ className }: { className?: string }) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
-      <LoginButton loginType="twitter" text="Twitter" showIcon />
-      <LoginButton loginType="privy" text="Privy" showIcon />
+    <div className={cn('flex flex-col items-center gap-2 text-center text-zinc-300', className)}>
+      <div className="flex items-center justify-center gap-2">
+        <LoginButton
+          loginType="twitter"
+          text="Twitter"
+          showIcon
+          size="sm"
+          className="min-w-[112px] justify-center px-4"
+        />
+        <LoginButton
+          loginType="privy"
+          text="Privy"
+          showIcon
+          size="sm"
+          className="min-w-[112px] justify-center px-4"
+        />
+      </div>
+      <p className="max-w-[260px] text-xs text-zinc-400">
+        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
+          Quick sign-in
+        </span>
+        Connect Twitter or Privy to save chats and unlock sharing.
+      </p>
     </div>
   )
 }
@@ -86,34 +106,8 @@ function RightPanelAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
   if (isAuthenticated) return null
 
   return (
-    <div className="mb-4 flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-black/60 p-4 text-center shadow-[0_20px_45px_-25px_rgba(34,197,94,0.45)]">
-      <h3 className="text-sm font-semibold text-zinc-100">Sign in for extras</h3>
-      <p className="mt-1 max-w-[220px] text-xs text-zinc-400">
-        Connect Twitter or a wallet to save chats, share threads, and unlock future features.
-      </p>
-      <div className="mt-3">
-        <AuthButtonStack />
-      </div>
-    </div>
-  )
-}
-
-function FloatingAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
-  if (isAuthenticated) return null
-
-  return (
-    <div className="pointer-events-none fixed top-6 right-6 z-[1300] hidden flex-col items-end gap-3 md:flex lg:right-10 lg:top-8">
-      <div className="pointer-events-auto flex flex-col items-end gap-2 rounded-2xl border border-white/15 bg-black/75 px-4 py-3 text-xs text-zinc-200 shadow-[0_20px_45px_-25px_rgba(34,197,94,0.45)] backdrop-blur">
-        <span className="text-[11px] uppercase tracking-wide text-emerald-200/80">
-          Quick sign-in
-        </span>
-        <span className="max-w-[220px] text-right text-xs text-zinc-300">
-          Connect Twitter or Privy to save chats and unlock sharing.
-        </span>
-        <div className="pt-1">
-          <AuthButtonStack />
-        </div>
-      </div>
+    <div className="mb-4 flex flex-col items-center rounded-xl border border-white/10 bg-black/40 px-4 py-4 text-center shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
+      <AuthButtonsCallout />
     </div>
   )
 }
@@ -1358,7 +1352,6 @@ export function Chat({
 
   return (
     <>
-      <FloatingAuthCta isAuthenticated={Boolean(currentUser)} />
       <div className={styles.layoutContainer}>
         <div className={styles.leftPanel}>
           <div className={styles.leftPanelContent}>

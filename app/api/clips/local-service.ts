@@ -102,3 +102,8 @@ export function getLocalClipJob(id: string): ClipGenerationRecord | undefined {
   if (!job) return undefined
   return jobToRecord(job)
 }
+
+export function __resetLocalJobsForTests() {
+  jobs.clear()
+  dedupeIndex.clear()
+}

@@ -205,6 +205,7 @@ export function Chat({
     defaultsApplied: false
   })
   const metadataChannelSignatureRef = useRef<string | null>(null)
+  const currentStreamAbortRef = useRef<AbortController | null>(null)
   const currentTraceIdRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
@@ -223,6 +224,8 @@ export function Chat({
       chatId: id ?? null
     })
     return () => {
+      currentStreamAbortRef.current?.abort()
+      currentStreamAbortRef.current = null
       console.debug('chat: component unmounted', {
         entryProfileCode: entryProfile.code,
         shared_chat,
@@ -759,12 +762,12 @@ export function Chat({
         typeof data.response === 'string'
           ? data.response
           : data.message &&
-            typeof data.message === 'object' &&
-            typeof (data.message as { content?: unknown }).content === 'string'
-          ? ((data.message as { content: string }).content)
-          : typeof data.content === 'string'
-          ? data.content
-          : ''
+              typeof data.message === 'object' &&
+              typeof (data.message as { content?: unknown }).content === 'string'
+            ? ((data.message as { content: string }).content)
+            : typeof data.content === 'string'
+            ? data.content
+            : ''
       const rawAssistantContent = coerceContent(rawAssistantContentValue)
 
       let metadata: ParsedMetadataEntryV2[] = Array.isArray(
@@ -871,6 +874,179 @@ export function Chat({
       setStructuredMetadataEntries,
       setCurrentDiagnostics,
       setLiveProgress
+    ]
+  )
+
+  const sendChatStream = useCallback(
+    async (history: MetadataMessage[], clientTraceId: string) => {
+      const traceId = clientTraceId ?? 'stream'
+      const payload = buildChatRequestPayload(history, { clientTraceId: traceId })
+      console.debug('chat: initiating streaming request', {
+        traceId,
+        messageCount: history.length,
+        channelFilter: payload.channel_filter
+      })
+
+      const controller = new AbortController()
+      currentStreamAbortRef.current?.abort()
+      currentStreamAbortRef.current = controller
+
+      let response: Response
+      try {
+        response = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        })
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') {
+          console.debug('chat: streaming request aborted', { traceId })
+        } else {
+          console.error('chat: streaming request failed to reach backend', { traceId }, error)
+        }
+        currentStreamAbortRef.current = null
+        throw error instanceof Error ? error : new Error('Streaming request failed.')
+      }
+
+      if (!response.ok || !response.body) {
+        const message = await extractErrorMessage(response)
+        currentStreamAbortRef.current = null
+        throw new Error(message ?? 'Streaming request failed.')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let finalPayload: Record<string, unknown> | null = null
+
+      const commitProgress = (stage: Record<string, unknown>) => {
+        setLiveProgress((prev) => {
+          const next = [...prev]
+          const stageName =
+            typeof stage.name === 'string'
+              ? stage.name
+              : typeof stage.stage === 'string'
+              ? stage.stage
+              : undefined
+          if (stageName) {
+            const index = next.findIndex((entry) =>
+              entry && typeof entry === 'object' && (entry as { name?: unknown }).name === stageName
+            )
+            if (index >= 0) {
+              next[index] = { ...next[index], ...stage }
+            } else {
+              next.push(stage)
+            }
+          } else {
+            next.push(stage)
+          }
+          setCurrentDiagnostics((prevDiagnostics) => ({
+            ...(prevDiagnostics ?? {}),
+            progress: next as DiagnosticsPayload['progress']
+          }))
+          return next
+        })
+      }
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          while (true) {
+            const separatorIndex = buffer.indexOf('\n\n')
+            if (separatorIndex === -1) break
+
+            const rawEvent = buffer.slice(0, separatorIndex)
+            buffer = buffer.slice(separatorIndex + 2)
+
+            const dataPayload = rawEvent
+              .split('\n')
+              .filter((line) => line.startsWith('data:'))
+              .map((line) => line.slice(5).trim())
+              .join('')
+
+            if (!dataPayload) continue
+
+            let eventData: Record<string, unknown>
+            try {
+              eventData = JSON.parse(dataPayload)
+            } catch (error) {
+              console.error('chat: failed to parse streaming payload', { traceId, rawEvent: dataPayload }, error)
+              continue
+            }
+
+            const eventType = eventData.type
+            if (eventType === 'progress') {
+              const stage =
+                eventData.event && typeof eventData.event === 'object'
+                  ? (eventData.event as Record<string, unknown>)
+                  : null
+              if (stage) {
+                commitProgress(stage)
+              }
+            } else if (eventType === 'result') {
+              await reader.cancel().catch(() => undefined)
+              const resultDiagnostics =
+                eventData.diagnostics && typeof eventData.diagnostics === 'object'
+                  ? (eventData.diagnostics as DiagnosticsPayload)
+                  : null
+              if (Array.isArray(resultDiagnostics?.progress)) {
+                setLiveProgress(resultDiagnostics.progress as Array<Record<string, unknown>>)
+              }
+              setCurrentDiagnostics(resultDiagnostics ?? null)
+
+              let structuredMetadata: ParsedMetadataEntryV2[] = Array.isArray(
+                (eventData as { structured_metadata?: unknown }).structured_metadata
+              )
+                ? ((eventData as { structured_metadata: ParsedMetadataEntryV2[] }).structured_metadata)
+                : []
+
+              if (!structuredMetadata.length && typeof eventData.formatted_metadata === 'string') {
+                structuredMetadata = parseMetadata(eventData.formatted_metadata, String(eventData.response ?? ''))
+              }
+
+              const finalData: Record<string, unknown> = {
+                response: eventData.response,
+                message: {
+                  id: (eventData as { message_id?: string }).message_id ?? undefined,
+                  role: 'assistant',
+                  content: eventData.response,
+                  structured_metadata: structuredMetadata
+                },
+                structured_metadata: structuredMetadata,
+                diagnostics: resultDiagnostics
+              }
+
+              renderAssistantPayload(finalData, traceId)
+              console.debug('chat: streaming result received', {
+                traceId,
+                hasDiagnostics: Boolean(resultDiagnostics),
+                metadataCount: structuredMetadata.length
+              })
+
+              finalPayload = finalData
+              return finalData
+            } else if (eventType === 'error') {
+              await reader.cancel().catch(() => undefined)
+              const errorMessage = String((eventData as { error?: unknown }).error ?? 'Streaming error')
+              throw new Error(errorMessage)
+            }
+          }
+        }
+      } finally {
+        currentStreamAbortRef.current = null
+      }
+
+      throw new Error('Streaming ended without a result event.')
+    },
+    [
+      buildChatRequestPayload,
+      setLiveProgress,
+      setCurrentDiagnostics,
+      renderAssistantPayload
     ]
   )
 
@@ -1204,25 +1380,41 @@ export function Chat({
     setLastMessageRole('user');
 
     let backendPayload: unknown = null
+    let backendMode: 'stream' | 'legacy' | 'error' = 'error'
     try {
-      backendPayload = await sendChatLegacy(nextMessages, messageId)
-      console.debug('chat: rendered backend payload', {
-        traceId: messageId,
-        hasContent: Boolean(backendPayload)
-      })
-    } catch (error) {
-      console.error('chat: failed to fetch message', { traceId: messageId }, error)
-      toast.error(
-        error instanceof Error && error.message
-          ? error.message
-          : 'Unable to reach the chat service. Please try again.'
-      )
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-      setCurrentDiagnostics(null);
-      setLiveProgress([]);
-      setLastMessageRole('user')
-      backendPayload = { error: error instanceof Error ? error.message : String(error) }
-      console.debug('chat: cleared transient state after error', { traceId: messageId })
+      backendPayload = await sendChatStream(nextMessages, messageId)
+      backendMode = 'stream'
+    } catch (streamError) {
+      const isAbortError =
+        streamError instanceof DOMException && streamError.name === 'AbortError'
+      if (isAbortError) {
+        backendPayload = { error: 'stream_aborted' }
+        backendMode = 'error'
+      } else {
+        console.error('chat: streaming failed, falling back to legacy request', { traceId: messageId }, streamError)
+        try {
+          backendPayload = await sendChatLegacy(nextMessages, messageId)
+          backendMode = 'legacy'
+          console.debug('chat: rendered backend payload', {
+            traceId: messageId,
+            hasContent: Boolean(backendPayload)
+          })
+        } catch (error) {
+          console.error('chat: failed to fetch message', { traceId: messageId }, error)
+          toast.error(
+            error instanceof Error && error.message
+              ? error.message
+              : 'Unable to reach the chat service. Please try again.'
+          )
+          setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+          setCurrentDiagnostics(null);
+          setLiveProgress([]);
+          setLastMessageRole('user')
+          backendPayload = { error: error instanceof Error ? error.message : String(error) }
+          console.debug('chat: cleared transient state after error', { traceId: messageId })
+          backendMode = 'error'
+        }
+      }
     } finally {
       setIsProcessingQuery(false);
       console.debug('chat: query cycle complete', {
@@ -1233,6 +1425,7 @@ export function Chat({
           'error' in (backendPayload as Record<string, unknown>)
             ? 'error'
             : 'success',
+        transport: backendMode,
         submittedMessageId: messageId,
         traceId: messageId
       })
@@ -1253,6 +1446,7 @@ export function Chat({
     setIsProcessingQuery,
     setCurrentDiagnostics,
     setMessages,
+    sendChatStream,
     sendChatLegacy,
     setLastMessageRole,
     setShowLeftPanelOverlay,

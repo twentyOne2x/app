@@ -40,6 +40,16 @@ export interface MetadataMessage extends Message {
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
 
+function coerceContent(input: unknown): string {
+  if (input == null) return ''
+  if (typeof input === 'string') return input
+  try {
+    return JSON.stringify(input)
+  } catch {
+    return String(input)
+  }
+}
+
 async function extractErrorMessage(response: Response): Promise<string | null> {
   try {
     const cloned = response.clone()
@@ -422,10 +432,13 @@ export function Chat({
         throw new Error('The chat service returned an unexpected response.')
       }
 
-      const rawAssistantContent: string =
+      console.debug('chat: backend response payload', data)
+
+      const rawAssistantContentValue =
         typeof data.response === 'string'
           ? data.response
           : data.message?.content ?? ''
+      const rawAssistantContent = coerceContent(rawAssistantContentValue)
 
       let metadata: ParsedMetadataEntryV2[] = Array.isArray(
         data.message?.structured_metadata
@@ -490,10 +503,11 @@ export function Chat({
     (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
       const parsedMessages = messages.map((message) => {
         if (message.role === 'assistant') {
-          let nextContent = message.content
+          const raw = coerceContent(message.content)
+          let nextContent = raw
           try {
             // Try to parse the content as JSON
-            const parsedContent = JSON.parse(message.content)
+            const parsedContent = JSON.parse(raw)
 
             if (parsedContent.message?.content) {
               nextContent = parsedContent.message.content
@@ -502,7 +516,7 @@ export function Chat({
             console.error('Error parsing message content:', error)
           }
 
-          message.content = processResponseContent(stripSourcesBlock(nextContent))
+          message.content = processResponseContent(stripSourcesBlock(coerceContent(nextContent)))
         }
         return message
       })

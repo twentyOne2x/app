@@ -24,6 +24,13 @@ export interface ChatMessageProps {
 
 export function ChatMessage({ message, ...props }: ChatMessageProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const content = typeof message.content === 'string' ? message.content : (() => {
+    try {
+      return JSON.stringify(message.content)
+    } catch {
+      return String(message.content)
+    }
+  })()
   
   useEffect(() => {
     const handleResize = () => {
@@ -119,7 +126,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
           remarkPlugins={[remarkGfm, remarkMath]}
           components={components}
         >
-          {message.content}
+          {content}
         </MemoizedReactMarkdown>
         <ChatMessageActions message={message} />
       </div>

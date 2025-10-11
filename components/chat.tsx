@@ -1056,11 +1056,44 @@ export function Chat({
     setAvailableChannels((prev) => {
       const next = new Set(prev);
       const source = structuredMetadataEntries.length ? structuredMetadataEntries : structured_metadata;
+      const additions: string[] = [];
       source?.forEach((entry) => {
-        if (entry.channel) next.add(entry.channel);
+        const candidate =
+          entry && typeof entry === 'object' && typeof entry.channel === 'string'
+            ? entry.channel.trim()
+            : '';
+        if (candidate && !next.has(candidate)) {
+          next.add(candidate);
+          additions.push(candidate);
+        }
       });
-      const sorted = Array.from(next);
+
+      if (additions.length === 0) {
+        console.debug('chat: metadata channel merge found no new channels', {
+          traceId: currentTraceIdRef.current
+        });
+        return prev;
+      }
+
+      const sorted = Array.from(next).filter(Boolean);
       sorted.sort((a, b) => a.localeCompare(b));
+      const changed =
+        sorted.length !== prev.length ||
+        sorted.some((channel, index) => channel !== prev[index]);
+
+      if (!changed) {
+        console.debug('chat: metadata merge produced identical channel ordering', {
+          traceId: currentTraceIdRef.current
+        });
+        return prev;
+      }
+
+      console.debug('chat: metadata channels merged', {
+        traceId: currentTraceIdRef.current,
+        added: additions,
+        total: sorted.length
+      });
+
       return sorted;
     });
   }, [structuredMetadataEntries, structured_metadata]);

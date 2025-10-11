@@ -600,23 +600,41 @@ export function Chat({
         .join('|')
       const metadataSignature = structured_metadata
         .map((entry) => {
-          if (entry && typeof entry === 'object') {
-            const anyEntry = entry as Record<string, unknown>
-            const identifier =
-              (typeof anyEntry.id === 'string' && anyEntry.id) ||
-              (typeof anyEntry.clip_id === 'string' && anyEntry.clip_id) ||
-              (typeof anyEntry.url === 'string' && anyEntry.url)
-            if (identifier) return identifier
-            try {
-              return JSON.stringify(anyEntry).slice(0, 64)
-            } catch (error) {
-              console.warn('chat: failed to serialize structured metadata for signature', error, anyEntry)
-              return String(anyEntry)
-            }
+          if (!entry || typeof entry !== 'object') {
+            return String(entry)
           }
-          return String(entry)
+          const parentParts = [
+            entry.parentTitle ?? '',
+            entry.channel ?? '',
+            entry.date ?? '',
+            entry.url ?? '',
+            entry.scoreMax?.toString() ?? ''
+          ]
+          const clipSignature = Array.isArray(entry.clips)
+            ? entry.clips
+                .map((clip) => {
+                  if (!clip || typeof clip !== 'object') {
+                    return String(clip)
+                  }
+                  const clipParts = [
+                    clip.parentTitle ?? '',
+                    clip.channel ?? '',
+                    clip.date ?? '',
+                    clip.url ?? '',
+                    clip.startHMS ?? '',
+                    clip.endHMS ?? '',
+                    clip.startS?.toString() ?? '',
+                    clip.endS?.toString() ?? '',
+                    clip.speaker ?? '',
+                    clip.excerpt ?? ''
+                  ]
+                  return clipParts.join('^')
+                })
+                .join('~')
+            : ''
+          return [...parentParts, clipSignature].join('|')
         })
-        .join('|')
+        .join('||')
       const signature = `${shared_chat ? 'shared' : 'standard'}:${id ?? 'local'}:${messageSignature}:${metadataSignature}`
 
       if (signature !== initialPayloadSignatureRef.current) {

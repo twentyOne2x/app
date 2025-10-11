@@ -1,4 +1,5 @@
 import { kv } from '@vercel/kv'
+import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import { nanoid } from '@/lib/utils'
 import {
@@ -28,13 +29,27 @@ export async function POST(req: Request) {
 
   const { messages } = json
   const channelFilter = json.channel_filter ?? undefined
+  const clientTraceId: string | null =
+    typeof json.client_trace_id === 'string' && json.client_trace_id.trim().length
+      ? json.client_trace_id.trim()
+      : null
   const entryProfileCode: string | undefined =
     typeof json.entryProfileCode === 'string' && json.entryProfileCode.trim().length
       ? json.entryProfileCode.trim()
       : undefined
+  const traceId = clientTraceId ?? (typeof json.id === 'string' ? String(json.id) : null) ?? randomUUID()
 
   const session = await auth()
   const userId = session?.user?.id ?? null
+
+  console.debug('chat-route: request received', {
+    traceId,
+    clientTraceId,
+    messageCount: Array.isArray(messages) ? messages.length : 0,
+    entryProfileCode,
+    channelFilter: channelFilter ?? null,
+    userId
+  })
 
   const title = messages?.[0]?.content?.substring(0, 100) || 'New Chat'
   const id = json.id ?? nanoid()
@@ -51,7 +66,9 @@ export async function POST(req: Request) {
     assistantContent: string,
     structuredMetadata: ParsedMetadataEntryV2[],
     diagnostics: ChatResponseDiagnostics | null,
-    requestId: string | null
+    requestId: string | null,
+    trace: string,
+    clientTrace: string | null
   ): Promise<Response> => {
     const processedResponseContent = processResponseContent(assistantContent)
     const payload = {
@@ -70,12 +87,19 @@ export async function POST(req: Request) {
         await kv.hmset(`chat:${id}`, payload)
         await kv.zadd(`user:chat:${userId}`, { score: createdAt, member: `chat:${id}` })
       } catch (error) {
-        console.error('chat-route: failed to persist chat metadata', error)
+        console.error('chat-route: failed to persist chat metadata', { traceId: trace }, error)
         return new Response('Failed to persist chat', { status: 500 })
       }
     } else if (userId && !isKvConfigured) {
-      console.warn('chat-route: KV not configured, skipping chat persistence')
+      console.warn('chat-route: KV not configured, skipping chat persistence', { traceId: trace })
     }
+
+    console.debug('chat-route: building response payload', {
+      traceId: trace,
+      metadataCount: structuredMetadata.length,
+      diagnostics: Boolean(diagnostics),
+      persisted: Boolean(userId && isKvConfigured)
+    })
 
     const responsePayload = {
       id: payload.id,
@@ -87,7 +111,8 @@ export async function POST(req: Request) {
       structured_metadata: payload.structured_metadata,
       entryProfileCode: payload.entryProfileCode,
       diagnostics,
-      request_id: requestId
+      request_id: requestId,
+      client_trace_id: clientTrace
     }
 
     return new Response(JSON.stringify(responsePayload), { headers: { 'Content-Type': 'application/json' } })
@@ -97,20 +122,24 @@ export async function POST(req: Request) {
     process.env.RAG_SERVICE_URL ?? process.env.NEXT_PUBLIC_RAG_API_URL ?? process.env.REACT_APP_BACKEND_URL
 
   if (!backendBaseUrl) {
-    console.error('chat-route: missing RAG backend URL environment variable')
+    console.error('chat-route: missing RAG backend URL environment variable', { traceId })
     return persistAndRespond(
       'The retrieval service is not configured yet. Please try again later.',
       [],
       {
         backend_error: 'missing_backend_url'
       },
-      null
+      null,
+      traceId,
+      clientTraceId
     )
   }
 
   const backendChatUrl = `${backendBaseUrl.replace(/\/$/, '')}/chat`
+  console.debug('chat-route: forwarding request to backend', { traceId, backendChatUrl })
 
   let chatResponse: Response
+  const backendRequestStartedAt = Date.now()
   try {
     chatResponse = await fetch(backendChatUrl, {
       method: 'POST',
@@ -123,7 +152,7 @@ export async function POST(req: Request) {
       })
     })
   } catch (error) {
-    console.error('chat-route: network error calling backend', error)
+    console.error('chat-route: network error calling backend', { traceId }, error)
     return persistAndRespond(
       'We could not reach the retrieval service. Please retry in a moment.',
       [],
@@ -131,13 +160,25 @@ export async function POST(req: Request) {
         backend_error: error instanceof Error ? error.message : 'network_failure',
         backend_url: backendChatUrl
       },
-      null
+      null,
+      traceId,
+      clientTraceId
     )
   }
 
+  console.debug('chat-route: backend responded', {
+    traceId,
+    status: chatResponse.status,
+    durationMs: Date.now() - backendRequestStartedAt
+  })
+
   if (!chatResponse.ok) {
     const errorText = await chatResponse.text().catch(() => chatResponse.statusText)
-    console.error('chat-route: backend responded with error', chatResponse.status, errorText)
+    console.error('chat-route: backend responded with error', {
+      traceId,
+      status: chatResponse.status,
+      error: errorText
+    })
     return persistAndRespond(
       `The retrieval service returned an error (HTTP ${chatResponse.status}). Please try again shortly.`,
       [],
@@ -146,7 +187,9 @@ export async function POST(req: Request) {
         backend_status: chatResponse.status,
         backend_url: backendChatUrl
       },
-      null
+      null,
+      traceId,
+      clientTraceId
     )
   }
 
@@ -154,7 +197,7 @@ export async function POST(req: Request) {
   try {
     responseBody = await chatResponse.json()
   } catch (error) {
-    console.error('chat-route: failed to parse backend JSON', error)
+    console.error('chat-route: failed to parse backend JSON', { traceId }, error)
     return persistAndRespond(
       'Received an unexpected response from the retrieval service.',
       [],
@@ -163,7 +206,9 @@ export async function POST(req: Request) {
         backend_status: chatResponse.status,
         backend_url: backendChatUrl
       },
-      null
+      null,
+      traceId,
+      clientTraceId
     )
   }
 
@@ -173,7 +218,7 @@ export async function POST(req: Request) {
       : responseBody.response?.response ?? responseBody.response ?? ''
 
   if (!rawAnswer) {
-    console.error('chat-route: backend returned empty response body')
+    console.error('chat-route: backend returned empty response body', { traceId })
     return persistAndRespond(
       'The retrieval service responded without any content. Please retry.',
       [],
@@ -182,7 +227,9 @@ export async function POST(req: Request) {
         backend_status: chatResponse.status,
         backend_url: backendChatUrl
       },
-      null
+      null,
+      traceId,
+      clientTraceId
     )
   }
 
@@ -202,8 +249,22 @@ export async function POST(req: Request) {
       structuredMetadata = parseMetadata(String(responseBody.formatted_metadata), rawAnswer)
     }
   } catch (error) {
-    console.error('chat-route: failed to parse structured metadata', error)
+    console.error('chat-route: failed to parse structured metadata', { traceId }, error)
   }
 
-  return persistAndRespond(rawAnswer, structuredMetadata, diagnostics as ChatResponseDiagnostics | null, requestId)
+  console.debug('chat-route: backend payload processed', {
+    traceId,
+    metadataCount: structuredMetadata.length,
+    hasDiagnostics: Boolean(diagnostics),
+    requestId
+  })
+
+  return persistAndRespond(
+    rawAnswer,
+    structuredMetadata,
+    diagnostics as ChatResponseDiagnostics | null,
+    requestId,
+    traceId,
+    clientTraceId
+  )
 }

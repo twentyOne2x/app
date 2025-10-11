@@ -199,6 +199,7 @@ export function Chat({
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
+  const currentTraceIdRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
     () => `channel-filter:${entryProfile.code}`,
@@ -215,31 +216,64 @@ export function Chat({
   }, []);
 
   useEffect(() => {
-    console.debug('chat: messages state updated', newMessages)
+    const lastMessage = newMessages.length ? newMessages[newMessages.length - 1] : null
+    console.debug('chat: messages state updated', {
+      total: newMessages.length,
+      lastRole: lastMessage?.role ?? null,
+      lastId: lastMessage?.id ?? null,
+      traceId: currentTraceIdRef.current
+    })
   }, [newMessages])
 
   useEffect(() => {
-    console.debug('chat: structured metadata updated', structuredMetadataEntries)
+    const firstEntry = structuredMetadataEntries.length ? structuredMetadataEntries[0] : null
+    console.debug('chat: structured metadata updated', {
+      count: structuredMetadataEntries.length,
+      firstParent: firstEntry?.parentTitle ?? null,
+      traceId: currentTraceIdRef.current
+    })
   }, [structuredMetadataEntries])
 
   useEffect(() => {
     if (!liveProgress.length) return
-    console.debug('chat: live progress update', liveProgress)
+    const stageSummaries = liveProgress.map((stage, index) => {
+      const label =
+        stage && typeof stage === 'object' && typeof (stage as { label?: unknown }).label === 'string'
+          ? (stage as { label: string }).label
+          : null
+      const status =
+        stage && typeof stage === 'object' && typeof (stage as { status?: unknown }).status === 'string'
+          ? (stage as { status: string }).status
+          : null
+      return { index, label, status }
+    })
+    console.debug('chat: live progress update', {
+      traceId: currentTraceIdRef.current,
+      stages: stageSummaries
+    })
   }, [liveProgress])
 
   useEffect(() => {
     console.debug('chat: processing state changed', {
       isProcessingQuery,
-      progressEvents: liveProgress.length
+      progressEvents: liveProgress.length,
+      traceId: currentTraceIdRef.current
     })
   }, [isProcessingQuery, liveProgress])
 
   useEffect(() => {
     if (!currentDiagnostics) {
-      console.debug('chat: diagnostics cleared')
+      console.debug('chat: diagnostics cleared', { traceId: currentTraceIdRef.current })
       return
     }
-    console.debug('chat: diagnostics updated', currentDiagnostics)
+    const progressCount = Array.isArray(currentDiagnostics.progress)
+      ? currentDiagnostics.progress.length
+      : 0
+    console.debug('chat: diagnostics updated', {
+      traceId: currentTraceIdRef.current,
+      keys: Object.keys(currentDiagnostics ?? {}),
+      progressCount
+    })
   }, [currentDiagnostics])
 
   useEffect(() => {
@@ -247,7 +281,8 @@ export function Chat({
       showEmptyScreen,
       showChatList,
       showMiddlePanelOverlay,
-      showLeftPanelOverlay
+      showLeftPanelOverlay,
+      traceId: currentTraceIdRef.current
     })
   }, [showEmptyScreen, showChatList, showMiddlePanelOverlay, showLeftPanelOverlay])
 
@@ -439,28 +474,43 @@ export function Chat({
   }, [availableChannels, selectedChannelNames]);
 
   const buildChatRequestPayload = useCallback(
-    (history: MetadataMessage[]) => {
+    (history: MetadataMessage[], options?: { clientTraceId?: string }) => {
       const wireMessages = history.map((message) => ({
         role: message.role,
         content: message.content
       }))
-      return {
+      const payload = {
         id,
         previewToken,
         entryProfileCode: entryProfile.code,
         channel_filter: channelFilterPayload,
+        client_trace_id: options?.clientTraceId,
         messages: wireMessages,
         chat_history: wireMessages
       }
+      console.debug('chat: request payload prepared', {
+        traceId: options?.clientTraceId ?? null,
+        historyCount: history.length,
+        channelFilter: channelFilterPayload,
+        hasPreviewToken: Boolean(previewToken)
+      })
+      return payload
     },
     [channelFilterPayload, entryProfile.code, id, previewToken]
   )
 
   const sendChatLegacy = useCallback(
-    async (history: MetadataMessage[]) => {
-      const payload = buildChatRequestPayload(history)
-      console.debug('chat: issuing backend request', payload)
+    async (history: MetadataMessage[], clientTraceId: string) => {
+      const traceId = clientTraceId ?? 'unset-trace'
+      const payload = buildChatRequestPayload(history, { clientTraceId: traceId })
+      console.debug('chat: issuing backend request', {
+        traceId,
+        messageCount: history.length,
+        channelFilter: payload.channel_filter,
+        previewToken: payload.previewToken ? 'present' : 'absent'
+      })
       let response: Response
+      const requestStartedAt = Date.now()
       try {
         response = await fetch('/api/chat', {
           method: 'POST',
@@ -468,11 +518,27 @@ export function Chat({
           body: JSON.stringify(payload)
         })
       } catch (error) {
+        console.error('chat: network error reaching backend', {
+          traceId,
+          durationMs: Date.now() - requestStartedAt
+        }, error)
         throw error instanceof Error ? error : new Error('Failed to reach the chat service.')
       }
 
+      const durationMs = Date.now() - requestStartedAt
+      console.debug('chat: backend responded', {
+        traceId,
+        status: response.status,
+        durationMs
+      })
+
       if (!response.ok) {
         const message = await extractErrorMessage(response)
+        console.error('chat: backend returned error status', {
+          traceId,
+          status: response.status,
+          message
+        })
         throw new Error(
           message ?? 'The chat service encountered an error. Please try again.'
         )
@@ -483,7 +549,12 @@ export function Chat({
         throw new Error('The chat service returned an unexpected response.')
       }
 
-      console.debug('chat: backend response payload', data)
+      console.debug('chat: backend response summary', {
+        traceId,
+        hasMessage: Boolean(data?.message),
+        hasDiagnostics: Boolean(data?.diagnostics),
+        responseKeys: data ? Object.keys(data) : []
+      })
 
       const rawAssistantContentValue =
         typeof data.response === 'string'
@@ -507,6 +578,10 @@ export function Chat({
       }
 
       if (metadata?.length) {
+        console.debug('chat: structured metadata received', {
+          traceId,
+          count: metadata.length
+        })
         setStructuredMetadataEntries(metadata)
       }
 
@@ -524,10 +599,22 @@ export function Chat({
         structured_metadata: metadata ?? [],
         diagnostics
       }
-      setMessages((prev) => [...prev, assistantMessage])
+      setMessages((prev) => {
+        const next = [...prev, assistantMessage]
+        console.debug('chat: assistant message appended', {
+          traceId,
+          messageId: assistantMessage.id,
+          totalMessages: next.length
+        })
+        return next
+      })
       setLastMessageRole('assistant')
 
       if (diagnostics) {
+        console.debug('chat: diagnostics payload applied', {
+          traceId,
+          progressCount: Array.isArray(diagnostics.progress) ? diagnostics.progress.length : 0
+        })
         setCurrentDiagnostics(diagnostics)
         if (Array.isArray(diagnostics.progress)) {
           setLiveProgress(diagnostics.progress as Array<Record<string, unknown>>)
@@ -535,6 +622,7 @@ export function Chat({
       } else {
         setCurrentDiagnostics(null)
         setLiveProgress([])
+        console.debug('chat: diagnostics missing, cleared progress state', { traceId })
       }
 
       return data
@@ -554,7 +642,11 @@ export function Chat({
   // Function to parse messages and apply structured metadata
   const parseMessagesAndMetadata = useCallback(
     (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
-      console.debug('chat: parseMessagesAndMetadata invoked', { messages, metadata })
+      console.debug('chat: parseMessagesAndMetadata invoked', {
+        messageCount: messages.length,
+        metadataCount: metadata.length,
+        traceId: currentTraceIdRef.current
+      })
       const parsedMessages = messages.map((message) => {
         if (message.role === 'assistant') {
           const raw = coerceContent(message.content)
@@ -718,6 +810,11 @@ export function Chat({
       return
     }
 
+    console.debug('chat: request pipeline initiated', {
+      incomingLength: trimmedInput.length,
+      currentTraceId: currentTraceIdRef.current
+    })
+
     // Fade out EmptyScreen and QuestionsOverlay
     setShowMiddlePanelOverlay(false);
 
@@ -736,6 +833,7 @@ export function Chat({
     setLiveProgress([]);
   
     const messageId = nanoid();
+    currentTraceIdRef.current = messageId
     console.debug('chat: user submitted prompt', {
       messageId,
       length: trimmedInput.length,
@@ -750,14 +848,21 @@ export function Chat({
     };
     const nextMessages = [...newMessages, newUserMessage];
     setMessages(nextMessages);
+    console.debug('chat: user message appended', {
+      traceId: messageId,
+      totalMessages: nextMessages.length
+    })
     setLastMessageRole('user');
 
     let backendPayload: unknown = null
     try {
-      backendPayload = await sendChatLegacy(nextMessages)
-      console.debug('chat: rendered backend payload', backendPayload)
+      backendPayload = await sendChatLegacy(nextMessages, messageId)
+      console.debug('chat: rendered backend payload', {
+        traceId: messageId,
+        hasContent: Boolean(backendPayload)
+      })
     } catch (error) {
-      console.error('chat: failed to fetch message', error)
+      console.error('chat: failed to fetch message', { traceId: messageId }, error)
       toast.error(
         error instanceof Error && error.message
           ? error.message
@@ -768,6 +873,7 @@ export function Chat({
       setLiveProgress([]);
       setLastMessageRole('user')
       backendPayload = { error: error instanceof Error ? error.message : String(error) }
+      console.debug('chat: cleared transient state after error', { traceId: messageId })
     } finally {
       setIsProcessingQuery(false);
       console.debug('chat: query cycle complete', {
@@ -778,7 +884,8 @@ export function Chat({
           'error' in (backendPayload as Record<string, unknown>)
             ? 'error'
             : 'success',
-        submittedMessageId: messageId
+        submittedMessageId: messageId,
+        traceId: messageId
       })
     }
 

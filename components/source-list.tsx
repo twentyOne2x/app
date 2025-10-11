@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
@@ -51,6 +52,23 @@ function clipKey(parent: ParsedMetadataEntryV2, clip: ClipItemV2) {
   return buildClipSelectionKey(parent, clip)
 }
 
+function extractYouTubeThumbnail(url?: string): string | null {
+  if (!url) return null
+  try {
+    const parsed = new URL(url)
+    let videoId: string | null = null
+    if (parsed.hostname.includes('youtu.be')) {
+      videoId = parsed.pathname.replace('/', '') || null
+    } else if (parsed.hostname.includes('youtube.com')) {
+      videoId = parsed.searchParams.get('v')
+    }
+    if (!videoId) return null
+    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+  } catch {
+    return null
+  }
+}
+
 export function SourceList({
   entries,
   className,
@@ -93,10 +111,11 @@ export function SourceList({
     <>
       <div className={cn('space-y-4', className)}>
         {parents.map((parent, idx) => {
-        const key = `${parent.parentTitle}__${parent.channel}__${idx}`
+        const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
         const isActive = expandedParent === key || hoveredParent === key
         const clipCount = parent.clips?.length ?? 0
         const parentScoreText = parentScore(parent.scoreMax)
+        const canToggle = clipCount > 0
 
         return (
           <div
@@ -105,8 +124,8 @@ export function SourceList({
             onMouseLeave={() => setHoveredParent((current) => (current === key ? null : current))}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
           >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
+            <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                   <span>{parent.channel}</span>
                   {parent.date ? <span>· {parent.date}</span> : null}
@@ -118,7 +137,7 @@ export function SourceList({
                 </div>
                 <h3 className="mt-1 line-clamp-2 text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
                 {parent.url ? (
                   <a
                     href={parent.url}
@@ -131,11 +150,17 @@ export function SourceList({
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => handleToggle(key)}
-                  className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-zinc-100 hover:bg-white/10"
+                  onClick={() => (canToggle ? handleToggle(key) : undefined)}
+                  className={cn(
+                    'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
+                    canToggle
+                      ? 'text-zinc-100 hover:bg-white/10'
+                      : 'cursor-not-allowed text-zinc-500 opacity-70'
+                  )}
                   aria-expanded={isActive}
+                  disabled={!canToggle}
                 >
-                  {isActive ? 'Hide clips' : `See clips (${clipCount})`}
+                  {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
                 </button>
               </div>
             </div>
@@ -146,8 +171,9 @@ export function SourceList({
                   const clipKey = `${key}__${clipIdx}`
                   const clipScore = formatScore(clip.score)
                   const selected = selectionHandle.isSelected(parent, clip)
-
                   const playback = buildClipPlayback(parent, clip)
+                  const thumbnailUrl =
+                    extractYouTubeThumbnail(clip.url ?? parent.url) ?? undefined
 
                   return (
                     <li
@@ -181,18 +207,32 @@ export function SourceList({
                           />
                         </label>
                         <div className="min-w-0 flex-1 pr-10">
-                          <p className="text-xs font-medium text-emerald-200/80">
-                            {clipWindow(clip)}
-                            {clipScore ? ` · ${clipScore}` : ''}
-                            {clip.speaker ? ` · ${clip.speaker}` : ''}
-                          </p>
-                          {clip.excerpt ? (
-                            <p className="mt-1 line-clamp-3 text-sm text-zinc-100">{clip.excerpt}</p>
-                          ) : (
-                            <p className="mt-1 line-clamp-3 text-sm text-zinc-300">
-                              Click play to jump straight to this segment.
-                            </p>
-                          )}
+                          <div className="flex gap-3">
+                            {thumbnailUrl ? (
+                              <Image
+                                src={thumbnailUrl}
+                                alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
+                                width={160}
+                                height={90}
+                                className="hidden h-20 w-32 rounded-lg object-cover sm:block"
+                                priority={false}
+                              />
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium text-emerald-200/80">
+                                {clipWindow(clip)}
+                                {clipScore ? ` · ${clipScore}` : ''}
+                                {clip.speaker ? ` · ${clip.speaker}` : ''}
+                              </p>
+                              {clip.excerpt ? (
+                                <p className="mt-1 line-clamp-3 text-sm text-zinc-100">{clip.excerpt}</p>
+                              ) : (
+                                <p className="mt-1 line-clamp-3 text-sm text-zinc-300">
+                                  Click play to jump straight to this segment.
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-2">
                           <button

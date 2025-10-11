@@ -204,6 +204,7 @@ export function Chat({
     fetchInFlight: false,
     defaultsApplied: false
   })
+  const metadataChannelSignatureRef = useRef<string | null>(null)
   const currentTraceIdRef = useRef<string | null>(null)
 
   const channelFilterStorageKey = useMemo(
@@ -1046,51 +1047,57 @@ export function Chat({
   }, [shared_chat, initialMessages, structured_metadata, parseMessagesAndMetadata, id]);
 
   useEffect(() => {
-    if (!structured_metadata?.length && structuredMetadataEntries.length === 0) return;
+    const source =
+      structuredMetadataEntries.length > 0 ? structuredMetadataEntries : structured_metadata
+    if (!Array.isArray(source) || !source.length) return
+
+    const collected = source
+      .map((entry) =>
+        entry && typeof entry === 'object' && typeof entry.channel === 'string'
+          ? entry.channel.trim()
+          : ''
+      )
+      .filter(Boolean)
+
+    if (!collected.length) return
+
+    const signature = Array.from(new Set(collected)).sort().join('|')
+    if (metadataChannelSignatureRef.current === signature) {
+      console.debug('chat: metadata channel signature unchanged, skipping merge', {
+        traceId: currentTraceIdRef.current
+      })
+      return
+    }
+    metadataChannelSignatureRef.current = signature
+
     setAvailableChannels((prev) => {
-      const next = new Set(prev);
-      const source = structuredMetadataEntries.length ? structuredMetadataEntries : structured_metadata;
-      const additions: string[] = [];
-      source?.forEach((entry) => {
-        const candidate =
-          entry && typeof entry === 'object' && typeof entry.channel === 'string'
-            ? entry.channel.trim()
-            : '';
-        if (candidate && !next.has(candidate)) {
-          next.add(candidate);
-          additions.push(candidate);
+      const next = new Set(prev)
+      let added = false
+      for (const name of collected) {
+        if (!next.has(name)) {
+          next.add(name)
+          added = true
         }
-      });
-
-      if (additions.length === 0) {
-        console.debug('chat: metadata channel merge found no new channels', {
+      }
+      if (!added) {
+        console.debug('chat: metadata channels already present', {
           traceId: currentTraceIdRef.current
-        });
-        return prev;
+        })
+        return prev
       }
 
-      const sorted = Array.from(next).filter(Boolean);
-      sorted.sort((a, b) => a.localeCompare(b));
-      const changed =
-        sorted.length !== prev.length ||
-        sorted.some((channel, index) => channel !== prev[index]);
+      const sorted = Array.from(next).filter(Boolean)
+      sorted.sort((a, b) => a.localeCompare(b))
 
-      if (!changed) {
-        console.debug('chat: metadata merge produced identical channel ordering', {
-          traceId: currentTraceIdRef.current
-        });
-        return prev;
-      }
-
-      console.debug('chat: metadata channels merged', {
+      console.debug('chat: metadata channels merged from clip metadata', {
         traceId: currentTraceIdRef.current,
-        added: additions,
+        added: sorted.filter((name) => !prev.includes(name)),
         total: sorted.length
-      });
+      })
 
-      return sorted;
-    });
-  }, [structuredMetadataEntries, structured_metadata]);
+      return sorted
+    })
+  }, [structuredMetadataEntries, structured_metadata])
 
   useEffect(() => {
     const handleResize = () => {

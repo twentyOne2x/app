@@ -610,10 +610,19 @@ export function Chat({
       originalLength: original.length,
       traceId: currentTraceIdRef.current
     })
-    let processedContent = original;
-    processedContent = processedContent.replace(/ICM \(Internet Capital Markets\)/g, "ICM");
-    processedContent = processedContent.replace(/Internet Capital Markets \(ICM\)/g, "ICM");
-    processedContent = processedContent.replace(/Internet Capital Markets/g, "ICM");
+    let processedContent = original
+
+    const replacements: Array<[RegExp, string]> = [
+      [/ICM \(Internet Capital Markets\)/g, 'ICM'],
+      [/Internet Capital Markets \(ICM\)/g, 'ICM'],
+      [/Internet Capital Markets/g, 'ICM'],
+      [/hyper\s*liquid/gi, 'Hyperliquid']
+    ]
+
+    replacements.forEach(([pattern, replacement]) => {
+      processedContent = processedContent.replace(pattern, replacement)
+    })
+
     if (processedContent !== original) {
       console.debug('chat: processResponseContent normalized terms', {
         traceId: currentTraceIdRef.current
@@ -623,8 +632,8 @@ export function Chat({
       resultLength: processedContent.length,
       traceId: currentTraceIdRef.current
     })
-    return processedContent;
-  }, []);
+    return processedContent
+  }, [])
 
   const stripSourcesBlock = useCallback((content: string) => {
     if (!content) {

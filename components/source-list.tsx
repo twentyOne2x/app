@@ -78,7 +78,6 @@ export function SourceList({
 }: SourceListProps) {
   const parents = useMemo(() => entries ?? [], [entries])
   const [expandedParent, setExpandedParent] = useState<string | null>(null)
-  const [hoveredParent, setHoveredParent] = useState<string | null>(null)
   const fallbackSelection = useClipSelection(selectionScope ?? 'global')
   const selectionHandle = selection ?? fallbackSelection
 
@@ -112,7 +111,7 @@ export function SourceList({
       <div className={cn('space-y-4', className)}>
         {parents.map((parent, idx) => {
         const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
-        const isActive = expandedParent === key || hoveredParent === key
+        const isActive = expandedParent === key
         const clipCount = parent.clips?.length ?? 0
         const parentScoreText = parentScore(parent.scoreMax)
         const canToggle = clipCount > 0
@@ -120,8 +119,6 @@ export function SourceList({
         return (
           <div
             key={key}
-            onMouseEnter={() => setHoveredParent(key)}
-            onMouseLeave={() => setHoveredParent((current) => (current === key ? null : current))}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
           >
             <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
@@ -151,16 +148,16 @@ export function SourceList({
                 <button
                   type="button"
                   onClick={() => (canToggle ? handleToggle(key) : undefined)}
-                  className={cn(
-                    'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
-                    canToggle
-                      ? 'text-zinc-100 hover:bg-white/10'
+                    className={cn(
+                      'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
+                      canToggle
+                        ? 'text-zinc-100 hover:bg-white/10'
                       : 'cursor-not-allowed text-zinc-500 opacity-70'
-                  )}
-                  aria-expanded={isActive}
-                  disabled={!canToggle}
-                >
-                  {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
+                    )}
+                    aria-expanded={isActive}
+                    disabled={!canToggle}
+                  >
+                    {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
                 </button>
               </div>
             </div>
@@ -206,28 +203,45 @@ export function SourceList({
                             aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
                           />
                         </label>
-                        <div className="min-w-0 flex-1 pr-10">
-                          <div className="flex gap-3">
-                            {thumbnailUrl ? (
-                              <Image
-                                src={thumbnailUrl}
-                                alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
-                                width={160}
-                                height={90}
-                                className="hidden h-20 w-32 rounded-lg object-cover sm:block"
-                                priority={false}
-                              />
-                            ) : null}
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-medium text-emerald-200/80">
-                                {clipWindow(clip)}
-                                {clipScore ? ` · ${clipScore}` : ''}
-                                {clip.speaker ? ` · ${clip.speaker}` : ''}
-                              </p>
+                        <div className="min-w-0 flex-1 pr-6">
+                          <p className="text-xs font-medium text-emerald-200/80">
+                            {clipWindow(clip)}
+                            {clipScore ? ` · ${clipScore}` : ''}
+                            {clip.speaker ? ` · ${clip.speaker}` : ''}
+                          </p>
+                          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start">
+                            <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-black sm:w-48">
+                              <div className="relative pb-[56.25%]">
+                                {playback.embedUrl ? (
+                                  <iframe
+                                    title={`Preview for ${clip.parentTitle || parent.parentTitle}`}
+                                    src={playback.embedUrl}
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowFullScreen
+                                    loading="lazy"
+                                    className="absolute inset-0 h-full w-full"
+                                  />
+                                ) : thumbnailUrl ? (
+                                  <Image
+                                    src={thumbnailUrl}
+                                    alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
+                                    fill
+                                    sizes="(max-width: 640px) 100vw, 192px"
+                                    className="object-cover"
+                                    priority={false}
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-400">
+                                    Preview unavailable
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="min-w-0 flex-1 text-sm text-zinc-100">
                               {clip.excerpt ? (
-                                <p className="mt-1 line-clamp-3 text-sm text-zinc-100">{clip.excerpt}</p>
+                                <p className="line-clamp-4">{clip.excerpt}</p>
                               ) : (
-                                <p className="mt-1 line-clamp-3 text-sm text-zinc-300">
+                                <p className="text-zinc-300">
                                   Click play to jump straight to this segment.
                                 </p>
                               )}

@@ -17,10 +17,20 @@ export function ChatMessageActions({
   ...props
 }: ChatMessageActionsProps) {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 })
+  const content =
+    typeof message.content === 'string'
+      ? message.content
+      : (() => {
+          try {
+            return JSON.stringify(message.content)
+          } catch {
+            return String(message.content)
+          }
+        })()
 
   const onCopy = () => {
     if (isCopied) return
-    copyToClipboard(message.content)
+    copyToClipboard(content)
   }
 
   return (

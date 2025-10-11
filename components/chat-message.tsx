@@ -22,15 +22,19 @@ export interface ChatMessageProps {
   message: Message;
 }
 
+function coerceMessageContent(input: unknown): string {
+  if (input == null) return ''
+  if (typeof input === 'string') return input
+  try {
+    return JSON.stringify(input)
+  } catch {
+    return String(input)
+  }
+}
+
 export function ChatMessage({ message, ...props }: ChatMessageProps) {
   const [isMobile, setIsMobile] = useState(false);
-  const content = typeof message.content === 'string' ? message.content : (() => {
-    try {
-      return JSON.stringify(message.content)
-    } catch {
-      return String(message.content)
-    }
-  })()
+  const content = coerceMessageContent(message.content)
   
   useEffect(() => {
     const handleResize = () => {
@@ -120,15 +124,28 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
         )}
       </div>
       <div className={cn("flex-1 px-1 ml-4 space-y-2 overflow-hidden", styles.chatMessageContent)}>
-        <MemoizedReactMarkdown
-          className={`prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 
+        {(() => {
+          try {
+            return (
+              <MemoizedReactMarkdown
+                className={`prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 
           ${isMobile ? styles.customMarkdownFontMobile : styles.customMarkdownFont}`}
-          remarkPlugins={[remarkGfm, remarkMath]}
-          components={components}
-        >
-          {content}
-        </MemoizedReactMarkdown>
-        <ChatMessageActions message={message} />
+                remarkPlugins={[remarkGfm, remarkMath]}
+                components={components}
+              >
+                {content}
+              </MemoizedReactMarkdown>
+            )
+          } catch (error) {
+            console.error('chat: markdown render error', error, content)
+            return (
+              <div className="whitespace-pre-wrap break-words text-sm text-zinc-100">
+                {content}
+              </div>
+            )
+          }
+        })()}
+        <ChatMessageActions message={{ ...message, content }} />
       </div>
     </div>
   );

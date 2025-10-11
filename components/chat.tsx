@@ -305,7 +305,16 @@ export function Chat({
       diagnostics: null
     };
     setMessages(prevMessages => [...prevMessages, newUserMessage]);
-    append(newUserMessage);
+    try {
+      await append(newUserMessage);
+    } catch (error) {
+      console.error('chat: failed to append message', error)
+      toast.error('Unable to reach the chat service. Please try again.')
+      setMessages((prev) => (prev.length ? prev.slice(0, -1) : prev))
+      setIsProcessingQuery(false)
+      setCurrentDiagnostics(null)
+      return
+    }
     setLastMessageRole('user');
     // Hide the QuestionsOverlayLeftPanel on user input
     setShowLeftPanelOverlay(false);
@@ -420,6 +429,7 @@ export function Chat({
       },
       onError: (error) => {
         console.error('Chat error:', error);
+        toast.error('The chat service encountered an error. Please try again.');
         setIsProcessingQuery(false);
         setCurrentDiagnostics(null);
       },

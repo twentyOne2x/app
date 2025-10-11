@@ -17,15 +17,22 @@ export async function POST(req: Request) {
       ? json.entryProfileCode.trim()
       : undefined
   const session = await auth()
-  if (!session?.user?.id) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-  const userId = session.user.id
+  const userId = session?.user?.id ?? null
 
   if (previewToken) configuration.apiKey = previewToken
 
   const mostRecentMessageContent = messages?.length > 0 ? messages[messages.length - 1].content : 'No messages yet.'
-  const backendChatUrl = `${process.env.REACT_APP_BACKEND_URL}/chat`
+  const backendBaseUrl =
+    process.env.RAG_SERVICE_URL ??
+    process.env.NEXT_PUBLIC_RAG_API_URL ??
+    process.env.REACT_APP_BACKEND_URL
+
+  if (!backendBaseUrl) {
+    console.error('chat-route: missing RAG backend URL environment variable')
+    return new Response('Backend service unavailable', { status: 500 })
+  }
+
+  const backendChatUrl = `${backendBaseUrl.replace(/\/$/, '')}/chat`
 
   let chatResponse: Response
   try {
@@ -39,10 +46,15 @@ export async function POST(req: Request) {
         channel_filter: channelFilter
       })
     })
-  } catch { return new Response('Internal Server Error', { status: 500 }) }
+  } catch (error) {
+    console.error('chat-route: network error calling backend', error)
+    return new Response('Failed to reach backend service', { status: 502 })
+  }
 
   if (!chatResponse.ok) {
-    return new Response(`Error from backend service: ${chatResponse.statusText}`, { status: chatResponse.status })
+    const errorText = await chatResponse.text().catch(() => chatResponse.statusText)
+    console.error('chat-route: backend responded with error', chatResponse.status, errorText)
+    return new Response(`Backend error: ${errorText}`, { status: chatResponse.status })
   }
 
   const responseBody = await chatResponse.json()
@@ -82,10 +94,15 @@ export async function POST(req: Request) {
     entryProfileCode
   }
 
-  try {
-    await kv.hmset(`chat:${id}`, payload)
-    await kv.zadd(`user:chat:${session.user.id}`, { score: createdAt, member: `chat:${id}` })
-  } catch { return new Response('Internal Server Error', { status: 500 }) }
+  if (userId) {
+    try {
+      await kv.hmset(`chat:${id}`, payload)
+      await kv.zadd(`user:chat:${userId}`, { score: createdAt, member: `chat:${id}` })
+    } catch (error) {
+      console.error('chat-route: failed to persist chat metadata', error)
+      return new Response('Failed to persist chat', { status: 500 })
+    }
+  }
 
   const responsePayload = {
     id: payload.id,

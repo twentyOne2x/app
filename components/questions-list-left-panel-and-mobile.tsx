@@ -9,7 +9,7 @@ import { useEntryProfile } from '@/components/entry-profile-context'
 import { getDefaultQuestions } from '@/lib/entry-profiles'
 
 interface QuestionListProps {
-  onSubmit: (value: string) => void; // Function to submit the chat input
+  onSubmit: (value: string, options?: { newChat?: boolean }) => void; // Function to submit the chat input
   showOverlay: boolean; // Add this prop to control the visibility
 }
 
@@ -95,7 +95,7 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
   }, [selectRandomQuestions]);
 
   const handleQuestionSelect = (question: string) => {
-    onSubmit(question); // Call the onSubmit function with the selected question
+    onSubmit(question, { newChat: true });
   };
 
   // ♻️ {/* Recycle emoji */}

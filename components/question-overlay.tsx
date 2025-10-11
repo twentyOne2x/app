@@ -4,12 +4,12 @@ import { QuestionListLeftPanel } from '@/components/questions-list-left-panel-an
 import styles from './QuestionsOverlay.module.css'; // Import the CSS module
 
 export interface QuestionsOverlayProps {
-  onSubmit: (value: string) => void; // Function to submit the chat input
+  onSubmit: (value: string, options?: { newChat?: boolean }) => void; // Function to submit the chat input
   showOverlay: boolean; // Add this prop to control the visibility
 }
 
 export interface QuestionsOverlayPropsLeftPanel {
-  onSubmit: (value: string) => void; // Function to submit the chat input
+  onSubmit: (value: string, options?: { newChat?: boolean }) => void; // Function to submit the chat input
   showOverlay: boolean; // Add this prop to control the visibility
 }
 
@@ -31,4 +31,3 @@ export const QuestionsOverlayLeftPanel: React.FC<QuestionsOverlayPropsLeftPanel>
     </div>
   );
 };
-

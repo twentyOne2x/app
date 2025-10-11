@@ -18,7 +18,7 @@ import styles from './ChatListContainer.module.css'; // Import the CSS module
 
 export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {
-  onSubmit: (value: string) => Promise<void>
+  onSubmit: (value: string, options?: { newChat?: boolean }) => Promise<void>
   isLoading: boolean
   // Add new properties for the state-setting functions
   setMessages: (messages: MetadataMessage[]) => void;

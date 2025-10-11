@@ -23,6 +23,7 @@ import { QuestionsOverlay, QuestionsOverlayLeftPanel } from './question-overlay'
 import {
   extractSourcesBlock,
   parseMetadata,
+  normalizeMetadataEntries,
   type ParsedMetadataEntryV2,
   type ClipItemV2
 } from '@/lib/utils';
@@ -30,8 +31,9 @@ import { coerceContent, isRenderableMessage } from '@/lib/coerce-content';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
-import { DEFAULT_PIPELINE, normalizeProgress } from '@/lib/progress-display';
+import { DEFAULT_PIPELINE, DEFAULT_STAGE_ORDER, normalizeProgress } from '@/lib/progress-display';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
+import { useRouter } from 'next/navigation'
 
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
@@ -140,9 +142,14 @@ export function Chat({
     null
   )
   const entryProfile = useEntryProfile();
+  const sanitizedStructuredMetadata = useMemo(
+    () => normalizeMetadataEntries(structured_metadata),
+    [structured_metadata]
+  )
+  const router = useRouter();
 
   // State to hold structured metadata entries
-  const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(structured_metadata);
+  const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(sanitizedStructuredMetadata);
   // State to control the visibility of "Top Sources" title
   const [showTopSources, setShowTopSources] = useState(false);
   const [newMessages, setMessages] = useState(() => {
@@ -571,6 +578,63 @@ export function Chat({
     bundleHandle.closeBundle()
   }, [bundleHandle])
 
+  const resetConversationState = useCallback(
+    (options?: { keepInput?: boolean; silent?: boolean }) => {
+      currentStreamAbortRef.current?.abort()
+      currentStreamAbortRef.current = null
+      setIsProcessingQuery(false)
+      setCurrentDiagnostics(null)
+      setLiveProgress([])
+      setSelectedClip(null)
+      setIsModalOpen(false)
+      setStructuredMetadataEntries([])
+      setShowTopSources(false)
+      setMessages([])
+      setLastMessageRole('assistant')
+      if (!options?.silent) {
+        setShowMiddlePanelOverlay(true)
+        setShowEmptyScreen(true)
+        setShowChatList(false)
+        setFadeOutCompleted(true)
+      }
+      setMetadataContainerVisible(false)
+      setShowLeftPanelOverlay(false)
+      setBundleDrawerOpen(false)
+      const hasBundleItems = Array.isArray(bundleHandle.state?.items) && bundleHandle.state.items.length > 0
+      if (hasBundleItems || clipSelection.selectionCount > 0) {
+        bundleHandle.clearBundle()
+      }
+      if (!options?.keepInput) {
+        setInput('')
+      }
+    },
+    [
+      bundleHandle,
+      bundleHandle.state,
+      clipSelection.selectionCount,
+      setSelectedClip,
+      setIsModalOpen,
+      setStructuredMetadataEntries,
+      setShowTopSources,
+      setMessages,
+      setLastMessageRole,
+      setShowMiddlePanelOverlay,
+      setShowEmptyScreen,
+      setShowChatList,
+      setFadeOutCompleted,
+      setMetadataContainerVisible,
+      setShowLeftPanelOverlay,
+      setBundleDrawerOpen,
+      setInput
+    ]
+  )
+
+  const handleClearChat = useCallback(() => {
+    resetConversationState()
+    router.refresh()
+    router.push('/')
+  }, [resetConversationState, router])
+
   // Effect to toggle visibility of metadataContainer based on structuredMetadataEntries
   useEffect(() => {
     let timer1: number | null = null;
@@ -787,12 +851,14 @@ export function Chat({
         }
       }
 
-      if (metadata?.length) {
+      const normalizedMetadata = metadata?.length ? normalizeMetadataEntries(metadata) : []
+
+      if (normalizedMetadata.length) {
         console.debug('chat: structured metadata received', {
           traceId,
-          count: metadata.length
+          count: normalizedMetadata.length
         })
-        setStructuredMetadataEntries(metadata)
+        setStructuredMetadataEntries(normalizedMetadata)
       } else {
         console.debug('chat: no structured metadata present', {
           traceId
@@ -829,7 +895,7 @@ export function Chat({
           nanoid(),
         role: safeRole,
         content: sanitizedContent,
-        structured_metadata: metadata ?? [],
+        structured_metadata: normalizedMetadata,
         diagnostics
       }
 
@@ -1008,15 +1074,19 @@ export function Chat({
                 structuredMetadata = parseMetadata(eventData.formatted_metadata, String(eventData.response ?? ''))
               }
 
+              const normalizedStructuredMetadata = structuredMetadata.length
+                ? normalizeMetadataEntries(structuredMetadata)
+                : []
+
               const finalData: Record<string, unknown> = {
                 response: eventData.response,
                 message: {
                   id: (eventData as { message_id?: string }).message_id ?? undefined,
                   role: 'assistant',
                   content: eventData.response,
-                  structured_metadata: structuredMetadata
+                  structured_metadata: normalizedStructuredMetadata
                 },
-                structured_metadata: structuredMetadata,
+                structured_metadata: normalizedStructuredMetadata,
                 diagnostics: resultDiagnostics
               }
 
@@ -1024,7 +1094,7 @@ export function Chat({
               console.debug('chat: streaming result received', {
                 traceId,
                 hasDiagnostics: Boolean(resultDiagnostics),
-                metadataCount: structuredMetadata.length
+                metadataCount: normalizedStructuredMetadata.length
               })
 
               finalPayload = finalData
@@ -1148,16 +1218,21 @@ export function Chat({
     // Apply structured metadata
     setMessages(parsedMessages);
     setLastMessageRole('assistant');
-    setStructuredMetadataEntries(metadata);
-  }, [processResponseContent, stripSourcesBlock, setMessages, setLastMessageRole, setStructuredMetadataEntries]);
+    setStructuredMetadataEntries(normalizeMetadataEntries(metadata));
+  }, [
+    processResponseContent,
+    stripSourcesBlock,
+    setMessages,
+    setLastMessageRole,
+    setStructuredMetadataEntries
+  ]);
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
 
     const hasInitialMessages = Array.isArray(initialMessages) && initialMessages.length > 0
-    const hasStructuredMetadata =
-      Array.isArray(structured_metadata) && structured_metadata.length > 0
+    const hasStructuredMetadata = sanitizedStructuredMetadata.length > 0
 
     if (hasInitialMessages && hasStructuredMetadata) {
       const messageSignature = initialMessages
@@ -1168,7 +1243,7 @@ export function Chat({
           return identifier
         })
         .join('|')
-      const metadataSignature = structured_metadata
+      const metadataSignature = sanitizedStructuredMetadata
         .map((entry) => {
           if (!entry || typeof entry !== 'object') {
             return String(entry)
@@ -1210,10 +1285,10 @@ export function Chat({
       if (signature !== initialPayloadSignatureRef.current) {
         console.debug('chat: applying initial payload', {
           messageCount: initialMessages.length,
-          metadataCount: structured_metadata.length,
+          metadataCount: sanitizedStructuredMetadata.length,
           signature
         })
-        parseMessagesAndMetadata(initialMessages, structured_metadata)
+        parseMessagesAndMetadata(initialMessages, sanitizedStructuredMetadata)
         initialPayloadSignatureRef.current = signature
       } else {
         console.debug('chat: initial payload already processed, skipping reapply', { signature })
@@ -1229,11 +1304,11 @@ export function Chat({
     if (shared_chat) {
       setShowChatList(true);
     }
-  }, [shared_chat, initialMessages, structured_metadata, parseMessagesAndMetadata, id]);
+  }, [shared_chat, initialMessages, sanitizedStructuredMetadata, parseMessagesAndMetadata, id]);
 
   useEffect(() => {
     const source =
-      structuredMetadataEntries.length > 0 ? structuredMetadataEntries : structured_metadata
+      structuredMetadataEntries.length > 0 ? structuredMetadataEntries : sanitizedStructuredMetadata
     if (!Array.isArray(source) || !source.length) return
 
     const collected = source
@@ -1282,7 +1357,7 @@ export function Chat({
 
       return sorted
     })
-  }, [structuredMetadataEntries, structured_metadata])
+  }, [structuredMetadataEntries, sanitizedStructuredMetadata])
 
   useEffect(() => {
     const handleResize = () => {
@@ -1319,13 +1394,19 @@ export function Chat({
 
   // Function to handle user input submission
   const handleUserInputSubmit = useCallback(
-    async (value: string) => {
+    async (value: string, options?: { newChat?: boolean }) => {
     const rawInput = typeof value === 'string' ? value : coerceContent(value)
     const trimmedInput = rawInput.trim()
     if (!trimmedInput) {
       console.debug('chat: ignoring empty user submission')
       return
     }
+
+    if (options?.newChat) {
+      resetConversationState({ keepInput: true, silent: true })
+    }
+
+    const history = options?.newChat ? [] : newMessages
 
     console.debug('chat: request pipeline initiated', {
       incomingLength: trimmedInput.length,
@@ -1371,7 +1452,7 @@ export function Chat({
       structured_metadata: [],
       diagnostics: null
     };
-    const nextMessages = [...newMessages, newUserMessage];
+    const nextMessages = [...history, newUserMessage];
     setMessages(nextMessages);
     console.debug('chat: user message appended', {
       traceId: messageId,
@@ -1440,6 +1521,7 @@ export function Chat({
   },
   [
     newMessages,
+    resetConversationState,
     setShowMiddlePanelOverlay,
     setShowEmptyScreen,
     setShowChatList,
@@ -1453,6 +1535,11 @@ export function Chat({
     setFadeOutCompleted,
     setLiveProgress
   ]);
+
+  const handleSuggestionSubmit = useCallback(
+    (prompt: string) => handleUserInputSubmit(prompt, { newChat: true }),
+    [handleUserInputSubmit]
+  )
   
   // Add an animation end handler
   const onAnimationEnd = () => {
@@ -1536,16 +1623,31 @@ export function Chat({
       return `▍ Working… ${initialLabel}\n\nWaiting for backend progress…`
     }
 
-    const pipelineKeys = new Set(DEFAULT_PIPELINE.map((stage) => stage.key))
-    const pipelineStages = normalized.filter((stage) => pipelineKeys.has(stage.key))
-    const stagesForSummary = pipelineStages.length ? pipelineStages : normalized
-    const plannedTotal = DEFAULT_PIPELINE.length
-    const total = plannedTotal || stagesForSummary.length
-    const completed = stagesForSummary.filter((stage) => stage.status === 'completed' || stage.status === 'skipped' || stage.status === 'error').length
+    const stagesByKey = new Map<string, (typeof normalized)[number]>()
+    normalized.forEach((stage) => {
+      if (stage?.key) stagesByKey.set(stage.key, stage)
+    })
+
+    const finishedStatuses = new Set(['completed', 'skipped', 'error'])
+    const plannedTotal = DEFAULT_STAGE_ORDER.length
+    const total = plannedTotal || stagesByKey.size || normalized.length
+
+    const completed = DEFAULT_STAGE_ORDER.reduce((count, key) => {
+      const stage = stagesByKey.get(key)
+      if (!stage) return count
+      return finishedStatuses.has(stage.status) ? count + 1 : count
+    }, 0)
+
+    const currentKey =
+      DEFAULT_STAGE_ORDER.find((key) => stagesByKey.get(key)?.status === 'running') ??
+      DEFAULT_STAGE_ORDER.find((key) => stagesByKey.get(key)?.status === 'pending') ??
+      DEFAULT_STAGE_ORDER[DEFAULT_STAGE_ORDER.length - 1]
+
     const currentStage =
-      stagesForSummary.find((stage) => stage.status === 'running') ??
-      stagesForSummary.find((stage) => stage.status === 'pending') ??
-      stagesForSummary[stagesForSummary.length - 1]
+      (currentKey ? stagesByKey.get(currentKey) : undefined) ??
+      normalized.find((stage) => stage.status === 'running') ??
+      normalized.find((stage) => stage.status === 'pending') ??
+      normalized[normalized.length - 1]
 
     const activeLabel = currentStage?.label ?? 'Processing'
     const statusLine = total > 0 ? `Progress ${Math.min(completed, total)}/${total}` : 'Tracking progress…'
@@ -1572,7 +1674,7 @@ export function Chat({
             <div className={leftPanelOverlayClass} onAnimationEnd={onAnimationEnd}>
               {/* Render conditionally based on fadeOutCompleted and shared_chat */}
               {!shared_chat && (showLeftPanelOverlay || !fadeOutCompleted) ? (
-                <QuestionsOverlayLeftPanel onSubmit={handleUserInputSubmit} showOverlay={showLeftPanelOverlay} />
+                <QuestionsOverlayLeftPanel onSubmit={handleSuggestionSubmit} showOverlay={showLeftPanelOverlay} />
               ) : null}
             </div>
             {!shared_chat && !isMobile ? (
@@ -1605,13 +1707,13 @@ export function Chat({
             {/* Conditional rendering for EmptyScreen */}
             {!shared_chat && !showChatList && showEmptyScreen && (
               <div className={QuestionsOverlayStyles.fadeIn}>
-                <EmptyScreen onSubmit={handleUserInputSubmit} showOverlay={showMiddlePanelOverlay} isVisible={showEmptyScreen} />
+                <EmptyScreen onSubmit={handleSuggestionSubmit} showOverlay={showMiddlePanelOverlay} isVisible={showEmptyScreen} />
               </div>
             )}
 
             {newMessages.length === 0 && !isMobile && showQuestionsOverlay && (
               <div className={`${overlayClass} ${showMiddlePanelOverlay ? QuestionsOverlayStyles.fadeIn : QuestionsOverlayStyles.fadeOut}`}>
-                <QuestionsOverlay onSubmit={handleUserInputSubmit} showOverlay={showMiddlePanelOverlay} />
+                <QuestionsOverlay onSubmit={handleSuggestionSubmit} showOverlay={showMiddlePanelOverlay} />
               </div>
             )}
           </div>
@@ -1644,6 +1746,7 @@ export function Chat({
                 setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
                 setShowEmptyScreen={setShowEmptyScreen}
                 setShowChatList={setShowChatList}
+                onClearChat={handleClearChat}
               />
             </div>
           )}

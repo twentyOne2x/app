@@ -10,7 +10,6 @@ import {
   TooltipContent,
   TooltipTrigger
 } from '@/components/ui/tooltip'
-import { useRouter } from 'next/navigation'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 
 const StyledClipLoader = styled(ClipLoader)`
@@ -36,6 +35,7 @@ export interface ChatPanelProps {
   setShowMiddlePanelOverlay: (value: boolean) => void;
   setShowEmptyScreen: (value: boolean) => void;
   setShowChatList: (value: boolean) => void;
+  onClearChat?: () => void;
 }
 
 export function ChatPanel({
@@ -53,10 +53,9 @@ export function ChatPanel({
   setShowLeftPanelOverlay,
   setShowMiddlePanelOverlay,
   setShowEmptyScreen,
-  setShowChatList
+  setShowChatList,
+  onClearChat
 }: ChatPanelProps) {
-  const router = useRouter();
-
   // Step 1: Create a state variable to track whether the backend response has been received
   const [responseReceived, setResponseReceived] = useState(false);
 
@@ -108,19 +107,7 @@ export function ChatPanel({
                 onClick={e => {
                   e.preventDefault();
                   console.info('chat-panel: new chat requested via broom control', { currentInputLength: input.length });
-                  setMessages([]);
-                  setStructuredMetadataEntries([]);
-                  setLastMessageRole('');
-                  setInput('');
-                  setShowTopSources(false);
-                  setFadeOutCompleted(true);
-                  setMetadataContainerVisible(false);
-                  setShowLeftPanelOverlay(false);
-                  setShowMiddlePanelOverlay(true);
-                  setShowEmptyScreen(true);
-                  setShowChatList(false);
-                  router.refresh();
-                  router.push('/');
+                  onClearChat?.();
                 }}
                 className={styles.broomButton}
               >

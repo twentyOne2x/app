@@ -9,6 +9,7 @@ export interface DisplayStage {
 }
 
 export declare const DEFAULT_PIPELINE: DisplayStage[]
+export declare const DEFAULT_STAGE_ORDER: string[]
 
 export declare function humanizeStage(key: string): string
 

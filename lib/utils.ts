@@ -7,6 +7,23 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const NAME_ALIASES: Record<string, string> = {
+  cupsy: 'Cupsey',
+  hyperliquid: 'Hyper Liquid'
+}
+
+function aliasKey(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+export function applyNameAlias(value?: string | null): string | undefined {
+  if (!value) return value ?? undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const normalized = NAME_ALIASES[aliasKey(trimmed)]
+  return (normalized ?? trimmed) || undefined
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7
@@ -194,7 +211,7 @@ export function parseMetadata(
     const url = titleToUrl[row.title]
     clips.push({
       parentTitle: row.title,
-      channel: row.channel,
+      channel: applyNameAlias(row.channel) ?? row.channel,
       date: row.date,
       url,
       score: row.score,
@@ -202,7 +219,7 @@ export function parseMetadata(
       endHMS: row.end_hms,
       startS,
       endS,
-      speaker: row.speaker,
+      speaker: applyNameAlias(row.speaker) ?? row.speaker,
       excerpt: row.excerpt
     })
   }
@@ -244,5 +261,21 @@ export function parseMetadata(
     return String(b.date ?? '') < String(a.date ?? '') ? -1 : 1
   })
 
-  return parents
+  return normalizeMetadataEntries(parents)
+}
+
+export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): ParsedMetadataEntryV2[] {
+  return entries.map((entry) => {
+    const normalizedChannel = applyNameAlias(entry.channel) ?? entry.channel
+    const normalizedClips = entry.clips.map((clip) => ({
+      ...clip,
+      channel: applyNameAlias(clip.channel) ?? clip.channel,
+      speaker: applyNameAlias(clip.speaker) ?? clip.speaker
+    }))
+    return {
+      ...entry,
+      channel: normalizedChannel,
+      clips: normalizedClips
+    }
+  })
 }

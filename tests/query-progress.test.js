@@ -24,18 +24,21 @@ test('normalizeProgress maps backend entries into display stages', () => {
   assert.ok(retrieveStage)
   assert.equal(retrieveStage.status, 'running')
   assert.equal(retrieveStage.durationMs, 120.4)
-  assert.equal(retrieveStage.label, 'Finding likely sources (vector retrieval) (retrieve)')
+  assert.equal(retrieveStage.label, 'Finding likely sources (vector retrieval)')
+  assert.equal(retrieveStage.meta?.stage_key, 'retrieve')
 
   const rerankStage = stages.find((stage) => stage.key === 'rerank_cross_encoder')
   assert.ok(rerankStage)
   assert.equal(rerankStage.status, 'completed')
   assert.equal(rerankStage.durationMs, 52)
-  assert.equal(rerankStage.label, 'Re-scoring sources (cross-encoder rerank) (rerank_cross_encoder)')
+  assert.equal(rerankStage.label, 'Re-scoring sources (cross-encoder rerank)')
+  assert.equal(rerankStage.meta?.stage_key, 'rerank_cross_encoder')
 
   const reviewStage = stages.find((stage) => stage.key === 'review_docs')
   assert.ok(reviewStage)
   assert.equal(reviewStage.status, 'skipped')
-  assert.equal(reviewStage.label, 'Cleaning and enriching notes (post-processing pipeline) (review_docs)')
+  assert.equal(reviewStage.label, 'Cleaning and enriching notes (post-processing pipeline)')
+  assert.equal(reviewStage.meta?.stage_key, 'review_docs')
 
   const stitchStage = stages.find((stage) => stage.key === 'stitch')
   assert.ok(stitchStage)
@@ -44,7 +47,8 @@ test('normalizeProgress maps backend entries into display stages', () => {
   const fallbackStage = stages.find((stage) => stage.key === 'fallback')
   assert.ok(fallbackStage)
   assert.equal(fallbackStage.status, 'error')
-  assert.equal(fallbackStage.label, 'Fallback strategy (fallback)')
+  assert.equal(fallbackStage.label, 'Fallback strategy')
+  assert.equal(fallbackStage.meta?.stage_key, 'fallback')
 })
 
 test('normalizeProgress handles empty or missing progress', () => {

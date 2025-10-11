@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { IconCheck, IconCopy } from '@/components/ui/icons'
 import { useCopyToClipboard } from '@/lib/hooks/use-copy-to-clipboard'
 import { cn } from '@/lib/utils'
+import { coerceContent } from '@/lib/coerce-content'
 
 interface ChatMessageActionsProps extends React.ComponentProps<'div'> {
   message: Message
@@ -17,19 +18,19 @@ export function ChatMessageActions({
   ...props
 }: ChatMessageActionsProps) {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 })
-  const content =
-    typeof message.content === 'string'
-      ? message.content
-      : (() => {
-          try {
-            return JSON.stringify(message.content)
-          } catch {
-            return String(message.content)
-          }
-        })()
+  const content = coerceContent(message.content)
 
   const onCopy = () => {
-    if (isCopied) return
+    if (isCopied) {
+      console.debug('chat-message-actions: copy skipped because content already copied')
+      return
+    }
+    const messageId =
+      message && typeof message === 'object' && 'id' in message ? (message as { id?: string }).id ?? null : null
+    console.debug('chat-message-actions: copying message content', {
+      messageId,
+      length: content.length
+    })
     copyToClipboard(content)
   }
 

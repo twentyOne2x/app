@@ -26,6 +26,7 @@ import {
   type ParsedMetadataEntryV2,
   type ClipItemV2
 } from '@/lib/utils';
+import { coerceContent, isRenderableMessage } from '@/lib/coerce-content';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
@@ -39,16 +40,6 @@ export interface MetadataMessage extends Message {
 }
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
-
-function coerceContent(input: unknown): string {
-  if (input == null) return ''
-  if (typeof input === 'string') return input
-  try {
-    return JSON.stringify(input)
-  } catch {
-    return String(input)
-  }
-}
 
 async function extractErrorMessage(response: Response): Promise<string | null> {
   try {
@@ -160,7 +151,19 @@ export function Chat({
   const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(structured_metadata);
   // State to control the visibility of "Top Sources" title
   const [showTopSources, setShowTopSources] = useState(false);
-  const [newMessages, setMessages] = useState(initialMessages || []);
+  const [newMessages, setMessages] = useState(() => {
+    const seed = (Array.isArray(initialMessages)
+      ? initialMessages.filter((message) => {
+          const renderable = isRenderableMessage(message)
+          if (!renderable) {
+            console.warn('chat:init skipping non-renderable message', message)
+          }
+          return renderable
+        })
+      : []) as MetadataMessage[]
+    console.debug('chat:init messages', { count: seed.length, shared_chat })
+    return seed
+  });
   const [lastMessageRole, setLastMessageRole] = useState('assistant');
 
   // Initialize a state to control the initial render of QuestionsOverlay
@@ -180,6 +183,7 @@ export function Chat({
   const [showEmptyScreen, setShowEmptyScreen] = useState(true);
   const [showChatList, setShowChatList] = useState(false); // New state for ChatList visibility
   const [isMobile, setIsMobile] = useState(false);
+  const initialPayloadSignatureRef = useRef<string | null>(null)
 
   // State for Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -209,6 +213,43 @@ export function Chat({
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    console.debug('chat: messages state updated', newMessages)
+  }, [newMessages])
+
+  useEffect(() => {
+    console.debug('chat: structured metadata updated', structuredMetadataEntries)
+  }, [structuredMetadataEntries])
+
+  useEffect(() => {
+    if (!liveProgress.length) return
+    console.debug('chat: live progress update', liveProgress)
+  }, [liveProgress])
+
+  useEffect(() => {
+    console.debug('chat: processing state changed', {
+      isProcessingQuery,
+      progressEvents: liveProgress.length
+    })
+  }, [isProcessingQuery, liveProgress])
+
+  useEffect(() => {
+    if (!currentDiagnostics) {
+      console.debug('chat: diagnostics cleared')
+      return
+    }
+    console.debug('chat: diagnostics updated', currentDiagnostics)
+  }, [currentDiagnostics])
+
+  useEffect(() => {
+    console.debug('chat: ui visibility toggled', {
+      showEmptyScreen,
+      showChatList,
+      showMiddlePanelOverlay,
+      showLeftPanelOverlay
+    })
+  }, [showEmptyScreen, showChatList, showMiddlePanelOverlay, showLeftPanelOverlay])
 
   useEffect(() => {
     channelDefaultsAppliedRef.current = null
@@ -377,6 +418,15 @@ export function Chat({
     return availableChannels.filter((channel) => !excludedSet.has(channel))
   }, [availableChannels, excludedChannelNames])
 
+  useEffect(() => {
+    if (!availableChannels.length) return
+    console.debug('chat: channel catalog updated', {
+      totalAvailable: availableChannels.length,
+      selected: selectedChannelNames,
+      excluded: excludedChannelNames
+    })
+  }, [availableChannels, selectedChannelNames, excludedChannelNames])
+
   const channelFilterPayload = useMemo<ChannelFilterPayload | undefined>(() => {
     if (!availableChannels.length) return undefined
     if (selectedChannelNames.length === 0) {
@@ -504,6 +554,7 @@ export function Chat({
   // Function to parse messages and apply structured metadata
   const parseMessagesAndMetadata = useCallback(
     (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
+      console.debug('chat: parseMessagesAndMetadata invoked', { messages, metadata })
       const parsedMessages = messages.map((message) => {
         if (message.role === 'assistant') {
           const raw = coerceContent(message.content)
@@ -533,23 +584,64 @@ export function Chat({
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
-    
-    // Check if initialMessages and structured_metadata are not empty and apply parsing
-    if (
-      initialMessages &&
-      initialMessages.length > 0 &&
-      structured_metadata &&
-      structured_metadata.length > 0
-    ) {
-      // useEffect in shared chat
-      parseMessagesAndMetadata(initialMessages, structured_metadata);
+
+    const hasInitialMessages = Array.isArray(initialMessages) && initialMessages.length > 0
+    const hasStructuredMetadata =
+      Array.isArray(structured_metadata) && structured_metadata.length > 0
+
+    if (hasInitialMessages && hasStructuredMetadata) {
+      const messageSignature = initialMessages
+        .map((message) => {
+          const identifier =
+            (message as { id?: string }).id ??
+            `${message.role ?? 'unknown'}:${coerceContent(message.content).slice(0, 32)}`
+          return identifier
+        })
+        .join('|')
+      const metadataSignature = structured_metadata
+        .map((entry) => {
+          if (entry && typeof entry === 'object') {
+            const anyEntry = entry as Record<string, unknown>
+            const identifier =
+              (typeof anyEntry.id === 'string' && anyEntry.id) ||
+              (typeof anyEntry.clip_id === 'string' && anyEntry.clip_id) ||
+              (typeof anyEntry.url === 'string' && anyEntry.url)
+            if (identifier) return identifier
+            try {
+              return JSON.stringify(anyEntry).slice(0, 64)
+            } catch (error) {
+              console.warn('chat: failed to serialize structured metadata for signature', error, anyEntry)
+              return String(anyEntry)
+            }
+          }
+          return String(entry)
+        })
+        .join('|')
+      const signature = `${shared_chat ? 'shared' : 'standard'}:${id ?? 'local'}:${messageSignature}:${metadataSignature}`
+
+      if (signature !== initialPayloadSignatureRef.current) {
+        console.debug('chat: applying initial payload', {
+          messageCount: initialMessages.length,
+          metadataCount: structured_metadata.length,
+          signature
+        })
+        parseMessagesAndMetadata(initialMessages, structured_metadata)
+        initialPayloadSignatureRef.current = signature
+      } else {
+        console.debug('chat: initial payload already processed, skipping reapply', { signature })
+      }
+    } else {
+      console.debug('chat: initial payload skipped', {
+        hasInitialMessages,
+        hasStructuredMetadata
+      })
     }
 
     // Set showChatList to true when shared_chat is true
     if (shared_chat) {
       setShowChatList(true);
     }
-  }, [shared_chat, initialMessages, structured_metadata, parseMessagesAndMetadata]);
+  }, [shared_chat, initialMessages, structured_metadata, parseMessagesAndMetadata, id]);
 
   useEffect(() => {
     if (!structured_metadata?.length && structuredMetadataEntries.length === 0) return;
@@ -572,6 +664,10 @@ export function Chat({
 
     // Set the initial value
     handleResize();
+    console.debug('chat: initial viewport evaluated', {
+      width: window.innerWidth,
+      isMobile: window.innerWidth <= 768
+    })
 
     // Listen for window resize events
     window.addEventListener('resize', handleResize);
@@ -579,6 +675,10 @@ export function Chat({
     // Clean up
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    console.debug('chat: mobile breakpoint toggled', { isMobile })
+  }, [isMobile])
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
@@ -593,6 +693,13 @@ export function Chat({
   // Function to handle user input submission
   const handleUserInputSubmit = useCallback(
     async (value: string) => {
+    const rawInput = typeof value === 'string' ? value : coerceContent(value)
+    const trimmedInput = rawInput.trim()
+    if (!trimmedInput) {
+      console.debug('chat: ignoring empty user submission')
+      return
+    }
+
     // Fade out EmptyScreen and QuestionsOverlay
     setShowMiddlePanelOverlay(false);
 
@@ -611,9 +718,14 @@ export function Chat({
     setLiveProgress([]);
   
     const messageId = nanoid();
+    console.debug('chat: user submitted prompt', {
+      messageId,
+      length: trimmedInput.length,
+      preview: trimmedInput.slice(0, 160)
+    })
     const newUserMessage: MetadataMessage = {
       id: messageId,
-      content: value,
+      content: trimmedInput,
       role: 'user',
       structured_metadata: [],
       diagnostics: null
@@ -641,9 +753,14 @@ export function Chat({
     } finally {
       setIsProcessingQuery(false);
       console.debug('chat: query cycle complete', {
-        backendPayload,
-        hasMessages: newMessages.length,
-        finalDiagnostics: currentDiagnostics
+        backendResult:
+          backendPayload &&
+          typeof backendPayload === 'object' &&
+          backendPayload &&
+          'error' in (backendPayload as Record<string, unknown>)
+            ? 'error'
+            : 'success',
+        submittedMessageId: messageId
       })
     }
 

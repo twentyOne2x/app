@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useState } from 'react';
+import React, { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import styled from '@emotion/styled';
 import { ClipLoader } from 'react-spinners'; // Import the desired spinner
 
@@ -60,6 +60,15 @@ export function ChatPanel({
   // Step 1: Create a state variable to track whether the backend response has been received
   const [responseReceived, setResponseReceived] = useState(false);
 
+  useEffect(() => {
+    console.debug('chat-panel: loading state changed', { isLoading })
+  }, [isLoading])
+
+  useEffect(() => {
+    if (!responseReceived) return
+    console.debug('chat-panel: response received flag toggled', { responseReceived })
+  }, [responseReceived])
+
   // {/* Stop generating/Regenerate response button */}
   // <div className={styles.stopGeneratingButtonContainer}>
   // {isLoading ? (
@@ -98,6 +107,7 @@ export function ChatPanel({
               <button
                 onClick={e => {
                   e.preventDefault();
+                  console.info('chat-panel: new chat requested via broom control', { currentInputLength: input.length });
                   setMessages([]);
                   setStructuredMetadataEntries([]);
                   setLastMessageRole('');

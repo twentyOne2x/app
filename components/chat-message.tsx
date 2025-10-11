@@ -16,25 +16,16 @@ import styles from './ChatListContainer.module.css'; // Import the CSS module
 
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image'; // Import Next.js Image component
+import { coerceContent } from '@/lib/coerce-content';
 
 // **Define the Props Interface for ChatMessage**
 export interface ChatMessageProps {
   message: Message;
 }
 
-function coerceMessageContent(input: unknown): string {
-  if (input == null) return ''
-  if (typeof input === 'string') return input
-  try {
-    return JSON.stringify(input)
-  } catch {
-    return String(input)
-  }
-}
-
 export function ChatMessage({ message, ...props }: ChatMessageProps) {
   const [isMobile, setIsMobile] = useState(false);
-  const content = coerceMessageContent(message.content)
+  const content = coerceContent(message.content)
   
   useEffect(() => {
     const handleResize = () => {
@@ -50,6 +41,13 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
     // Clean up
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    console.debug('chat-message: render', {
+      role: message.role,
+      length: content.length
+    })
+  }, [message.role, content])
 
   // **Define Custom Renderers for ReactMarkdown**
   const components = {

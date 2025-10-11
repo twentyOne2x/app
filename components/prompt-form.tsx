@@ -63,9 +63,18 @@ export function PromptForm({
     <form
       onSubmit={async e => {
         e.preventDefault();
-        if (!input?.trim()) return;
+        const trimmed = input?.trim() ?? ''
+        if (!trimmed) {
+          console.debug('prompt-form: submission blocked for empty input')
+          return;
+        }
+        console.debug('prompt-form: submitting prompt', {
+          length: trimmed.length,
+          preview: trimmed.slice(0, 120)
+        })
         setInput('');
-        await onSubmit(input);
+        await onSubmit(trimmed);
+        console.debug('prompt-form: submission completed', { length: trimmed.length })
       }}
       ref={formRef}
       className={styles.promptForm}

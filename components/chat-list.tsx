@@ -17,10 +17,33 @@ const ChatListComponent = ({ messages, lastMessageRole, onViewSources, isMobile 
     return null;
   }
 
+  const safeMessages = messages.filter((message) => {
+    const valid =
+      message &&
+      typeof message === 'object' &&
+      typeof message.role === 'string' &&
+      'content' in message
+    if (!valid) {
+      console.warn('chat:list skipping invalid message', message)
+    }
+    return valid
+  })
+
+  if (!safeMessages.length) {
+    return null
+  }
+
+  console.debug('chat-list: rendering safe messages', {
+    total: messages.length,
+    safe: safeMessages.length,
+    lastMessageRole,
+    isMobile
+  })
+
   return (
     <div className={`${styles.chatListMaxWidth} ${styles.chatListPadding}`}>
-      {messages.map((message, index) => {
-        const isLastMessage = index === messages.length - 1;
+      {safeMessages.map((message, index) => {
+        const isLastMessage = index === safeMessages.length - 1;
         const attachRef = isLastMessage && lastMessageRole === 'assistant';
         const isAssistant = message.role === 'assistant';
         return (
@@ -33,7 +56,12 @@ const ChatListComponent = ({ messages, lastMessageRole, onViewSources, isMobile 
               <div className={styles.viewSourcesContainer}>
                 <button
                   className={styles.viewSourcesButton}
-                  onClick={onViewSources}
+                  onClick={() => {
+                    console.debug('chat-list: view sources requested from mobile prompt', {
+                      messageIndex: index
+                    })
+                    onViewSources()
+                  }}
                   aria-label="View Sources"
                 >
                   View Sources →

@@ -409,6 +409,7 @@ export function Chat({
   const sendChatLegacy = useCallback(
     async (history: MetadataMessage[]) => {
       const payload = buildChatRequestPayload(history)
+      console.debug('chat: issuing backend request', payload)
       let response: Response
       try {
         response = await fetch('/api/chat', {
@@ -485,6 +486,8 @@ export function Chat({
         setCurrentDiagnostics(null)
         setLiveProgress([])
       }
+
+      return data
     },
     [
       buildChatRequestPayload,
@@ -619,8 +622,10 @@ export function Chat({
     setMessages(nextMessages);
     setLastMessageRole('user');
 
+    let backendPayload: unknown = null
     try {
-      await sendChatLegacy(nextMessages)
+      backendPayload = await sendChatLegacy(nextMessages)
+      console.debug('chat: rendered backend payload', backendPayload)
     } catch (error) {
       console.error('chat: failed to fetch message', error)
       toast.error(
@@ -632,8 +637,14 @@ export function Chat({
       setCurrentDiagnostics(null);
       setLiveProgress([]);
       setLastMessageRole('user')
+      backendPayload = { error: error instanceof Error ? error.message : String(error) }
     } finally {
       setIsProcessingQuery(false);
+      console.debug('chat: query cycle complete', {
+        backendPayload,
+        hasMessages: newMessages.length,
+        finalDiagnostics: currentDiagnostics
+      })
     }
 
     // Hide the QuestionsOverlayLeftPanel on user input

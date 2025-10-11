@@ -8,6 +8,10 @@ import {
 } from '@/lib/utils'
 import type { DiagnosticsPayload } from '@/lib/types'
 
+const KV_REST_API_URL = process.env.KV_REST_API_URL
+const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN
+const isKvConfigured = Boolean(KV_REST_API_URL && KV_REST_API_TOKEN)
+
 interface ChatResponseDiagnostics extends DiagnosticsPayload {
   backend_status?: number
   backend_error?: string
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
       entryProfileCode
     }
 
-    if (userId) {
+    if (userId && isKvConfigured) {
       try {
         await kv.hmset(`chat:${id}`, payload)
         await kv.zadd(`user:chat:${userId}`, { score: createdAt, member: `chat:${id}` })
@@ -69,6 +73,8 @@ export async function POST(req: Request) {
         console.error('chat-route: failed to persist chat metadata', error)
         return new Response('Failed to persist chat', { status: 500 })
       }
+    } else if (userId && !isKvConfigured) {
+      console.warn('chat-route: KV not configured, skipping chat persistence')
     }
 
     const responsePayload = {

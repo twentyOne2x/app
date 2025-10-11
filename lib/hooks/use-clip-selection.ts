@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
+import { toast } from 'react-hot-toast'
 
 export interface ClipSelectionEntry {
   key: string
@@ -89,9 +90,11 @@ export function useClipSelection(scope: string): ClipSelectionHandle {
         const existingIndex = next.findIndex((entry) => entry.key === key)
         if (existingIndex >= 0) {
           next.splice(existingIndex, 1)
+          toast('Removed clip from bundle.')
           return next
         }
         next.push(toSelectionEntry(parent, clip))
+        toast.success('Added clip to bundle.')
         return next
       })
     },
@@ -100,6 +103,7 @@ export function useClipSelection(scope: string): ClipSelectionHandle {
 
   const clearSelection = useCallback(() => {
     setStoredEntries([])
+    toast('Cleared bundle selection.')
   }, [setStoredEntries])
 
   const selectedEntries = useMemo(() => storedEntries ?? [], [storedEntries])

@@ -153,21 +153,34 @@ export function SourceList({
                     <li
                       key={clipKey}
                       className={cn(
-                        'rounded-xl border border-white/10 bg-black/40 p-3 transition',
-                        selected ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]' : ''
+                        'group relative rounded-xl border border-white/10 bg-black/40 p-3 transition',
+                        selected
+                          ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
+                          : ''
                       )}
                     >
+                      {selected ? (
+                        <span className="absolute right-3 top-3 rounded-full border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                          Selected
+                        </span>
+                      ) : null}
                       <div className="flex flex-wrap items-start gap-3">
-                        <label className="shrink-0 cursor-pointer select-none">
+                        <label
+                          className={cn(
+                            'shrink-0 cursor-pointer select-none rounded-md border border-transparent p-1 transition',
+                            selected ? 'border-emerald-400/30 bg-emerald-400/20' : 'border-transparent'
+                          )}
+                          title={selected ? 'Remove clip from bundle' : 'Add clip to bundle'}
+                        >
                           <input
                             type="checkbox"
-                            className="size-4 rounded border-zinc-600 bg-transparent text-emerald-400 focus:ring-emerald-400"
+                            className="size-4 rounded border-zinc-600 bg-transparent text-emerald-400 opacity-60 transition focus:opacity-100 focus:ring-emerald-400 group-hover:opacity-100"
                             checked={selected}
                             onChange={() => handleCheckboxToggle(parent, clip)}
                             aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
                           />
                         </label>
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 pr-10">
                           <p className="text-xs font-medium text-emerald-200/80">
                             {clipWindow(clip)}
                             {clipScore ? ` · ${clipScore}` : ''}
@@ -195,8 +208,20 @@ export function SourceList({
                             rel="noopener noreferrer"
                             className="rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
                           >
-                            Open in new tab
+                            Open
                           </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCheckboxToggle(parent, clip)}
+                            className={cn(
+                              'rounded-md border px-3 py-1 text-xs font-medium transition',
+                              selected
+                                ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
+                                : 'border-white/20 text-zinc-100 hover:bg-white/10'
+                            )}
+                          >
+                            {selected ? 'Remove' : 'Add to bundle'}
+                          </button>
                         </div>
                       </div>
                     </li>
@@ -208,48 +233,6 @@ export function SourceList({
         )
       })}
     </div>
-      {selectionHandle.selectionCount > 0 ? (
-        <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-xl border border-white/20 bg-black/70 p-4 backdrop-blur">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-zinc-50">
-              {selectionHandle.selectionCount} clip
-              {selectionHandle.selectionCount > 1 ? 's selected' : ' selected'}
-            </p>
-            <div className="mt-1 flex flex-wrap gap-2 text-xs text-zinc-400">
-              {selectionHandle.selectedEntries.slice(0, 3).map((entry) => (
-                <span
-                  key={entry.key}
-                  className="rounded-full border border-white/15 px-2 py-0.5"
-                >
-                  {entry.parent.parentTitle} · {entry.clip.startHMS ?? entry.clip.startS ?? 'start'}
-                </span>
-              ))}
-              {selectionHandle.selectionCount > 3 ? (
-                <span className="rounded-full border border-white/10 px-2 py-0.5">
-                  +{selectionHandle.selectionCount - 3} more
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              disabled
-              className="cursor-not-allowed rounded-md border border-dashed border-white/25 px-3 py-1 text-xs font-medium text-zinc-400"
-              title="Batch generation coming soon"
-            >
-              Generate bundle (soon)
-            </button>
-            <button
-              type="button"
-              onClick={selectionHandle.clearSelection}
-              className="rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      ) : null}
     </>
   )
 }

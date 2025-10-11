@@ -2,7 +2,8 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { useChat, type Message } from 'ai/react';
+import type { Message } from 'ai';
+import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
 import { ChatPanel } from '@/components/chat-panel'
@@ -13,6 +14,9 @@ import SourceList from '@/components/source-list';
 import ClipDrawer, { type ClipPlayback } from '@/components/clip-drawer';
 import ChannelFilterPanel from '@/components/channel-filter';
 import { LoginButton } from '@/components/login-button';
+import ClipBundleBar from '@/components/clip-bundle-bar'
+import ClipBundleDrawer from '@/components/clip-bundle-drawer'
+import { useClipBundle } from '@/lib/hooks/use-clip-bundle'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import QuestionsOverlayStyles from './QuestionsOverlay.module.css'; // Import the CSS module
 import { QuestionsOverlay, QuestionsOverlayLeftPanel } from './question-overlay';
@@ -31,18 +35,78 @@ export interface MetadataMessage extends Message {
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
 
+async function extractErrorMessage(response: Response): Promise<string | null> {
+  try {
+    const cloned = response.clone()
+    const data = await cloned.json()
+    if (typeof data === 'string' && data.trim()) return data.trim()
+    if (data && typeof data === 'object') {
+      const maybeMessage =
+        (typeof (data as { message?: unknown }).message === 'string'
+          ? (data as { message?: string }).message
+          : null) ??
+        (typeof (data as { error?: unknown }).error === 'string'
+          ? (data as { error?: string }).error
+          : null)
+      if (maybeMessage && maybeMessage.trim()) return maybeMessage.trim()
+    }
+  } catch {
+    // fall through to text handling
+  }
+
+  try {
+    const text = await response.text()
+    const trimmed = text.trim()
+    if (trimmed) return trimmed
+  } catch {
+    // ignore
+  }
+
+  if (response.statusText) return response.statusText
+  if (response.status) return `Request failed with status ${response.status}`
+  return null
+}
+
+function AuthButtonStack() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <LoginButton loginType="twitter" text="Twitter" showIcon />
+      <LoginButton loginType="privy" text="Privy" showIcon />
+    </div>
+  )
+}
+
 function RightPanelAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
   if (isAuthenticated) return null
 
   return (
     <div className="mb-4 flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-black/60 p-4 text-center shadow-[0_20px_45px_-25px_rgba(34,197,94,0.45)]">
       <h3 className="text-sm font-semibold text-zinc-100">Sign in for extras</h3>
-      <p className="mt-1 text-xs text-zinc-400 max-w-[220px]">
+      <p className="mt-1 max-w-[220px] text-xs text-zinc-400">
         Connect Twitter or a wallet to save chats, share threads, and unlock future features.
       </p>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-        <LoginButton loginType="twitter" text="Twitter" showIcon />
-        <LoginButton loginType="privy" text="Privy" showIcon />
+      <div className="mt-3">
+        <AuthButtonStack />
+      </div>
+    </div>
+  )
+}
+
+function FloatingAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
+  if (isAuthenticated) return null
+
+  return (
+    <div className="pointer-events-none fixed top-6 right-6 z-[1300] hidden flex-col items-end gap-3 md:flex lg:right-10 lg:top-8">
+      <div className="pointer-events-auto flex flex-col items-end gap-2 rounded-2xl border border-white/15 bg-black/75 px-4 py-3 text-xs text-zinc-200 shadow-[0_20px_45px_-25px_rgba(34,197,94,0.45)] backdrop-blur">
+        <span className="text-[11px] uppercase tracking-wide text-emerald-200/80">
+          Quick sign-in
+        </span>
+        <span className="max-w-[220px] text-right text-xs text-zinc-300">
+          Connect Twitter or Privy to save chats and unlock sharing.
+        </span>
+        <div className="pt-1">
+          <AuthButtonStack />
+        </div>
       </div>
     </div>
   )
@@ -90,7 +154,7 @@ export function Chat({
   // Additional state to track if the fade-out animation has completed
   const [fadeOutCompleted, setFadeOutCompleted] = useState(true);
 
-  const [metadataContainerVisible, setMetadataContainerVisible] = useState(false);
+  const [metadataContainerVisible, setMetadataContainerVisible] = useState(true);
 
   // State to control the visibility of QuestionsOverlayLeftPanel
   const [showLeftPanelOverlay, setShowLeftPanelOverlay] = useState(false);  
@@ -112,7 +176,11 @@ export function Chat({
   const [isProcessingQuery, setIsProcessingQuery] = useState(false);
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
   const [stageHintTick, setStageHintTick] = useState(0);
+  const [liveProgress, setLiveProgress] = useState<Array<Record<string, unknown>>>([]);
+  const [input, setInput] = useState('');
   const [availableChannels, setAvailableChannels] = useState<string[]>([]);
+  const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
+  const streamAbortRef = useRef<AbortController | null>(null)
 
   const channelFilterStorageKey = useMemo(
     () => `channel-filter:${entryProfile.code}`,
@@ -123,20 +191,79 @@ export function Chat({
     []
   );
 
-  useEffect(() => {
-    // Set initialLoad to false after the component has mounted
-    setInitialLoad(false);
-  }, []);
+useEffect(() => {
+  // Set initialLoad to false after the component has mounted
+  setInitialLoad(false);
+}, []);
 
-  useEffect(() => {
-    setAvailableChannels([]);
-  }, [entryProfile.code]);
+useEffect(() => {
+  if (!availableChannels.length) return
+  setExcludedChannelNames((prev) => {
+    if (!prev?.length) return prev ?? []
+    const availableSet = new Set(availableChannels)
+    const filtered = prev.filter((name) => availableSet.has(name))
+    return filtered.length === prev.length ? prev : filtered
+  })
+}, [availableChannels, setExcludedChannelNames])
+
+useEffect(() => {
+  let cancelled = false
+  setAvailableChannels([])
+
+  const loadChannelCatalog = async () => {
+    try {
+      const response = await fetch('/api/channels?scope=videos', { method: 'GET' })
+      if (!response.ok) return
+      const data = await response.json().catch(() => null)
+      const fetched: string[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.channels)
+        ? data.channels
+        : []
+      if (!fetched.length || cancelled) return
+      const sanitized = Array.from(new Set(fetched.filter((value): value is string => typeof value === 'string')))
+        .map((name) => name.trim())
+        .filter(Boolean)
+      if (!sanitized.length) return
+      setAvailableChannels((prev) => {
+        const next = new Set(prev)
+        sanitized.forEach((name) => next.add(name))
+        return Array.from(next).sort((a, b) => a.localeCompare(b))
+      })
+    } catch (error) {
+      console.error('chat: failed to load channel catalog', error)
+    }
+  }
+
+  void loadChannelCatalog()
+
+  return () => {
+    cancelled = true
+  }
+}, [entryProfile.code])
 
   const selectionScope = useMemo(() => {
     if (shared_chat && id) return `shared-chat:${id}`
     return `chat:${entryProfile.code}:${id ?? 'local'}`
   }, [shared_chat, id, entryProfile.code])
   const clipSelection = useClipSelection(selectionScope)
+  const bundleHandle = useClipBundle({
+    selection: clipSelection,
+    scope: selectionScope,
+    autoOpen: (open) => setBundleDrawerOpen(open)
+  })
+  const handleGenerateBundle = useCallback(() => {
+    void bundleHandle.startBundle()
+  }, [bundleHandle])
+
+  const handleClearSelection = useCallback(() => {
+    bundleHandle.clearBundle()
+  }, [bundleHandle])
+
+  const handleCloseBundleDrawer = useCallback(() => {
+    setBundleDrawerOpen(false)
+    bundleHandle.closeBundle()
+  }, [bundleHandle])
 
   // Effect to toggle visibility of metadataContainer based on structuredMetadataEntries
   useEffect(() => {
@@ -164,13 +291,13 @@ export function Chat({
   }, [structuredMetadataEntries]);
 
   // Process the response content to replace specified phrases with "ICM"
-  const processResponseContent = (content: string): string => {
+  const processResponseContent = useCallback((content: string): string => {
     let processedContent = content;
     processedContent = processedContent.replace(/ICM \(Internet Capital Markets\)/g, "ICM");
     processedContent = processedContent.replace(/Internet Capital Markets \(ICM\)/g, "ICM");
     processedContent = processedContent.replace(/Internet Capital Markets/g, "ICM");
     return processedContent;
-  };
+  }, []);
 
   const handleClipSelect = useCallback(
     (payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback }) => {
@@ -191,18 +318,274 @@ export function Chat({
     [setExcludedChannelNames]
   );
 
+  const selectedChannelNames = useMemo(() => {
+    if (!availableChannels.length) return []
+    const excludedSet = new Set(excludedChannelNames.filter(Boolean))
+    return availableChannels.filter((channel) => !excludedSet.has(channel))
+  }, [availableChannels, excludedChannelNames])
+
   const channelFilterPayload = useMemo<ChannelFilterPayload | undefined>(() => {
-    const unique = Array.from(new Set(excludedChannelNames.filter(Boolean)));
-    return unique.length ? { exclude_names: unique } : undefined;
-  }, [excludedChannelNames]);
+    if (!availableChannels.length) return undefined
+    if (selectedChannelNames.length === 0) {
+      return { include_names: [] }
+    }
+    if (selectedChannelNames.length === availableChannels.length) {
+      return undefined
+    }
+    return { include_names: selectedChannelNames }
+  }, [availableChannels, selectedChannelNames]);
+
+  const buildStreamRequestPayload = useCallback(
+    (history: MetadataMessage[]) => ({
+      id,
+      previewToken,
+      entryProfileCode: entryProfile.code,
+      scope: shared_chat ? undefined : selectionScope,
+      channel_filter: channelFilterPayload,
+      messages: history.map((message) => ({
+        role: message.role,
+        content: message.content
+      }))
+    }),
+    [channelFilterPayload, entryProfile.code, id, previewToken, selectionScope, shared_chat]
+  )
+
+  const streamChat = useCallback(
+    async (history: MetadataMessage[], userMessageId: string) => {
+      const controller = new AbortController()
+      streamAbortRef.current = controller
+      let assistantId: string | null = null
+      let assistantContent = ''
+      let structuredMetadata: ParsedMetadataEntryV2[] = []
+      let finalDiagnostics: DiagnosticsPayload | null = null
+
+      const ensureAssistantMessage = (content: string) => {
+        if (!assistantId) {
+          assistantId = nanoid()
+          const newAssistantMessage: MetadataMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: processResponseContent(content),
+            structured_metadata: structuredMetadata,
+            diagnostics: null
+          }
+          setMessages((prev) => [...prev, newAssistantMessage])
+        } else {
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    content: processResponseContent(content),
+                    structured_metadata: structuredMetadata
+                  }
+                : message
+            )
+          )
+        }
+        setLastMessageRole('assistant')
+      }
+
+      const handlePayload = (eventName: string, payload: any) => {
+        const type = payload?.type ?? eventName ?? 'message'
+        if (type === 'progress') {
+          if (Array.isArray(payload?.progress)) {
+            setLiveProgress(payload.progress as Array<Record<string, unknown>>)
+          } else if (payload?.stage) {
+            setLiveProgress((prev) => {
+              const stageKey = payload.stage ?? payload.name
+              const next = prev.filter(
+                (entry) =>
+                  entry?.stage !== stageKey &&
+                  entry?.name !== stageKey &&
+                  entry?.key !== stageKey
+              )
+              return [...next, payload]
+            })
+          }
+          return
+        }
+
+        if (type === 'token' || type === 'delta' || type === 'partial') {
+          const token =
+            payload?.token ??
+            payload?.delta ??
+            payload?.partial ??
+            payload?.content ??
+            ''
+          if (!token) return
+          assistantContent += token
+          ensureAssistantMessage(assistantContent)
+          return
+        }
+
+        if (type === 'metadata' || type === 'structured_metadata') {
+          if (Array.isArray(payload?.structured_metadata)) {
+            structuredMetadata = payload.structured_metadata as ParsedMetadataEntryV2[]
+            setStructuredMetadataEntries(structuredMetadata)
+            if (assistantId) {
+              setMessages((prev) =>
+                prev.map((message) =>
+                  message.id === assistantId
+                    ? { ...message, structured_metadata: structuredMetadata }
+                    : message
+                )
+              )
+            }
+          } else if (Array.isArray(payload?.data)) {
+            structuredMetadata = payload.data as ParsedMetadataEntryV2[]
+            setStructuredMetadataEntries(structuredMetadata)
+          }
+          return
+        }
+
+        if (type === 'diagnostics') {
+          const diagnostics = payload?.diagnostics ?? payload ?? null
+          if (diagnostics) {
+            finalDiagnostics = diagnostics as DiagnosticsPayload
+            if (Array.isArray(finalDiagnostics?.progress)) {
+              setLiveProgress(finalDiagnostics.progress as Array<Record<string, unknown>>)
+            }
+          }
+          return
+        }
+
+        if (type === 'result' || type === 'response' || type === 'done') {
+          if (Array.isArray(payload?.structured_metadata)) {
+            structuredMetadata = payload.structured_metadata as ParsedMetadataEntryV2[]
+            setStructuredMetadataEntries(structuredMetadata)
+          }
+          if (payload?.diagnostics) {
+            finalDiagnostics = payload.diagnostics as DiagnosticsPayload
+            if (Array.isArray(finalDiagnostics?.progress)) {
+              setLiveProgress(finalDiagnostics.progress as Array<Record<string, unknown>>)
+            }
+          }
+          if (payload?.message?.content) {
+            assistantContent = payload.message.content
+          } else if (typeof payload?.content === 'string') {
+            assistantContent = payload.content
+          } else if (typeof payload?.response === 'string') {
+            assistantContent = payload.response
+          }
+          ensureAssistantMessage(assistantContent)
+          return
+        }
+
+        if (type === 'error') {
+          throw new Error(
+            payload?.message ??
+              'The chat service encountered an error. Please try again.'
+          )
+        }
+      }
+
+      const parseEvent = (rawEvent: string) => {
+        const lines = rawEvent.split('\n')
+        let eventName = 'message'
+        const dataLines: string[] = []
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          if (trimmed.startsWith('event:')) {
+            eventName = trimmed.slice(6).trim()
+          } else if (trimmed.startsWith('data:')) {
+            dataLines.push(trimmed.slice(5).trim())
+          }
+        }
+        if (!dataLines.length) return null
+        return { eventName, data: dataLines.join('\n') }
+      }
+
+      try {
+        const response = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildStreamRequestPayload(history)),
+          signal: controller.signal
+        })
+
+        if (!response.ok || !response.body) {
+          const message = await extractErrorMessage(response)
+          throw new Error(
+            message ?? 'The chat service encountered an error. Please try again.'
+          )
+        }
+
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          let separatorIndex
+          while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
+            const rawEvent = buffer.slice(0, separatorIndex).trim()
+            buffer = buffer.slice(separatorIndex + 2)
+            if (!rawEvent) continue
+            const parsed = parseEvent(rawEvent)
+            if (!parsed) continue
+            let payload: any = parsed.data
+            try {
+              payload = JSON.parse(parsed.data)
+            } catch {
+              payload = { type: parsed.eventName, data: parsed.data }
+            }
+            handlePayload(parsed.eventName, payload)
+          }
+        }
+
+        if (buffer.trim()) {
+          const parsed = parseEvent(buffer.trim())
+          if (parsed) {
+            let payload: any = parsed.data
+            try {
+              payload = JSON.parse(parsed.data)
+            } catch {
+              payload = { type: parsed.eventName, data: parsed.data }
+            }
+            handlePayload(parsed.eventName, payload)
+          }
+        }
+
+        if (assistantContent) {
+          ensureAssistantMessage(assistantContent)
+        }
+
+        if (finalDiagnostics) {
+          setCurrentDiagnostics(finalDiagnostics)
+        }
+
+      } catch (error) {
+        if (controller.signal.aborted) return
+        console.error('chat: stream error', error)
+        throw error
+      } finally {
+        streamAbortRef.current = null
+      }
+    },
+    [
+      buildStreamRequestPayload,
+      processResponseContent,
+      setLastMessageRole,
+      setMessages,
+      setStructuredMetadataEntries,
+      setCurrentDiagnostics,
+      setLiveProgress
+    ]
+  )
 
   // Function to parse messages and apply structured metadata
-  const parseMessagesAndMetadata = (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
-    const parsedMessages = messages.map((message) => {
-      if (message.role === 'assistant') {
-        try {
-          // Try to parse the content as JSON
-          const parsedContent = JSON.parse(message.content);
+  const parseMessagesAndMetadata = useCallback(
+    (messages: MetadataMessage[], metadata: ParsedMetadataEntryV2[]) => {
+      const parsedMessages = messages.map((message) => {
+        if (message.role === 'assistant') {
+          try {
+            // Try to parse the content as JSON
+            const parsedContent = JSON.parse(message.content);
           
           // Check if parsedContent has a messages array and it's not empty
           if (parsedContent.message) {
@@ -221,14 +604,19 @@ export function Chat({
     setMessages(parsedMessages);
     setLastMessageRole('assistant');
     setStructuredMetadataEntries(metadata);
-  };
+  }, [processResponseContent, setMessages, setLastMessageRole, setStructuredMetadataEntries]);
 
   useEffect(() => {
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
     
     // Check if initialMessages and structured_metadata are not empty and apply parsing
-    if (initialMessages && initialMessages.length > 0 && structured_metadata && structured_metadata.length > 0) {
+    if (
+      initialMessages &&
+      initialMessages.length > 0 &&
+      structured_metadata &&
+      structured_metadata.length > 0
+    ) {
       // useEffect in shared chat
       parseMessagesAndMetadata(initialMessages, structured_metadata);
     }
@@ -237,7 +625,7 @@ export function Chat({
     if (shared_chat) {
       setShowChatList(true);
     }
-  }, [shared_chat]);
+  }, [shared_chat, initialMessages, structured_metadata, parseMessagesAndMetadata]);
 
   useEffect(() => {
     if (!structured_metadata?.length && structuredMetadataEntries.length === 0) return;
@@ -278,8 +666,17 @@ export function Chat({
     }
   }, [shared_chat]);
 
+  useEffect(() => {
+    return () => {
+      if (streamAbortRef.current) {
+        streamAbortRef.current.abort()
+      }
+    }
+  }, [])
+
   // Function to handle user input submission
-  const handleUserInputSubmit = async (value: string) => {
+  const handleUserInputSubmit = useCallback(
+    async (value: string) => {
     // Fade out EmptyScreen and QuestionsOverlay
     setShowMiddlePanelOverlay(false);
 
@@ -293,36 +690,65 @@ export function Chat({
       setShowChatList(true); // Show ChatList with fade-in
     }, 300); // Delay should match the fade-out duration
   
+    if (streamAbortRef.current) {
+      streamAbortRef.current.abort()
+    }
+
     setIsProcessingQuery(true);
     setCurrentDiagnostics(null);
+    setLiveProgress([]);
     setStageHintTick(0);
   
+    const messageId = nanoid();
     const newUserMessage: MetadataMessage = {
-      id: id || '',  // Provide a fallback value for 'id' to ensure it's not undefined
+      id: messageId,
       content: value,
-      role: 'user',  // Assuming 'user' is an acceptable value for 'role'
-      structured_metadata: [],  // Assuming this matches the type in MetadataMessage
+      role: 'user',
+      structured_metadata: [],
       diagnostics: null
     };
-    setMessages(prevMessages => [...prevMessages, newUserMessage]);
-    try {
-      await append(newUserMessage);
-    } catch (error) {
-      console.error('chat: failed to append message', error)
-      toast.error('Unable to reach the chat service. Please try again.')
-      setMessages((prev) => (prev.length ? prev.slice(0, -1) : prev))
-      setIsProcessingQuery(false)
-      setCurrentDiagnostics(null)
-      return
-    }
+    const nextMessages = [...newMessages, newUserMessage];
+    setMessages(nextMessages);
     setLastMessageRole('user');
+
+    try {
+      await streamChat(nextMessages, messageId);
+    } catch (error) {
+      console.error('chat: failed to stream message', error);
+      toast.error(
+        error instanceof Error && error.message
+          ? error.message
+          : 'Unable to reach the chat service. Please try again.'
+      );
+      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+      setCurrentDiagnostics(null);
+      setLiveProgress([]);
+    } finally {
+      setIsProcessingQuery(false);
+    }
+
     // Hide the QuestionsOverlayLeftPanel on user input
     setShowLeftPanelOverlay(false);
     
     // Hide the middle panel overlay on user input
     setShowMiddlePanelOverlay(false);
     setFadeOutCompleted(false); // Animation starts, not yet completed
-  };
+  },
+  [
+    newMessages,
+    setShowMiddlePanelOverlay,
+    setShowEmptyScreen,
+    setShowChatList,
+    setIsProcessingQuery,
+    setCurrentDiagnostics,
+    setStageHintTick,
+    setMessages,
+    streamChat,
+    setLastMessageRole,
+    setShowLeftPanelOverlay,
+    setFadeOutCompleted,
+    setLiveProgress
+  ]);
   
   // Add an animation end handler
   const onAnimationEnd = () => {
@@ -359,84 +785,6 @@ export function Chat({
   
     return () => clearTimeout(timeoutId);
   }, [newMessages, lastMessageRole]);
-
-  const chatRequestBody = useMemo(
-    () => ({
-      id,
-      previewToken,
-      entryProfileCode: entryProfile.code,
-      channel_filter: channelFilterPayload
-    }),
-    [id, previewToken, entryProfile.code, channelFilterPayload]
-  );
-
-  const { messages, append, reload, stop, isLoading, input, setInput } =
-    useChat({
-      initialMessages,
-      id,
-      body: chatRequestBody,
-      onResponse: async (originalResponse) => {
-        if (originalResponse.status === 401) {
-          setIsProcessingQuery(false);
-          setCurrentDiagnostics(null);
-          toast.error(originalResponse.statusText);
-          return;
-        }
-
-        if (!originalResponse.ok) {
-          setIsProcessingQuery(false);
-          setCurrentDiagnostics(null);
-          toast.error(originalResponse.statusText);
-          return;
-        }
-
-        const response = originalResponse.clone();
-        try {
-          const responseData = await response.json();
-
-          const diagnostics: DiagnosticsPayload | null = responseData.diagnostics ?? null;
-          const responseRequestId: string | null =
-            responseData.request_id ??
-            diagnostics?.request_id ??
-            null;
-
-          const newMessageFromServer: MetadataMessage = {
-            id: responseData.message?.id || '',
-            role: responseData.message?.role ?? 'assistant',
-            content: processResponseContent(responseData.message?.content ?? ''),
-            structured_metadata: responseData.message?.structured_metadata || [],
-            diagnostics
-          };
-
-          setMessages(prevMessages => [...prevMessages, newMessageFromServer]);
-
-          if (responseData.structured_metadata) {
-            setStructuredMetadataEntries(responseData.structured_metadata);
-          }
-
-          setLastMessageRole('assistant');
-          setCurrentDiagnostics(
-            diagnostics ??
-            (responseRequestId ? ({ request_id: responseRequestId } as DiagnosticsPayload) : null)
-          );
-          setIsProcessingQuery(false);
-        } catch (error) {
-          console.error('Error reading response data:', error);
-          toast.error('Error reading response data');
-          setIsProcessingQuery(false);
-          setCurrentDiagnostics(null);
-        }
-      },
-      onError: (error) => {
-        console.error('Chat error:', error);
-        toast.error('The chat service encountered an error. Please try again.');
-        setIsProcessingQuery(false);
-        setCurrentDiagnostics(null);
-      },
-      onFinish: () => {
-        setIsProcessingQuery(false);
-      }
-    })
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -485,7 +833,11 @@ export function Chat({
 
   const progressSummary = useMemo(() => {
     if (!isProcessingQuery) return null
-    const normalized = normalizeProgress(currentDiagnostics?.progress ?? undefined)
+    const progressSource =
+      liveProgress.length > 0
+        ? liveProgress
+        : (currentDiagnostics?.progress as Array<Record<string, unknown>> | undefined)
+    const normalized = normalizeProgress(progressSource)
     let activeLabel = 'Processing'
     let completed = 0
     let total = DEFAULT_PIPELINE.length
@@ -507,7 +859,7 @@ export function Chat({
 
     const statusLine = `Progress ${Math.min(completed, total)}/${total}`
     return `▍ Working… ${activeLabel}\n\n${statusLine}`
-  }, [isProcessingQuery, currentDiagnostics, stageHintTick])
+  }, [isProcessingQuery, liveProgress, currentDiagnostics, stageHintTick])
 
   const displayMessages = useMemo(() => {
     if (!progressSummary) return newMessages
@@ -523,6 +875,7 @@ export function Chat({
 
   return (
     <>
+      <FloatingAuthCta isAuthenticated={Boolean(currentUser)} />
       <div className={styles.layoutContainer}>
         <div className={styles.leftPanel}>
           <div className={styles.leftPanelContent}>
@@ -587,11 +940,7 @@ export function Chat({
               )}
               <ChatPanel
                 id={id}
-                isLoading={isLoading}
-                stop={stop}
-                append={append}
-                reload={reload}
-                messages={newMessages}
+                isLoading={isProcessingQuery}
                 input={input}
                 setInput={setInput}
                 onSubmit={handleUserInputSubmit}
@@ -637,6 +986,20 @@ export function Chat({
           selection={clipSelection}
         />
       </Modal>
+      <ClipBundleDrawer
+        isOpen={isBundleDrawerOpen && bundleHandle.state.items.length > 0}
+        onClose={handleCloseBundleDrawer}
+        state={bundleHandle.state}
+        onRetryClip={(key) => void bundleHandle.retryClip(key)}
+      />
+      <ClipBundleBar
+        selectionCount={clipSelection.selectionCount}
+        entries={clipSelection.selectedEntries}
+        onGenerate={handleGenerateBundle}
+        onClear={handleClearSelection}
+        disabled={bundleHandle.state.errorMessage === 'not_implemented'}
+        isRunning={bundleHandle.isRunning}
+      />
       <ClipDrawer
         isOpen={Boolean(selectedClip)}
         parent={selectedClip?.parent}

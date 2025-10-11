@@ -16,9 +16,21 @@ interface QuestionListProps {
 const DEFAULT_QUESTION_FALLBACK = getDefaultQuestions()
 
 export const QuestionList: React.FC<QuestionListProps> = ({ onSubmit, showOverlay }) => {
-  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const entryProfile = useEntryProfile();
   const questionPool = entryProfile.questions?.length ? entryProfile.questions : DEFAULT_QUESTION_FALLBACK;
+  const selectRandomQuestions = useCallback(() => {
+    if (!questionPool.length) return []
+    if (questionPool.length <= 4) return questionPool
+    const indices = Array.from({ length: questionPool.length }, (_, i) => i)
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[indices[i], indices[j]] = [indices[j], indices[i]]
+    }
+    const selectedIndices = indices.slice(0, 4)
+    return selectedIndices.map((index) => questionPool[index])
+  }, [questionPool])
+
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>(() => selectRandomQuestions());
 
   const questionRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -46,29 +58,12 @@ export const QuestionList: React.FC<QuestionListProps> = ({ onSubmit, showOverla
   }, [selectedQuestions]);
 
   const pickRandomQuestions = useCallback(() => {
-    if (!questionPool.length) {
-      setSelectedQuestions([]);
-      return;
-    }
-
-    if (questionPool.length <= 4) {
-      setSelectedQuestions(questionPool);
-      return;
-    }
-
-    const indices = Array.from({ length: questionPool.length }, (_, i) => i);
-    for (let i = indices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      ;[indices[i], indices[j]] = [indices[j], indices[i]];
-    }
-    const selectedIndices = indices.slice(0, 4);
-    const selected = selectedIndices.map((index) => questionPool[index]);
-    setSelectedQuestions(selected);
-  }, [questionPool]);
+    setSelectedQuestions(selectRandomQuestions());
+  }, [selectRandomQuestions]);
   
   useEffect(() => {
-    pickRandomQuestions();
-  }, [pickRandomQuestions]);
+    setSelectedQuestions(selectRandomQuestions());
+  }, [selectRandomQuestions]);
 
   const handleQuestionSelect = (question: string) => {
     onSubmit(question); // Call the onSubmit function with the selected question

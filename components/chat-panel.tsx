@@ -1,13 +1,8 @@
-import { type UseChatHelpers } from 'ai/react'
-import React, { useState } from 'react';
-import { css } from '@emotion/react';
+import React, { Dispatch, SetStateAction, useState } from 'react';
 import styled from '@emotion/styled';
 import { ClipLoader } from 'react-spinners'; // Import the desired spinner
 
-import { Button } from '@/components/ui/button'
 import { PromptForm } from '@/components/prompt-form'
-import { ButtonScrollToBottom } from '@/components/button-scroll-to-bottom'
-import { IconRefresh, IconStop } from '@/components/ui/icons'
 import { FooterText } from '@/components/footer'
 import { MetadataMessage } from '@/components/chat'
 import {
@@ -24,43 +19,10 @@ const StyledClipLoader = styled(ClipLoader)`
 `;
 
 
-export interface ChatPanelProps
-  extends Pick<
-    UseChatHelpers,
-    | 'append'
-    | 'isLoading'
-    | 'reload'
-    | 'messages'
-    | 'stop'
-    | 'input'
-    | 'setInput'
-  > {
-  id?: string;
-  onSubmit?: (value: string) => void | Promise<void>; // Add this line
-  // Add new properties for the state-setting functions
-  setMessages: (messages: MetadataMessage[]) => void;
-  setStructuredMetadataEntries: (entries: any[]) => void; // Replace 'any[]' with a more specific type if available
-  setLastMessageRole: (role: string) => void;
-  setShowTopSources: (value: boolean) => void;
-  setFadeOutCompleted: (value: boolean) => void;
-  setMetadataContainerVisible: (value: boolean) => void;
-  setShowLeftPanelOverlay: (value: boolean) => void;
-  setShowMiddlePanelOverlay: (value: boolean) => void;
-  setShowEmptyScreen: (value: boolean) => void;
-  setShowChatList: (value: boolean) => void;
-}
-
-export interface ChatPanelProps
-  extends Pick<
-    UseChatHelpers,
-    | 'append'
-    | 'isLoading'
-    | 'reload'
-    | 'messages'
-    | 'stop'
-    | 'input'
-    | 'setInput'
-  > {
+export interface ChatPanelProps {
+  input: string;
+  setInput: Dispatch<SetStateAction<string>>;
+  isLoading: boolean;
   id?: string;
   onSubmit?: (value: string) => void | Promise<void>; // Add this line
   // Add new properties for the state-setting functions
@@ -79,12 +41,8 @@ export interface ChatPanelProps
 export function ChatPanel({
   id,
   isLoading,
-  stop,
-  append,
-  reload,
   input,
   setInput,
-  messages,
   onSubmit,
   setMessages,
   setStructuredMetadataEntries,
@@ -156,7 +114,11 @@ export function ChatPanel({
                 }}
                 className={styles.broomButton}
               >
-                <img src="/ui_icons/clear_the_chat_1.svg" style={{ width: '100%', height: '100%' }} />
+                <img
+                  src="/ui_icons/clear_the_chat_1.svg"
+                  alt=""
+                  style={{ width: '100%', height: '100%' }}
+                />
                 <span className="sr-only">New Chat</span>
               </button>
             </TooltipTrigger>
@@ -165,17 +127,11 @@ export function ChatPanel({
   
           {/* Prompt Form */}
           <div className={styles.promptFormContainer}>
-            <PromptForm
+          <PromptForm
               onSubmit={async value => {
                 setResponseReceived(false);
                 if (onSubmit) {
                   await onSubmit(value);
-                } else {
-                  await append({
-                    id,
-                    content: value,
-                    role: 'user',
-                  });
                 }
                 setResponseReceived(true);
               }}

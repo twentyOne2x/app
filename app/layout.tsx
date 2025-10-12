@@ -1,5 +1,6 @@
 // app/layout.tsx
 import { Metadata } from 'next'
+import Image from 'next/image'
 import { Toaster } from 'react-hot-toast'
 import '@/app/globals.css'
 import { fontSans } from '@/lib/fonts'
@@ -55,13 +56,46 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', site: '@impliedval', title: 'icm.fyi ICM Research Chatbot', description: '', images: ['/twitter-image.png'] }
 }
 
-function PreloadUiIcons() {
+function PreloadUiIconLinks() {
   return (
     <>
       {UI_ICONS.map((href) => (<link key={href} rel="preload" as="image" href={href} />))}
-      <img src={ASSISTANT_AVATAR} alt="" width={1} height={1} loading="eager" fetchPriority="high" decoding="sync" aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
-      <img src={USER_AVATAR} alt="" width={1} height={1} loading="eager" fetchPriority="high" decoding="sync" aria-hidden="true" style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }} />
     </>
+  )
+}
+
+function PreloadAvatarImages() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: 1,
+        height: 1,
+        opacity: 0,
+        pointerEvents: 'none',
+        overflow: 'hidden'
+      }}
+    >
+      <Image
+        src={ASSISTANT_AVATAR}
+        alt=""
+        width={1}
+        height={1}
+        priority
+        style={{ width: 1, height: 1 }}
+      />
+      <Image
+        src={USER_AVATAR}
+        alt=""
+        width={1}
+        height={1}
+        priority
+        style={{ width: 1, height: 1 }}
+      />
+    </div>
   )
 }
 
@@ -74,12 +108,13 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
   return (
     <html lang="en">
-      <head><PreloadUiIcons /></head>
+      <head><PreloadUiIconLinks /></head>
       <body className={cn('font-sans antialiased', fontSans.variable)}>
+        <PreloadAvatarImages />
         <Toaster />
         <Providers attribute="class" defaultTheme="dark" enableSystem={false} entryProfile={entryProfile}>
-          <div className="flex flex-col min-h-screen">
-            <main className="flex flex-col flex-1 bg-muted/50">{children}</main>
+          <div className="flex min-h-screen flex-col">
+            <main className="flex flex-1 flex-col bg-muted/50">{children}</main>
           </div>
           <TailwindIndicator />
         </Providers>

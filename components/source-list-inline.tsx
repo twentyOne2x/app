@@ -5,6 +5,7 @@ import React from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
+import Image from 'next/image'
 
 type Props = {
   entries: ParsedMetadataEntryV2[]
@@ -67,11 +68,12 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
       <div className="flex items-start gap-3">
         {/* Thumbnail */}
         <div className="relative h-16 w-28 overflow-hidden rounded">
-          <img
+          <Image
             src={youtubeThumb(clip.videoId ?? parent.videoId, parent.url)}
             alt={parent.parentTitle}
-            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-            loading="lazy"
+            fill
+            className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+            sizes="(max-width: 639px) 100vw, 11rem"
           />
           {/* Hover overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover:bg-black/30 group-hover:opacity-100">
@@ -83,7 +85,7 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
 
         {/* Text */}
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium text-white/90 line-clamp-1">
+          <div className="line-clamp-1 text-sm font-medium text-white/90">
             {clip.parentTitle ?? parent.parentTitle}
             <ScoreBadge score={clip.score} />
           </div>
@@ -93,7 +95,7 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
             {clip.speaker ? ` · ${clip.speaker}` : ''}
           </div>
           {clip.excerpt ? (
-            <div className="mt-1 text-xs text-white/70 line-clamp-2">{clip.excerpt}</div>
+            <div className="mt-1 line-clamp-2 text-xs text-white/70">{clip.excerpt}</div>
           ) : null}
         </div>
       </div>

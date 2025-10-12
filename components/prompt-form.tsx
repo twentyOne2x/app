@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation'
 import { MetadataMessage } from './chat'
 import { IconBroom } from '@/components/ui/icons'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
+import Image from 'next/image'
 
 export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {
@@ -93,9 +94,13 @@ export function PromptForm({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button type="submit" size="icon" disabled={isLoading || input === ''}>
-                <img 
-                  src="/ui_icons/send_chat_2.svg" 
-                  alt="Send" 
+                <Image
+                  src="/ui_icons/send_chat_2.svg"
+                  alt="Send"
+                  width={24}
+                  height={24}
+                  className="size-6"
+                  priority
                 />
                 <span className="sr-only">Send message</span>
               </Button>

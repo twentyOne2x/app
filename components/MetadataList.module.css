@@ -67,6 +67,7 @@
   height: 150px;
   margin-right: 20px;
   overflow: hidden;
+  position: relative;
 }
 
 .metadataThumbnail img {
@@ -83,6 +84,7 @@
   margin-right: 20px;
   overflow: hidden;
   display: block; /* Ensure the link is block-level to contain the thumbnail */
+  position: relative;
 }
 
 /* Ensure the image remains styled appropriately */
@@ -157,6 +159,7 @@
     height: auto; /* Automatic height */
     margin-right: 0; /* Remove right margin */
     margin-bottom: 10px; /* Add bottom margin */
+    aspect-ratio: 4 / 3;
   }
 
   .metadataThumbnail img {

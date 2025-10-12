@@ -11,6 +11,7 @@ import {
   TooltipTrigger
 } from '@/components/ui/tooltip'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
+import Image from 'next/image'
 
 const StyledClipLoader = styled(ClipLoader)`
   display: block;
@@ -111,10 +112,13 @@ export function ChatPanel({
                 }}
                 className={styles.broomButton}
               >
-                <img
+                <Image
                   src="/ui_icons/clear_the_chat_1.svg"
                   alt=""
-                  style={{ width: '100%', height: '100%' }}
+                  width={32}
+                  height={32}
+                  className="size-full object-contain"
+                  priority
                 />
                 <span className="sr-only">New Chat</span>
               </button>

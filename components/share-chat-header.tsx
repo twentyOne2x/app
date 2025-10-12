@@ -5,6 +5,7 @@ import React from 'react';
 import { shareChat, getChat, getChats } from '@/app/actions';
 import { toast } from 'react-hot-toast';
 import { Chat } from '@/lib/types';
+import Image from 'next/image';
 
 interface ShareChatHeaderProps {
   userId: string; // Ensure this is always a string, either authenticated ID or anonymousId
@@ -89,10 +90,12 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ userId, chatId, chat 
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <img 
-          src="/ui_icons/share_chat_2.svg" 
-          alt="Share" 
-          style={{ width: '20px', height: 'auto' }}
+        <Image
+          src="/ui_icons/share_chat_2.svg"
+          alt="Share"
+          width={20}
+          height={20}
+          priority
         />
         <span className="sr-only">Share Chat</span>
       </button>

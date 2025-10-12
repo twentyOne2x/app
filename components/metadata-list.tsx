@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { type ParsedMetadataEntryV2, type ClipItemV2 } from '@/lib/utils';
 import styles from './MetadataList.module.css';
 import { toast } from 'react-hot-toast';
+import Image from 'next/image';
 
 const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({ entries }) => {
   const [docMappings, setDocMappings] = useState<{ [key: string]: string }>({});
@@ -103,7 +104,13 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({ entries 
             onClick={() => toast.success('Opened in a new tab!')}
           >
             <div className={styles.metadataThumbnail}>
-              <img src={getThumbnailUrl(entry)} alt={entry.parentTitle} loading="lazy" />
+              <Image
+                src={getThumbnailUrl(entry)}
+                alt={entry.parentTitle}
+                fill
+                sizes="(max-width: 767px) 100vw, 200px"
+                className="object-contain"
+              />
             </div>
           </a>
           <div className={styles.metadataContent}>

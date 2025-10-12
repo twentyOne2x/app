@@ -249,7 +249,7 @@ export function ClipDrawer({
         aria-label="Close clip viewer"
         onClick={onClose}
       />
-      <div className="pointer-events-auto w-full border-t border-zinc-200 bg-white text-zinc-900 shadow-[0_-24px_48px_rgba(15,23,42,0.18)]">
+      <div className="pointer-events-auto w-full border-t border-white/20 bg-white/15 text-zinc-100 shadow-[0_-24px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">

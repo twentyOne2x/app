@@ -322,27 +322,30 @@ export function SourceList({
                             <div className="pointer-events-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  event.stopPropagation()
                                   handleClipSelect(parent, clip, 'play')
-                                }
+                                }}
                                 className="relative z-10 inline-flex items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                               >
                                 Play clip
                               </button>
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  event.stopPropagation()
                                   handleClipSelect(parent, clip, 'edit')
-                                }
+                                }}
                                 className="relative z-10 inline-flex items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
                               >
                                 Edit clip
                               </button>
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(event) => {
+                                  event.stopPropagation()
                                   handleCheckboxToggle(parent, clip)
-                                }
+                                }}
                                 className={cn(
                                   'relative z-10 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
                                   selected

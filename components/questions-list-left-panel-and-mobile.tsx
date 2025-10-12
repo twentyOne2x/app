@@ -104,14 +104,7 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
 
   return (
     <div className={containerClass}>
-      <div className="flex w-full items-center justify-between px-2">
-        <Button
-          variant="outline"
-          className={`${styles.shuffleButton} rounded-full w-10 h-10`}
-          onClick={pickRandomQuestions}
-        >
-          <span className="sr-only">Shuffle Questions</span>
-        </Button>
+      <div className="flex w-full items-center justify-end px-2">
         <Button
           variant="ghost"
           className="h-10 w-10 rounded-full border border-white/15 text-xs text-zinc-200 hover:bg-white/10"

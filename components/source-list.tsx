@@ -124,23 +124,25 @@ export function SourceList({
               key={key}
               className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
             >
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-black">
-                  <div className="absolute inset-0">
-                    {parentThumb.url ? (
-                      <Image
-                        src={parentThumb.url}
-                        alt={`Thumbnail for ${parent.parentTitle}`}
-                        fill
-                        sizes="(max-width: 768px) 90vw, 320px"
-                        className="object-cover"
-                        priority={false}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
-                        No preview available
-                      </div>
-                    )}
+                <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="rounded-xl bg-black/80 px-3 py-1">
+                  <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-lg border border-white/15 bg-black">
+                    <div className="absolute inset-0">
+                      {parentThumb.url ? (
+                        <Image
+                          src={parentThumb.url}
+                          alt={`Thumbnail for ${parent.parentTitle}`}
+                          fill
+                          sizes="(max-width: 768px) 90vw, 320px"
+                          className="object-cover"
+                          priority={false}
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
+                          No preview available
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -224,7 +226,7 @@ export function SourceList({
                           </label>
                           <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4">
                             <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span>{clipWindow(clip)}</span>
+                              <span className="max-w-[180px] truncate whitespace-nowrap text-ellipsis">{clipWindow(clip)}</span>
                               {clipScore ? (
                                 <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
                                   {clipScore}
@@ -247,7 +249,7 @@ export function SourceList({
                                   href={playback.watchUrl ?? clip.url ?? primaryUrl ?? '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                                  className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
                                 >
                                   Open clip
                                 </a>
@@ -255,9 +257,9 @@ export function SourceList({
                               <button
                                 type="button"
                                 onClick={() => handleClipSelect(parent, clip)}
-                                className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                                className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
                               >
-                                View details
+                                Open clip editor
                               </button>
                             </div>
                           </div>
@@ -271,7 +273,7 @@ export function SourceList({
                               <button
                                 type="button"
                                 onClick={() => handleClipSelect(parent, clip)}
-                                className="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-50 transition hover:bg-white/20"
+                                className="relative z-10 rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-50 transition hover:bg-white/20"
                               >
                                 Play
                               </button>
@@ -279,7 +281,7 @@ export function SourceList({
                                 type="button"
                                 onClick={() => handleCheckboxToggle(parent, clip)}
                                 className={cn(
-                                  'rounded-md border px-3 py-1 text-xs font-medium transition',
+                                  'relative z-10 rounded-md border px-3 py-1 text-xs font-medium transition',
                                   selected
                                     ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
                                     : 'border-white/20 text-zinc-100 hover:bg-white/10'

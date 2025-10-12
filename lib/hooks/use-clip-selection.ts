@@ -38,11 +38,12 @@ export function buildClipSelectionKey(parent: ParsedMetadataEntryV2, clip: ClipI
     parent.url ?? '',
     clip.parentTitle ?? '',
     clip.channel ?? '',
+    clip.url ?? '',
     clip.startHMS ?? '',
     clip.endHMS ?? '',
     clip.startS != null ? `s${clip.startS}` : '',
     clip.endS != null ? `e${clip.endS}` : '',
-    clip.url ?? ''
+    clip.speaker ?? ''
   ]
   return parts.join('::')
 }

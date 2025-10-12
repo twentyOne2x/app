@@ -127,6 +127,20 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, onClose])
+
   const {
     settings,
     setMode,
@@ -214,13 +228,13 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
         aria-label="Close clip viewer"
         onClick={onClose}
       />
-      <div className="pointer-events-auto w-full border-t border-white/10 bg-zinc-950 shadow-2xl">
+      <div className="pointer-events-auto w-full border-t border-zinc-200 bg-white text-zinc-900 shadow-[0_-24px_48px_rgba(15,23,42,0.18)]">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-xs uppercase tracking-wide text-zinc-400">Now playing</p>
-              <h2 className="text-base font-semibold text-zinc-100">{clip.parentTitle || parent.parentTitle}</h2>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Now playing</p>
+              <h2 className="text-base font-semibold text-zinc-900">{clip.parentTitle || parent.parentTitle}</h2>
+              <p className="mt-1 text-sm text-zinc-500">
                 {parent.channel}
                 {parent.date ? ` · ${parent.date}` : ''}
               </p>
@@ -229,14 +243,14 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-white/15 px-3 py-1 text-xs text-zinc-200 hover:bg-white/10"
+                className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
               >
                 Close
               </button>
             </div>
           </div>
 
-          <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black">
+          <div className="relative w-full overflow-hidden rounded-xl border border-zinc-200 bg-black">
             {showHqVideo ? (
               <video
                 key={streamUrl}
@@ -262,31 +276,30 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
               </div>
             )}
             {isGenerating ? (
-              <div className="absolute left-3 top-3 rounded-full bg-black/80 px-3 py-1 text-xs font-medium text-zinc-200">
+              <div className="absolute left-3 top-3 rounded-full bg-black/80 px-3 py-1 text-xs font-medium text-zinc-100">
                 {generationStatus === 'queued' ? 'Queued' : 'Processing'}
               </div>
             ) : null}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-zinc-300">
+            <div className="text-sm text-zinc-600">
               {clip.startHMS ?? (clip.startS != null ? `Starts at ${Math.floor(clip.startS)}s` : 'Start unknown')}
               {clip.endHMS ? ` → ${clip.endHMS}` : clip.endS ? ` → ${Math.floor(clip.endS)}s` : ''}
-              {clip.speaker ? ` · ${clip.speaker}` : ''}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <a
                 href={data.watchUrl ?? clip.url ?? parent.url ?? '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
+                className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
               >
                 Open on YouTube
               </a>
               {downloadUrl ? (
                 <a
                   href={downloadUrl}
-                  className="rounded-md border border-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-200 hover:bg-emerald-400/10"
+                  className="rounded-md border border-emerald-400/30 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-400/10"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -300,10 +313,10 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                 className={cn(
                   'rounded-md border px-3 py-1 text-xs font-medium transition',
                   !hasBoundaries
-                    ? 'cursor-not-allowed border-white/20 text-zinc-500'
+                    ? 'cursor-not-allowed border-zinc-200 text-zinc-400'
                     : isReady
-                      ? 'border-emerald-400/30 text-emerald-200 hover:bg-emerald-400/10'
-                      : 'border-white/15 text-zinc-100 hover:bg-white/10',
+                      ? 'border-emerald-400/30 text-emerald-600 hover:bg-emerald-400/10'
+                      : 'border-zinc-200 text-zinc-700 hover:bg-zinc-100',
                   isGenerating ? 'cursor-progress opacity-80' : ''
                 )}
                 title={cannotGenerateReason}
@@ -314,33 +327,33 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
           </div>
 
           {generationError ? (
-            <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-200">
+            <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-700">
               {generationError}
             </div>
           ) : null}
 
           {!hasBoundaries ? (
-            <div className="rounded-md border border-amber-300/20 bg-amber-300/10 p-3 text-xs text-amber-200">
+            <div className="rounded-md border border-amber-300/40 bg-amber-100 p-3 text-xs text-amber-900">
               The structured metadata for this clip is missing start/end timestamps. HQ clips require timestamps, so this
               request is disabled until the source data includes them.
             </div>
           ) : null}
 
-          <div className="rounded-lg border border-dashed border-white/10 bg-black/30 p-3">
+          <div className="rounded-lg border border-dashed border-zinc-200 bg-zinc-50 p-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Context padding</div>
-                <p className="mt-1 text-xs text-zinc-400">
+                <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Context padding</div>
+                <p className="mt-1 text-xs text-zinc-500">
                   Choose how much extra audio to include before and after the selected segment.
                 </p>
               </div>
-              <div className="inline-flex overflow-hidden rounded-md border border-white/10">
+              <div className="inline-flex overflow-hidden rounded-md border border-zinc-200 bg-white">
                 <button
                   type="button"
                   onClick={() => setMode('smart')}
                   className={cn(
                     'px-3 py-1 text-xs font-medium transition',
-                    isSmart ? 'bg-white/15 text-zinc-50' : 'bg-transparent text-zinc-300 hover:bg-white/10'
+                    isSmart ? 'bg-zinc-900 text-white' : 'bg-transparent text-zinc-600 hover:bg-zinc-100'
                   )}
                   aria-pressed={isSmart}
                 >
@@ -351,7 +364,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                   onClick={() => setMode('manual')}
                   className={cn(
                     'px-3 py-1 text-xs font-medium transition',
-                    !isSmart ? 'bg-white/15 text-zinc-50' : 'bg-transparent text-zinc-300 hover:bg-white/10'
+                    !isSmart ? 'bg-zinc-900 text-white' : 'bg-transparent text-zinc-600 hover:bg-zinc-100'
                   )}
                   aria-pressed={!isSmart}
                 >
@@ -361,13 +374,13 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
             </div>
 
             {isSmart ? (
-              <div className="mt-3 space-y-3 rounded-md border border-white/5 bg-black/40 p-3">
-                <p className="text-sm text-zinc-200">
+              <div className="mt-3 space-y-3 rounded-md border border-zinc-200 bg-white p-3">
+                <p className="text-sm text-zinc-700">
                   We&apos;ll request transcript-aware boundaries plus{' '}
-                  <span className="font-semibold text-zinc-50">{settings.smartPadSeconds}s</span> of buffer on each side.
+                  <span className="font-semibold text-zinc-900">{settings.smartPadSeconds}s</span> of buffer on each side.
                 </p>
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Quick presets</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Quick presets</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {smartPresets.map((pad) => {
                       const isActive = settings.smartPadSeconds === pad
@@ -377,8 +390,8 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                           type="button"
                           onClick={() => setSmartPadSeconds(pad)}
                           className={cn(
-                            'rounded-md border border-white/10 px-3 py-1 text-xs font-medium transition',
-                            isActive ? 'bg-white/15 text-zinc-50' : 'text-zinc-300 hover:bg-white/10'
+                            'rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium transition',
+                            isActive ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
                           )}
                         >
                           {pad === 0 ? 'No buffer' : `±${pad}s`}
@@ -387,7 +400,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                     })}
                   </div>
                 </div>
-                <label className="flex max-w-xs items-center gap-3 text-sm text-zinc-300">
+                <label className="flex max-w-xs items-center gap-3 text-sm text-zinc-600">
                   Custom
                   <input
                     type="number"
@@ -395,28 +408,28 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                     step={1}
                     value={settings.smartPadSeconds}
                     onChange={handleSmartPadChange}
-                    className="w-24 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-right text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                    className="w-24 rounded-md border border-zinc-200 bg-white px-2 py-1 text-right text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-0"
                     aria-label="Custom smart padding in seconds"
                   />
-                  <span className="text-xs text-zinc-400">seconds</span>
+                  <span className="text-xs text-zinc-500">seconds</span>
                 </label>
               </div>
             ) : (
               <div className="mt-3 space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-md border border-white/5 bg-black/40 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Pad before</div>
-                    <p className="mt-1 text-xs text-zinc-400">Add extra lead-in ahead of the clip.</p>
+                  <div className="rounded-md border border-zinc-200 bg-white p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Pad before</div>
+                    <p className="mt-1 text-xs text-zinc-500">Add extra lead-in ahead of the clip.</p>
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => adjustPadBefore(-5)}
                         disabled={settings.padBeforeSeconds === 0}
                         className={cn(
-                          'rounded-md border border-white/10 px-2 py-1 text-xs font-medium transition',
+                          'rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium transition',
                           settings.padBeforeSeconds === 0
-                            ? 'cursor-not-allowed text-zinc-500'
-                            : 'text-zinc-300 hover:bg-white/10'
+                            ? 'cursor-not-allowed text-zinc-400'
+                            : 'text-zinc-600 hover:bg-zinc-100'
                         )}
                       >
                         −5s
@@ -427,31 +440,31 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                         step={1}
                         value={settings.padBeforeSeconds}
                         onChange={handlePadBeforeChange}
-                        className="w-20 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-center text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-0"
                         aria-label="Pad before in seconds"
                       />
                       <button
                         type="button"
                         onClick={() => adjustPadBefore(5)}
-                        className="rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                        className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100"
                       >
                         +5s
                       </button>
                     </div>
                   </div>
-                  <div className="rounded-md border border-white/5 bg-black/40 p-3">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Pad after</div>
-                    <p className="mt-1 text-xs text-zinc-400">Keep trailing context after the clip.</p>
+                  <div className="rounded-md border border-zinc-200 bg-white p-3">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Pad after</div>
+                    <p className="mt-1 text-xs text-zinc-500">Keep trailing context after the clip.</p>
                     <div className="mt-3 flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => adjustPadAfter(-5)}
                         disabled={settings.padAfterSeconds === 0}
                         className={cn(
-                          'rounded-md border border-white/10 px-2 py-1 text-xs font-medium transition',
+                          'rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium transition',
                           settings.padAfterSeconds === 0
-                            ? 'cursor-not-allowed text-zinc-500'
-                            : 'text-zinc-300 hover:bg-white/10'
+                            ? 'cursor-not-allowed text-zinc-400'
+                            : 'text-zinc-600 hover:bg-zinc-100'
                         )}
                       >
                         −5s
@@ -462,13 +475,13 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                         step={1}
                         value={settings.padAfterSeconds}
                         onChange={handlePadAfterChange}
-                        className="w-20 rounded-md border border-white/10 bg-black/60 px-2 py-1 text-center text-sm text-zinc-100 focus:border-white/30 focus:outline-none focus:ring-0"
+                        className="w-20 rounded-md border border-zinc-200 bg-white px-2 py-1 text-center text-sm text-zinc-700 focus:border-zinc-400 focus:outline-none focus:ring-0"
                         aria-label="Pad after in seconds"
                       />
                       <button
                         type="button"
                         onClick={() => adjustPadAfter(5)}
-                        className="rounded-md border border-white/10 px-2 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                        className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100"
                       >
                         +5s
                       </button>
@@ -479,14 +492,14 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                   <button
                     type="button"
                     onClick={handleResetToManualDefault}
-                    className="rounded-md border border-white/10 px-3 py-1 text-xs font-medium text-zinc-300 transition hover:bg-white/10"
+                    className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100"
                   >
                     Reset to 5s / 5s
                   </button>
                   <button
                     type="button"
                     onClick={handleResetAll}
-                    className="rounded-md border border-white/10 px-3 py-1 text-xs font-medium text-rose-200/80 transition hover:bg-white/10"
+                    className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-rose-600 transition hover:bg-zinc-100"
                   >
                     Clear saved preference
                   </button>
@@ -496,7 +509,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
           </div>
 
           {clip.excerpt ? (
-            <blockquote className="rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-zinc-200">
+            <blockquote className="rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-700">
               {clip.excerpt}
             </blockquote>
           ) : null}

@@ -92,7 +92,6 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
           <div className="mt-0.5 text-xs text-white/60">
             {parent.channelName ?? parent.channel}
             {parent.publishedAt ?? parent.publishedDate ?? parent.date ? ` · ${parent.publishedAt ?? parent.publishedDate ?? parent.date}` : ''}
-            {clip.speaker ? ` · ${clip.speaker}` : ''}
           </div>
           {clip.excerpt ? (
             <div className="mt-1 line-clamp-2 text-xs text-white/70">{clip.excerpt}</div>

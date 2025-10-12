@@ -212,8 +212,6 @@ export function SourceList({
                         videoId: clipThumb.videoId
                       })
                     }
-                    const clipTitle = clip.parentTitle ?? parent.parentTitle
-
                     return (
                       <li
                         key={clipKey}
@@ -224,7 +222,7 @@ export function SourceList({
                             : ''
                         )}
                       >
-                        <div className="flex flex-wrap items-start gap-3">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           <label
                             className={cn(
                               'inline-flex shrink-0 cursor-pointer select-none rounded-md border border-transparent p-1 transition',
@@ -240,28 +238,19 @@ export function SourceList({
                               aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
                             />
                           </label>
-                          <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-sm font-semibold text-white/90">{clipTitle}</span>
+                          <div className="flex min-w-0 flex-1 flex-col gap-3">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
+                              <span className="font-medium text-zinc-100">{clipWindow(clip)}</span>
                               {clipScore ? (
                                 <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
                                   {clipScore}
                                 </span>
                               ) : null}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span className="max-w-[200px] truncate whitespace-nowrap">{clipWindow(clip)}</span>
-                              {clip.speaker ? <span className="text-zinc-300">{clip.speaker}</span> : null}
-                              {clip.channelName ? <span className="text-zinc-300">{clip.channelName}</span> : null}
-                            </div>
                             {clip.excerpt ? (
-                              <p className="group/clip relative overflow-hidden text-sm text-zinc-100">
-                                <span className="line-clamp-3 transition-all duration-200 group-hover/clip:line-clamp-none">
-                                  {clip.excerpt}
-                                </span>
-                              </p>
+                              <p className="text-sm text-zinc-100">{clip.excerpt}</p>
                             ) : (
-                              <p className="text-xs text-zinc-400">No excerpt provided.</p>
+                              <p className="text-xs italic text-zinc-400">No excerpt provided.</p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                               {clip.clipUrl || clip.url ? (
@@ -281,19 +270,10 @@ export function SourceList({
                               >
                                 Open clip editor
                               </button>
-                            </div>
-                          </div>
-                          <div className="ml-auto flex shrink-0 flex-col items-end gap-2 text-xs">
-                            {selected ? (
-                              <span className="rounded-full border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                                Selected
-                              </span>
-                            ) : null}
-                            <div className="flex flex-wrap items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => handleClipSelect(parent, clip)}
-                                className="relative z-10 rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-50 transition hover:bg-white/20"
+                                className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
                               >
                                 Play
                               </button>
@@ -307,8 +287,13 @@ export function SourceList({
                                     : 'border-white/20 text-zinc-100 hover:bg-white/10'
                                 )}
                               >
-                                {selected ? 'Remove' : 'Add to bundle'}
+                                {selected ? 'Remove from bundle' : 'Add to bundle'}
                               </button>
+                              {selected ? (
+                                <span className="ml-auto rounded-full border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                                  Selected
+                                </span>
+                              ) : null}
                             </div>
                           </div>
                         </div>

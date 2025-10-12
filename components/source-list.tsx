@@ -305,7 +305,7 @@ export function SourceList({
                                 </span>
                               ) : null}
                               {timestampLabel ? (
-                                <span className="text-zinc-200/80 normal-case">
+                                <span className="normal-case text-zinc-200/80">
                                   {timestampLabel}
                                 </span>
                               ) : null}
@@ -319,7 +319,7 @@ export function SourceList({
                                 No excerpt provided.
                               </p>
                             )}
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300 pointer-events-auto">
+                            <div className="pointer-events-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                               <button
                                 type="button"
                                 onClick={() =>

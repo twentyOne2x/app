@@ -230,7 +230,7 @@ export function ClipDrawer({
       ? 'Regenerate HQ'
       : 'Generate HQ'
 
-  const embedSrc = useMemo(() => {
+  const embedSrc = (() => {
     if (!data.embedUrl) return undefined
     try {
       const url = new URL(data.embedUrl)
@@ -239,7 +239,7 @@ export function ClipDrawer({
     } catch {
       return data.embedUrl
     }
-  }, [data.embedUrl, shouldAutoplay])
+  })()
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[1200] flex flex-col justify-end">

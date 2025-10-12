@@ -130,7 +130,7 @@ function ClipRow({
               sizes="(max-width: 639px) 100vw, 11rem"
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center bg-white/10 text-[10px] text-white/60">
+            <div className="flex size-full items-center justify-center bg-white/10 text-[10px] text-white/60">
               No preview
             </div>
           )}

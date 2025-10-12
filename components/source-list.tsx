@@ -14,11 +14,14 @@ import {
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
   className?: string
-  onSelectClip?: (payload: {
-    parent: ParsedMetadataEntryV2
-    clip: ClipItemV2
-    playback: ClipPlayback
-  }) => void
+  onSelectClip?: (
+    payload: {
+      parent: ParsedMetadataEntryV2
+      clip: ClipItemV2
+      playback: ClipPlayback
+    },
+    intent: 'play' | 'edit'
+  ) => void
   selectionScope?: string
   selection?: ClipSelectionHandle
 }
@@ -31,7 +34,8 @@ function secondsOrHms(startS?: number, startHMS?: string) {
 
 function clipWindow(clip: ClipItemV2) {
   const start = secondsOrHms(clip.startS, clip.startHMS)
-  const end = clip.endHMS ?? (clip.endS != null ? `${Math.floor(clip.endS)}s` : null)
+  const end =
+    clip.endHMS ?? (clip.endS != null ? `${Math.floor(clip.endS)}s` : null)
   return end ? `${start} → ${end}` : start
 }
 
@@ -47,7 +51,10 @@ function parentScore(scoreMax?: number) {
   return `${pct}% match`
 }
 
-function extractYouTubeThumbnail(rawUrl?: string, fallbackVideoId?: string | null): { url: string | null; videoId: string | null } {
+function extractYouTubeThumbnail(
+  rawUrl?: string,
+  fallbackVideoId?: string | null
+): { url: string | null; videoId: string | null } {
   if (rawUrl) {
     try {
       const parsed = new URL(rawUrl)
@@ -64,7 +71,10 @@ function extractYouTubeThumbnail(rawUrl?: string, fallbackVideoId?: string | nul
         }
       }
     } catch (error) {
-      console.debug('source-list: failed to parse youtube URL', { rawUrl, error })
+      console.debug('source-list: failed to parse youtube URL', {
+        rawUrl,
+        error
+      })
     }
   }
 
@@ -90,10 +100,14 @@ export function SourceList({
   const selectionHandle = selection ?? fallbackSelection
 
   const handleClipSelect = useCallback(
-    (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
+    (
+      parent: ParsedMetadataEntryV2,
+      clip: ClipItemV2,
+      intent: 'play' | 'edit' = 'play'
+    ) => {
       if (!onSelectClip) return
       const playback = buildClipPlayback(parent, clip)
-      onSelectClip({ parent, clip, playback })
+      onSelectClip({ parent, clip, playback }, intent)
     },
     [onSelectClip]
   )
@@ -115,19 +129,34 @@ export function SourceList({
           const clipCount = parent.clips?.length ?? 0
           const parentScoreText = parentScore(parent.scoreMax)
           const firstClip = parent.clips?.[0] ?? null
-          const playbackForParent = firstClip ? buildClipPlayback(parent, firstClip) : undefined
-          const primaryUrl = playbackForParent?.watchUrl ?? parent.url ?? firstClip?.url ?? undefined
-          const parentThumb = extractYouTubeThumbnail(primaryUrl, parent.videoId ?? firstClip?.videoId)
-          if (!parentThumb.url) {
+          const playbackForParent = firstClip
+            ? buildClipPlayback(parent, firstClip)
+            : undefined
+          const primaryUrl =
+            playbackForParent?.watchUrl ??
+            parent.url ??
+            firstClip?.url ??
+            undefined
+          const derivedParentThumb = extractYouTubeThumbnail(
+            primaryUrl,
+            parent.videoId ?? firstClip?.videoId
+          )
+          const parentThumbUrl = parent.thumbnailUrl ?? derivedParentThumb.url
+          if (!parentThumbUrl) {
             console.debug('source-list: missing thumbnail for parent', {
               title: parent.parentTitle,
               channel: parent.channel,
               clipCount,
               primaryUrl,
-              videoId: parentThumb.videoId
+              videoId:
+                derivedParentThumb.videoId ??
+                parent.videoId ??
+                firstClip?.videoId ??
+                null
             })
           }
-          const rawPublished = parent.publishedAt ?? parent.publishedDate ?? parent.date
+          const rawPublished =
+            parent.publishedAt ?? parent.publishedDate ?? parent.date
           const displayDate = rawPublished ? formatDate(rawPublished) : null
           const channelLabel = parent.channelName ?? parent.channel
 
@@ -136,13 +165,13 @@ export function SourceList({
               key={key}
               className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
             >
-                <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="flex flex-col gap-4 sm:flex-row">
                 <div className="rounded-xl bg-black/80 px-3 py-1">
                   <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-lg border border-white/15 bg-black">
                     <div className="absolute inset-0">
-                      {parentThumb.url ? (
+                      {parentThumbUrl ? (
                         <Image
-                          src={parentThumb.url}
+                          src={parentThumbUrl}
                           alt={`Thumbnail for ${parent.parentTitle}`}
                           fill
                           sizes="(max-width: 768px) 90vw, 320px"
@@ -167,7 +196,9 @@ export function SourceList({
                       </span>
                     ) : null}
                   </div>
-                  <h3 className="break-words text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
+                  <h3 className="break-words text-base font-semibold text-zinc-100">
+                    {parent.parentTitle}
+                  </h3>
                   <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                     {primaryUrl ? (
                       <a
@@ -199,17 +230,26 @@ export function SourceList({
                     const clipScore = formatScore(clip.score)
                     const selected = selectionHandle.isSelected(parent, clip)
                     const playback = buildClipPlayback(parent, clip)
-                    const clipThumb = extractYouTubeThumbnail(
-                      clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
+                    const derivedClipThumb = extractYouTubeThumbnail(
+                      clip.clipUrl ??
+                        playback.watchUrl ??
+                        clip.url ??
+                        primaryUrl,
                       clip.videoId ?? parent.videoId
                     )
-                    if (!clipThumb.url) {
+                    const clipThumbUrl =
+                      clip.thumbnailUrl ?? derivedClipThumb.url
+                    if (!clipThumbUrl) {
                       console.debug('source-list: missing clip thumbnail', {
                         parentTitle: parent.parentTitle,
                         clipTitle: clip.parentTitle,
                         clipUrl: clip.url,
                         playbackUrl: playback.watchUrl,
-                        videoId: clipThumb.videoId
+                        videoId:
+                          derivedClipThumb.videoId ??
+                          clip.videoId ??
+                          parent.videoId ??
+                          null
                       })
                     }
                     return (
@@ -221,26 +261,14 @@ export function SourceList({
                             ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
                             : ''
                         )}
+                        data-thumbnail={clipThumbUrl ?? undefined}
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
-                          <label
-                            className={cn(
-                              'inline-flex shrink-0 cursor-pointer select-none rounded-md border border-transparent p-1 transition',
-                              selected ? 'border-emerald-400/30 bg-emerald-400/20' : 'border-transparent'
-                            )}
-                            title={selected ? 'Remove clip from bundle' : 'Add clip to bundle'}
-                          >
-                            <input
-                              type="checkbox"
-                              className="size-4 rounded border-zinc-600 bg-transparent text-emerald-400 opacity-60 transition focus:opacity-100 focus:ring-emerald-400 group-hover:opacity-100"
-                              checked={selected}
-                              onChange={() => handleCheckboxToggle(parent, clip)}
-                              aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
-                            />
-                          </label>
                           <div className="flex min-w-0 flex-1 flex-col gap-3">
                             <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span className="font-medium text-zinc-100">{clipWindow(clip)}</span>
+                              <span className="font-medium text-zinc-100">
+                                {clipWindow(clip)}
+                              </span>
                               {clipScore ? (
                                 <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
                                   {clipScore}
@@ -248,50 +276,66 @@ export function SourceList({
                               ) : null}
                             </div>
                             {clip.excerpt ? (
-                              <p className="text-sm text-zinc-100">{clip.excerpt}</p>
+                              <p className="text-sm text-zinc-100">
+                                {clip.excerpt}
+                              </p>
                             ) : (
-                              <p className="text-xs italic text-zinc-400">No excerpt provided.</p>
+                              <p className="text-xs italic text-zinc-400">
+                                No excerpt provided.
+                              </p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                              {clip.clipUrl || clip.url ? (
-                                <a
-                                  href={clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl ?? '#'}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
-                                >
-                                  Open clip
-                                </a>
-                              ) : null}
                               <button
                                 type="button"
-                                onClick={() => handleClipSelect(parent, clip)}
-                                className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                                onClick={() =>
+                                  handleClipSelect(parent, clip, 'play')
+                                }
+                                className="relative z-10 inline-flex items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                               >
-                                Open clip editor
+                                Play clip
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleClipSelect(parent, clip)}
-                                className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                                onClick={() =>
+                                  handleClipSelect(parent, clip, 'edit')
+                                }
+                                className="relative z-10 inline-flex items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
                               >
-                                Play
+                                Edit clip
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleCheckboxToggle(parent, clip)}
+                                onClick={() =>
+                                  handleCheckboxToggle(parent, clip)
+                                }
                                 className={cn(
-                                  'relative z-10 rounded-md border px-3 py-1 text-xs font-medium transition',
+                                  'relative z-10 inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
                                   selected
-                                    ? 'border-emerald-400/50 bg-emerald-400/10 text-emerald-200'
-                                    : 'border-white/20 text-zinc-100 hover:bg-white/10'
+                                    ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
+                                    : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
                                 )}
                               >
-                                {selected ? 'Remove from bundle' : 'Add to bundle'}
+                                {selected ? 'Added to bundle' : 'Add to bundle'}
                               </button>
+                              {clip.clipUrl || clip.url || primaryUrl ? (
+                                <a
+                                  href={
+                                    clip.clipUrl ??
+                                    playback.watchUrl ??
+                                    clip.url ??
+                                    primaryUrl ??
+                                    '#'
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="relative z-10 inline-flex items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+                                >
+                                  Open source
+                                </a>
+                              ) : null}
                               {selected ? (
-                                <span className="ml-auto rounded-full border border-emerald-400/40 bg-emerald-400/20 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                                  Selected
+                                <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                                  In bundle
                                 </span>
                               ) : null}
                             </div>
@@ -302,10 +346,10 @@ export function SourceList({
                   })}
                 </ol>
               ) : null}
-          </div>
-        )
-      })}
-    </div>
+            </div>
+          )
+        })}
+      </div>
     </>
   )
 }

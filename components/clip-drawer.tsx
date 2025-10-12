@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useCallback, useEffect } from 'react'
+import { ChangeEvent, useCallback, useEffect, useMemo } from 'react'
 import { useClipGeneration } from '@/lib/hooks/use-clip-generation'
 import { useClipPadding } from '@/lib/hooks/use-clip-padding'
 import { cn } from '@/lib/utils'
@@ -114,10 +114,18 @@ interface ClipDrawerProps {
   parent?: ParsedMetadataEntryV2
   clip?: ClipItemV2
   playback?: ClipPlayback
+  intent?: 'play' | 'edit'
   onClose: () => void
 }
 
-export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDrawerProps) {
+export function ClipDrawer({
+  isOpen,
+  parent,
+  clip,
+  playback,
+  intent = 'play',
+  onClose
+}: ClipDrawerProps) {
   useEffect(() => {
     if (!isOpen) return
     const original = document.body.style.overflow
@@ -204,6 +212,8 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
   if (!isOpen || !clip || !parent) return null
 
   const data = playback ?? buildClipPlayback(parent, clip)
+  const clipIntent = intent ?? 'play'
+  const shouldAutoplay = clipIntent === 'play'
   const isSmart = settings.mode === 'smart'
   const smartPresets = [0, 5, 10, 15]
   const startSeconds = clip.startS ?? hmsToSeconds(clip.startHMS)
@@ -219,6 +229,17 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
     : isReady
       ? 'Regenerate HQ'
       : 'Generate HQ'
+
+  const embedSrc = useMemo(() => {
+    if (!data.embedUrl) return undefined
+    try {
+      const url = new URL(data.embedUrl)
+      url.searchParams.set('autoplay', shouldAutoplay ? '1' : '0')
+      return url.toString()
+    } catch {
+      return data.embedUrl
+    }
+  }, [data.embedUrl, shouldAutoplay])
 
   return (
     <div className="pointer-events-none fixed inset-0 z-[1200] flex flex-col justify-end">
@@ -256,6 +277,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
                 key={streamUrl}
                 controls
                 preload="metadata"
+                autoPlay={shouldAutoplay}
                 className="h-64 w-full bg-black sm:h-80"
               >
                 <source src={streamUrl ?? ''} />
@@ -264,7 +286,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
             ) : showYouTubeEmbed ? (
               <iframe
                 title={`Clip from ${clip.parentTitle || parent.parentTitle}`}
-                src={data.embedUrl}
+                src={embedSrc ?? data.embedUrl}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 className="h-64 w-full sm:h-80"

@@ -476,6 +476,7 @@ export function Chat({
     parent: ParsedMetadataEntryV2
     clip: ClipItemV2
     playback: ClipPlayback
+    intent: 'play' | 'edit'
   } | null>(null);
   const [isProcessingQuery, setIsProcessingQuery] = useState(false);
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
@@ -1039,14 +1040,18 @@ export function Chat({
   }, [])
 
   const handleClipSelect = useCallback(
-    (payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback }) => {
+    (
+      payload: { parent: ParsedMetadataEntryV2; clip: ClipItemV2; playback: ClipPlayback },
+      intent: 'play' | 'edit'
+    ) => {
       console.debug('chat: clip selected', {
         traceId: currentTraceIdRef.current,
         parentTitle: payload.parent?.parentTitle ?? null,
         clipStart: payload.clip?.startHMS ?? null,
-        clipUrl: payload.clip?.url ?? null
+        clipUrl: payload.clip?.url ?? null,
+        intent
       })
-      setSelectedClip(payload);
+      setSelectedClip({ ...payload, intent })
     },
     []
   );
@@ -2186,6 +2191,7 @@ export function Chat({
         parent={selectedClip?.parent}
         clip={selectedClip?.clip}
         playback={selectedClip?.playback}
+        intent={selectedClip?.intent ?? 'play'}
         onClose={handleCloseClipDrawer}
       />
     </>

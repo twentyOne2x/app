@@ -66,7 +66,7 @@ export interface ClipItemV2 {
   parentTitle: string
   channel: string
   date?: string
-  url?: string          // exact-start URL if present in the answer links
+  url?: string // exact-start URL if present in the answer links
   score?: number
   startHMS?: string
   endHMS?: string
@@ -84,6 +84,7 @@ export interface ClipItemV2 {
   channelName?: string
   publishedAt?: string
   publishedDate?: string
+  thumbnailUrl?: string
   channel_name?: string
   channel_id?: string
   published_at?: string
@@ -91,13 +92,14 @@ export interface ClipItemV2 {
   clip_url?: string
   video_id?: string
   parent_id?: string
+  thumbnail_url?: string
 }
 
 export interface ParsedMetadataEntryV2 {
   parentTitle: string
   channel: string
   date?: string
-  url?: string          // canonical/first link we saw for this parent
+  url?: string // canonical/first link we saw for this parent
   scoreMax?: number
   clips: ClipItemV2[]
   videoId?: string
@@ -105,11 +107,13 @@ export interface ParsedMetadataEntryV2 {
   channelName?: string
   publishedAt?: string
   publishedDate?: string
+  thumbnailUrl?: string
   channel_name?: string
   channel_id?: string
   published_at?: string
   published_date?: string
   video_id?: string
+  thumbnail_url?: string
 }
 
 /** Pull the trailing sources section out of the LLM answer text. */
@@ -146,16 +150,18 @@ function toNumber(x?: string): number | undefined {
 }
 function timeToSeconds(hms?: string): number | undefined {
   if (!hms) return undefined
-  const parts = hms.split(':').map((p) => parseInt(p, 10))
-  if (parts.length !== 3 || parts.some((v) => Number.isNaN(v))) return undefined
+  const parts = hms.split(':').map(p => parseInt(p, 10))
+  if (parts.length !== 3 || parts.some(v => Number.isNaN(v))) return undefined
   return parts[0] * 3600 + parts[1] * 60 + parts[2]
 }
 
 // Example line (video rows emitted by backend):
 // [Title]: <title> (00:12:34–00:15:22), [Speaker]: X, [Channel]: Y, [Date]: 2024-06-01, [Score]: 0.8123
 // Optional: [Excerpt]: foo … bar
-const FIELD_RE = /\[(Title|Speaker|Channel|Date|Score|Excerpt)\]:\s*([^,\n]+)(?:,|$)/gi
-const RANGE_RE = /\(([0-9]{2}:[0-9]{2}:[0-9]{2})\s*[–-]\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\)/
+const FIELD_RE =
+  /\[(Title|Speaker|Channel|Date|Score|Excerpt)\]:\s*([^,\n]+)(?:,|$)/gi
+const RANGE_RE =
+  /\(([0-9]{2}:[0-9]{2}:[0-9]{2})\s*[–-]\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\)/
 
 interface ParsedRow {
   title: string
@@ -221,12 +227,13 @@ export function parseMetadata(
 ): ParsedMetadataEntryV2[] {
   if (!sourcesBlock?.trim()) return []
 
-  const titleToUrl =
-    fullAnswerTextForLinks ? harvestTitleToUrlMap(fullAnswerTextForLinks) : {}
+  const titleToUrl = fullAnswerTextForLinks
+    ? harvestTitleToUrlMap(fullAnswerTextForLinks)
+    : {}
 
   const lines = sourcesBlock
     .split('\n')
-    .map((l) => l.trim())
+    .map(l => l.trim())
     .filter(Boolean)
 
   const clips: ClipItemV2[] = []
@@ -251,7 +258,8 @@ export function parseMetadata(
     })
   }
 
-  const keyOf = (c: ClipItemV2) => `${c.parentTitle}|||${c.channel}|||${c.date ?? ''}`
+  const keyOf = (c: ClipItemV2) =>
+    `${c.parentTitle}|||${c.channel}|||${c.date ?? ''}`
   const byParent = new Map<string, ParsedMetadataEntryV2>()
 
   for (const c of clips) {
@@ -261,17 +269,22 @@ export function parseMetadata(
       existing.clips.push(c)
       if (c.score != null) {
         existing.scoreMax =
-          existing.scoreMax == null ? c.score : Math.max(existing.scoreMax, c.score)
+          existing.scoreMax == null
+            ? c.score
+            : Math.max(existing.scoreMax, c.score)
       }
       if (!existing.url && c.url) existing.url = c.url
-      existing.videoId = existing.videoId ?? c.videoId ?? c.parentId ?? c.video_id ?? c.parent_id
+      existing.videoId =
+        existing.videoId ?? c.videoId ?? c.parentId ?? c.video_id ?? c.parent_id
       existing.channelId = existing.channelId ?? c.channelId ?? c.channel_id
-      existing.channelName = existing.channelName ?? c.channelName ?? c.channel ?? c.channel_name
+      existing.channelName =
+        existing.channelName ?? c.channelName ?? c.channel ?? c.channel_name
       if (!existing.publishedAt) {
         existing.publishedAt = c.publishedAt ?? c.published_at
       }
       if (!existing.publishedDate) {
-        existing.publishedDate = c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
+        existing.publishedDate =
+          c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
       }
     } else {
       byParent.set(k, {
@@ -285,13 +298,14 @@ export function parseMetadata(
         channelId: c.channelId ?? c.channel_id,
         channelName: c.channelName ?? c.channel ?? c.channel_name,
         publishedAt: c.publishedAt ?? c.published_at,
-        publishedDate: c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
+        publishedDate:
+          c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
       })
     }
   }
 
   // sort clips within each parent by start time
-  Array.from(byParent.values()).forEach((p) => {
+  Array.from(byParent.values()).forEach(p => {
     p.clips.sort((a, b) => (a.startS ?? 0) - (b.startS ?? 0))
   })
 
@@ -305,8 +319,13 @@ export function parseMetadata(
   return normalizeMetadataEntries(parents)
 }
 
-export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): ParsedMetadataEntryV2[] {
-  const readString = (obj: Record<string, unknown>, key: string): string | undefined => {
+export function normalizeMetadataEntries(
+  entries: ParsedMetadataEntryV2[]
+): ParsedMetadataEntryV2[] {
+  const readString = (
+    obj: Record<string, unknown>,
+    key: string
+  ): string | undefined => {
     const value = obj?.[key]
     if (typeof value === 'string') {
       const trimmed = value.trim()
@@ -315,15 +334,70 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
     return undefined
   }
 
-  return entries.map((entry) => {
+  const toAbsoluteUrl = (candidate?: string): string | undefined => {
+    if (!candidate) return undefined
+    try {
+      const url = new URL(candidate)
+      return url.toString()
+    } catch {
+      return undefined
+    }
+  }
+
+  const extractYouTubeId = (candidate?: string): string | undefined => {
+    if (!candidate) return undefined
+    try {
+      const parsed = new URL(candidate)
+      if (parsed.hostname.includes('youtu.be')) {
+        const slug = parsed.pathname.replace('/', '').split('/')[0]
+        return slug || undefined
+      }
+      if (parsed.hostname.includes('youtube.com')) {
+        const id = parsed.searchParams.get('v')
+        return id ?? undefined
+      }
+      return undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  const youtubeThumbnailFrom = (
+    candidateUrl?: string,
+    fallbackVideoId?: string | null
+  ): string | undefined => {
+    const videoId =
+      extractYouTubeId(candidateUrl) ?? fallbackVideoId ?? undefined
+    return videoId
+      ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+      : undefined
+  }
+
+  return entries.map(entry => {
     const entryRecord = entry as unknown as Record<string, unknown>
     const rawEntryChannelName =
-      entry.channelName ?? readString(entryRecord, 'channel_name') ?? entry.channel
+      entry.channelName ??
+      readString(entryRecord, 'channel_name') ??
+      entry.channel
     const normalizedChannelName =
-      applyNameAlias(rawEntryChannelName) ?? rawEntryChannelName ?? entry.channel
+      applyNameAlias(rawEntryChannelName) ??
+      rawEntryChannelName ??
+      entry.channel
 
-    const entryChannelId = entry.channelId ?? readString(entryRecord, 'channel_id')
+    const entryChannelId =
+      entry.channelId ?? readString(entryRecord, 'channel_id')
     const entryVideoId = entry.videoId ?? readString(entryRecord, 'video_id')
+    const entryUrlCandidate =
+      toAbsoluteUrl(entry.url) ??
+      toAbsoluteUrl(readString(entryRecord, 'url')) ??
+      entry.url
+    const entryExplicitThumbnail =
+      toAbsoluteUrl(entry.thumbnailUrl) ??
+      toAbsoluteUrl(readString(entryRecord, 'thumbnail_url')) ??
+      toAbsoluteUrl(readString(entryRecord, 'thumbnail'))
+    const entryThumbnail =
+      entryExplicitThumbnail ??
+      youtubeThumbnailFrom(entryUrlCandidate, entryVideoId)
 
     const entryPublishedAt =
       entry.publishedAt ??
@@ -336,20 +410,40 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
       entryPublishedAt ??
       entry.date
 
-    const normalizedClips = entry.clips.map((clip) => {
+    const normalizedClips = entry.clips.map(clip => {
       const clipRecord = clip as unknown as Record<string, unknown>
       const rawClipChannelName =
-        clip.channelName ?? readString(clipRecord, 'channel_name') ?? clip.channel
+        clip.channelName ??
+        readString(clipRecord, 'channel_name') ??
+        clip.channel
       const clipChannelName =
-        applyNameAlias(rawClipChannelName) ?? rawClipChannelName ?? normalizedChannelName
+        applyNameAlias(rawClipChannelName) ??
+        rawClipChannelName ??
+        normalizedChannelName
 
       const clipChannelId =
         clip.channelId ?? readString(clipRecord, 'channel_id') ?? entryChannelId
       const clipVideoId =
         clip.videoId ?? readString(clipRecord, 'video_id') ?? entryVideoId
       const clipParentId =
-        clip.parentId ?? readString(clipRecord, 'parent_id') ?? clipVideoId ?? entryVideoId
-      const clipClipUrl = clip.clipUrl ?? readString(clipRecord, 'clip_url') ?? clip.url
+        clip.parentId ??
+        readString(clipRecord, 'parent_id') ??
+        clipVideoId ??
+        entryVideoId
+      const clipClipUrl =
+        clip.clipUrl ?? readString(clipRecord, 'clip_url') ?? clip.url
+      const clipUrlCandidate =
+        toAbsoluteUrl(clipClipUrl) ??
+        toAbsoluteUrl(clip.url) ??
+        entryUrlCandidate
+      const clipExplicitThumbnail =
+        toAbsoluteUrl(clip.thumbnailUrl) ??
+        toAbsoluteUrl(readString(clipRecord, 'thumbnail_url')) ??
+        toAbsoluteUrl(readString(clipRecord, 'thumbnail'))
+      const clipThumbnail =
+        clipExplicitThumbnail ??
+        youtubeThumbnailFrom(clipUrlCandidate, clipVideoId ?? entryVideoId) ??
+        entryThumbnail
       const clipPublishedAt =
         clip.publishedAt ??
         readString(clipRecord, 'published_at') ??
@@ -371,7 +465,8 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
         parentId: clipParentId,
         videoId: clipVideoId,
         publishedAt: clipPublishedAt ?? undefined,
-        publishedDate: clipPublishedDate ?? undefined
+        publishedDate: clipPublishedDate ?? undefined,
+        thumbnailUrl: clipThumbnail
       }
     })
 
@@ -384,7 +479,8 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
       publishedAt: entryPublishedAt ?? undefined,
       publishedDate: entryPublishedDate ?? undefined,
       date: entryPublishedAt ?? entry.date,
-      clips: normalizedClips
+      clips: normalizedClips,
+      thumbnailUrl: entryThumbnail
     }
   })
 }

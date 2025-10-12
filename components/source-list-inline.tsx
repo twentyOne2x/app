@@ -17,7 +17,11 @@ function time(h?: string, e?: string) {
   return `${h}–${e}`
 }
 
-function clipHref(parentUrl?: string, startS?: number, clipUrl?: string | null) {
+function clipHref(
+  parentUrl?: string,
+  startS?: number,
+  clipUrl?: string | null
+) {
   if (clipUrl) return clipUrl
   if (!parentUrl) return '#'
   try {
@@ -50,14 +54,26 @@ function youtubeThumb(videoId?: string | null, fallbackUrl?: string) {
   try {
     const url = new URL(fallbackUrl)
     const v = url.searchParams.get('v')
-    return v ? `https://i.ytimg.com/vi/${v}/hqdefault.jpg` : '/default-video-thumbnail.jpg'
+    return v
+      ? `https://i.ytimg.com/vi/${v}/hqdefault.jpg`
+      : '/default-video-thumbnail.jpg'
   } catch {
     return '/default-video-thumbnail.jpg'
   }
 }
 
-function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipItemV2 }) {
+function ClipRow({
+  parent,
+  clip
+}: {
+  parent: ParsedMetadataEntryV2
+  clip: ClipItemV2
+}) {
   const href = clipHref(parent.url, clip.startS, clip.clipUrl)
+  const thumbnailSrc =
+    clip.thumbnailUrl ??
+    parent.thumbnailUrl ??
+    youtubeThumb(clip.videoId ?? parent.videoId, clip.clipUrl ?? parent.url)
   return (
     <Link
       href={href}
@@ -68,17 +84,23 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
       <div className="flex items-start gap-3">
         {/* Thumbnail */}
         <div className="relative h-16 w-28 overflow-hidden rounded">
-          <Image
-            src={youtubeThumb(clip.videoId ?? parent.videoId, parent.url)}
-            alt={parent.parentTitle}
-            fill
-            className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
-            sizes="(max-width: 639px) 100vw, 11rem"
-          />
+          {thumbnailSrc ? (
+            <Image
+              src={thumbnailSrc}
+              alt={parent.parentTitle}
+              fill
+              className="object-cover transition-transform duration-200 group-hover:scale-[1.03]"
+              sizes="(max-width: 639px) 100vw, 11rem"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-white/10 text-[10px] text-white/60">
+              No preview
+            </div>
+          )}
           {/* Hover overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover:bg-black/30 group-hover:opacity-100">
             <div className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium text-black">
-              ▶ {time(clip.startHMS, clip.endHMS) || 'Open clip'}
+              ▶ {time(clip.startHMS, clip.endHMS) || 'Play clip'}
             </div>
           </div>
         </div>
@@ -91,10 +113,14 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
           </div>
           <div className="mt-0.5 text-xs text-white/60">
             {parent.channelName ?? parent.channel}
-            {parent.publishedAt ?? parent.publishedDate ?? parent.date ? ` · ${parent.publishedAt ?? parent.publishedDate ?? parent.date}` : ''}
+            {(parent.publishedAt ?? parent.publishedDate ?? parent.date)
+              ? ` · ${parent.publishedAt ?? parent.publishedDate ?? parent.date}`
+              : ''}
           </div>
           {clip.excerpt ? (
-            <div className="mt-1 line-clamp-2 text-xs text-white/70">{clip.excerpt}</div>
+            <div className="mt-1 line-clamp-2 text-xs text-white/70">
+              {clip.excerpt}
+            </div>
           ) : null}
         </div>
       </div>
@@ -107,12 +133,21 @@ export function SourceListInline({ entries, className }: Props) {
   return (
     <div className={cn('mx-auto w-full max-w-3xl', className)}>
       {entries.map((p, i) => (
-        <div key={i} className={cn('mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4')}>
+        <div
+          key={i}
+          className={cn(
+            'mb-6 rounded-xl border border-white/10 bg-white/[0.03] p-4'
+          )}
+        >
           <div className="mb-2 flex items-center justify-between">
-            <div className="text-sm font-semibold text-white/90">{p.parentTitle}</div>
+            <div className="text-sm font-semibold text-white/90">
+              {p.parentTitle}
+            </div>
             <div className="text-xs text-white/60">
               {p.channelName ?? p.channel}
-              {p.publishedAt ?? p.publishedDate ?? p.date ? ` · ${p.publishedAt ?? p.publishedDate ?? p.date}` : ''}
+              {(p.publishedAt ?? p.publishedDate ?? p.date)
+                ? ` · ${p.publishedAt ?? p.publishedDate ?? p.date}`
+                : ''}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

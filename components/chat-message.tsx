@@ -7,6 +7,8 @@ import { useState, useEffect } from 'react';
 import { Message } from 'ai';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/ui/codeblock';
@@ -17,6 +19,7 @@ import styles from './ChatListContainer.module.css'; // Import the CSS module
 import ReactMarkdown from 'react-markdown';
 import Image from 'next/image'; // Import Next.js Image component
 import { coerceContent } from '@/lib/coerce-content';
+import { chatMarkdownSanitizeSchema } from '@/lib/markdown-schema';
 
 // **Define the Props Interface for ChatMessage**
 export interface ChatMessageProps {
@@ -129,6 +132,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
                 className={`prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 
           ${isMobile ? styles.customMarkdownFontMobile : styles.customMarkdownFont}`}
                 remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, chatMarkdownSanitizeSchema]]}
                 components={components}
               >
                 {content}

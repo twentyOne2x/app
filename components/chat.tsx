@@ -573,7 +573,8 @@ export function Chat({
     entryProfile.code,
     excludedChannelKeys,
     availableChannels.length,
-    setExcludedChannelKeys
+    setExcludedChannelKeys,
+    setChannelCatalogCache
   ])
 
   const selectionScope = useMemo(() => {
@@ -642,7 +643,6 @@ export function Chat({
     },
     [
       bundleHandle,
-      bundleHandle.state,
       clipSelection.selectionCount,
       setSelectedClip,
       setIsModalOpen,
@@ -1423,7 +1423,7 @@ export function Chat({
     if (mergedOptions) {
       setChannelCatalogCache(mergedOptions)
     }
-  }, [structuredMetadataEntries, sanitizedStructuredMetadata])
+  }, [structuredMetadataEntries, sanitizedStructuredMetadata, setChannelCatalogCache])
 
   useEffect(() => {
     const handleResize = () => {

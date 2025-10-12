@@ -995,12 +995,15 @@ export function Chat({
       processedContent = processedContent.replace(pattern, replacement)
     })
 
-    const quotePattern = /"([^"]+)"(\s*\([^)]*\))?/g
-    processedContent = processedContent.replace(quotePattern, (_match, quotedText: string, trailing: string | undefined) => {
+    const quotePattern = /(\s*)"([^"]+)"(\s*\([^)]*\))?/g
+    processedContent = processedContent.replace(quotePattern, (_match, leading: string, quotedText: string, trailing: string | undefined) => {
       const displayQuote = quotedText.trim()
       if (!displayQuote) return _match
+
+      const normalizedLeading = leading ? (leading.includes('\n') ? ' ' : leading) : ''
       const suffix = trailing ? ` ${trailing.replace(/\s+/g, ' ').trim()}` : ''
-      return `<span class="quote-chip">“${displayQuote}”${suffix}</span>`
+
+      return `${normalizedLeading}<span class="quote-chip">“${displayQuote}”${suffix}</span>`
     })
 
     if (processedContent !== original) {

@@ -107,7 +107,7 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
       <div className="flex w-full items-center justify-end px-2">
         <Button
           variant="ghost"
-          className="h-10 w-10 rounded-full border border-white/15 text-xs text-zinc-200 hover:bg-white/10"
+          className="size-10 rounded-full border border-white/15 text-xs text-zinc-200 hover:bg-white/10"
           onClick={() => setSelectedQuestions(selectRandomQuestions())}
         >
           ↻

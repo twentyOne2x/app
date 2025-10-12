@@ -60,7 +60,7 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
       )}
       aria-hidden={!isOpen}
     >
-      <div className="pointer-events-auto h-full w-full max-w-xl bg-zinc-950 border-l border-white/10 shadow-2xl transition-transform duration-300 ease-out md:w-[480px] md:translate-x-0">
+      <div className="pointer-events-auto size-full max-w-xl border-l border-white/10 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-out md:w-[480px] md:translate-x-0">
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div>
             <div className="flex items-center gap-2">
@@ -99,7 +99,7 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
           </div>
         ) : null}
 
-        <section className="max-h-full overflow-y-auto px-4 py-4 space-y-3">
+        <section className="max-h-full space-y-3 overflow-y-auto p-4">
           {state.items.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm text-zinc-300">
               Select clips from the sources list and choose “Generate bundle” to track them here.
@@ -117,7 +117,7 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
                       → {item.selection.clip.endHMS ?? item.selection.clip.endS ?? 'End unknown'}
                     </div>
                     {item.selection.clip.excerpt ? (
-                      <p className="mt-2 text-xs text-zinc-400 line-clamp-3">
+                      <p className="mt-2 line-clamp-3 text-xs text-zinc-400">
                         {item.selection.clip.excerpt}
                       </p>
                     ) : null}

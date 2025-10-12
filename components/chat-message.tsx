@@ -62,7 +62,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
     code: ({ inline, className, children, ...props }: CodeRendererProps) => {
       // Handle the special '▍' character
       if (children === '▍') {
-        return <span className="mt-1 cursor-default animate-pulse">▍</span>;
+        return <span className="mt-1 animate-pulse cursor-default">▍</span>;
       }
 
       // Replace '`▍`' with '▍'
@@ -99,7 +99,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
     >
       <div
         className={cn(
-          'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow bg-background',
+          'flex size-8 shrink-0 select-none items-center justify-center rounded-md border bg-background shadow',
           styles.chatMessageIcon // Apply the chatMessageIcon class
         )}
       >
@@ -121,7 +121,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
           />
         )}
       </div>
-      <div className={cn("flex-1 px-1 ml-4 space-y-2 overflow-hidden", styles.chatMessageContent)}>
+      <div className={cn("ml-4 flex-1 space-y-2 overflow-hidden px-1", styles.chatMessageContent)}>
         {(() => {
           try {
             return (

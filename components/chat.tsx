@@ -116,7 +116,7 @@ function RightPanelAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
   if (isAuthenticated) return null
 
   return (
-    <div className="mb-4 flex flex-col items-center rounded-xl border border-white/10 bg-black/40 px-4 py-4 text-center shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
+    <div className="mb-4 flex flex-col items-center rounded-xl border border-white/10 bg-black/40 p-4 text-center shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
       <AuthButtonsCallout />
     </div>
   )

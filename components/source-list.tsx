@@ -250,7 +250,7 @@ export function SourceList({
                               ) : null}
                             </div>
                             <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span className="max-w-[200px] truncate whitespace-nowrap text-ellipsis">{clipWindow(clip)}</span>
+                              <span className="max-w-[200px] truncate whitespace-nowrap">{clipWindow(clip)}</span>
                               {clip.speaker ? <span className="text-zinc-300">{clip.speaker}</span> : null}
                               {clip.channelName ? <span className="text-zinc-300">{clip.channelName}</span> : null}
                             </div>

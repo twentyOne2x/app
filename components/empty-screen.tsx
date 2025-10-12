@@ -41,7 +41,7 @@ export function EmptyScreen({ onSubmit, isVisible }: QuestionsOverlayPropsLeftPa
   const fadeInOutClass = isVisible ? styles.fadeIn : styles.fadeOut;
   
   return (
-    <div className={`flex flex-col w-full pb-12 ${fadeInOutClass}`}>
+    <div className={`flex w-full flex-col pb-12 ${fadeInOutClass}`}>
       <div className="w-full rounded-lg border bg-background p-8 text-left">
         <h1 className="mb-2 text-lg font-semibold text-white">
           {entryProfile.headline}

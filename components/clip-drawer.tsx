@@ -207,7 +207,7 @@ export function ClipDrawer({ isOpen, parent, clip, playback, onClose }: ClipDraw
       : 'Generate HQ'
 
   return (
-    <div className="fixed inset-0 z-[1200] pointer-events-none flex flex-col justify-end">
+    <div className="pointer-events-none fixed inset-0 z-[1200] flex flex-col justify-end">
       <button
         type="button"
         className="pointer-events-auto flex-1 bg-black/50"

@@ -14,7 +14,7 @@ import { auth } from '@/auth'
 export async function Header() {
   const session = await auth();
   return (
-    <header className="sticky top-0 z-50 flex items-center justify-between w-full h-16 px-4 border-b shrink-0 !bg-transparent">
+    <header className="sticky top-0 z-50 flex h-16 w-full shrink-0 items-center justify-between border-b !bg-transparent px-4">
       <div className="flex items-center">
         {session?.user ? (
           <Sidebar>
@@ -29,12 +29,12 @@ export async function Header() {
           </Sidebar>
           ) : (
           <Link href="/" target="_blank" rel="nofollow">
-            <IconNextChat className="w-6 h-6 mr-2 dark:hidden" inverted />
-            <IconNextChat className="hidden w-6 h-6 mr-2 dark:block" />
+            <IconNextChat className="mr-2 size-6 dark:hidden" inverted />
+            <IconNextChat className="mr-2 hidden size-6 dark:block" />
           </Link>
         )}
         <div className="flex items-center">
-          <IconSeparator className="w-6 h-6 text-muted-foreground/50" />
+          <IconSeparator className="size-6 text-muted-foreground/50" />
           {session?.user ? <UserMenu user={session.user} /> : null}
         </div>
       </div>

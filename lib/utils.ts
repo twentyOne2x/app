@@ -316,7 +316,7 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
   }
 
   return entries.map((entry) => {
-    const entryRecord = entry as Record<string, unknown>
+    const entryRecord = entry as unknown as Record<string, unknown>
     const rawEntryChannelName =
       entry.channelName ?? readString(entryRecord, 'channel_name') ?? entry.channel
     const normalizedChannelName =
@@ -337,7 +337,7 @@ export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): Pars
       entry.date
 
     const normalizedClips = entry.clips.map((clip) => {
-      const clipRecord = clip as Record<string, unknown>
+      const clipRecord = clip as unknown as Record<string, unknown>
       const rawClipChannelName =
         clip.channelName ?? readString(clipRecord, 'channel_name') ?? clip.channel
       const clipChannelName =

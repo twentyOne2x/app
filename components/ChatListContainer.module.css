@@ -132,15 +132,15 @@
 .chatPanel {
   position: fixed;
   bottom: 0;
-  left: 43%;
-  transform: translateX(-43%);
-  width: calc(75% - 120px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 960px);
   box-sizing: border-box;
   z-index: 10;
   padding-top: 1rem;
   padding-left: 1rem;
   padding-right: 1rem;
-  padding-bottom: 0.5rem;
+  padding-bottom: 1rem;
 }
 
 
@@ -285,6 +285,7 @@
   z-index: 10; /* Ensure it's above other content */
   padding-right: 10%;
   padding-left: 5%;
+  padding-bottom: 7rem;
   opacity: 0; /* Start with invisible */
   transition: opacity 0.5s ease-in-out; /* Smooth transition for opacity */
 }

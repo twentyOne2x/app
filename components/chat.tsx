@@ -30,10 +30,11 @@ import {
 import { coerceContent, isRenderableMessage } from '@/lib/coerce-content';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
-import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
+import type { DiagnosticsPayload, ChannelFilterPayload, ProgressStageStatus } from '@/lib/types';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 import { useRouter } from 'next/navigation'
-import QueryProgress from '@/components/query-progress'
+import { DEFAULT_PIPELINE, formatDuration, normalizeProgress } from '@/lib/progress-display'
+import type { DisplayStage } from '@/lib/progress-display'
 
 type ChannelOption = {
   id?: string | null
@@ -42,6 +43,240 @@ type ChannelOption = {
 
 const channelOptionKey = (option: ChannelOption): string =>
   option.id ? `id:${option.id}` : `name:${option.name.trim().toLowerCase()}`
+
+type StageMeta = Record<string, unknown>
+
+function formatNumeric(value: unknown, digits = 2): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(digits)
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return null
+}
+
+function formatCount(value: unknown): string | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return `${value}`
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return null
+}
+
+function stageStatusMarker(status: ProgressStageStatus): string {
+  switch (status) {
+    case 'completed':
+      return '[x]'
+    case 'running':
+      return '[>]'
+    case 'skipped':
+      return '[-]'
+    case 'error':
+      return '[!]'
+    default:
+      return '[ ]'
+  }
+}
+
+function extractReason(meta: StageMeta | undefined): string | null {
+  if (!meta) return null
+  if (typeof meta.reason === 'string' && meta.reason.trim()) return meta.reason.trim()
+  if (typeof meta.skip_reason === 'string' && meta.skip_reason.trim()) return meta.skip_reason.trim()
+  return null
+}
+
+function describeStageStatus(stage: DisplayStage): string {
+  const duration = formatDuration(stage.durationMs)
+  const meta = stage.meta as StageMeta | undefined
+  const reason = extractReason(meta)
+  switch (stage.status) {
+    case 'completed':
+      return duration ? `completed in ${duration}` : 'completed'
+    case 'running':
+      return 'running'
+    case 'skipped':
+      return reason ? `skipped — ${reason}` : 'skipped'
+    case 'error':
+      return reason ? `error — ${reason}` : 'error'
+    default:
+      return 'pending'
+  }
+}
+
+function formatSourceEntry(entry: unknown, fallbackKey: string): string | null {
+  if (!entry || typeof entry !== 'object') return null
+  const title = typeof (entry as { title?: unknown }).title === 'string' ? (entry as { title: string }).title : null
+  const channel = typeof (entry as { channel?: unknown }).channel === 'string' ? (entry as { channel: string }).channel : null
+  const scoreRaw = (entry as { score?: unknown }).score
+  const score = formatNumeric(scoreRaw)
+  const parts = []
+  if (title) parts.push(title)
+  if (channel) parts.push(`@${channel}`)
+  if (score) parts.push(`score ${score}`)
+  if (!parts.length) return fallbackKey
+  return parts.join(' · ')
+}
+
+function formatSourceList(value: unknown, limit = 3): string | null {
+  if (!Array.isArray(value) || value.length === 0) return null
+  const entries = value
+    .slice(0, limit)
+    .map((item, index) => formatSourceEntry(item, `source-${index + 1}`))
+    .filter((item): item is string => Boolean(item && item.trim()))
+  if (!entries.length) return null
+  return entries.join('; ')
+}
+
+function formatRetrieveDetails(meta: StageMeta): string[] {
+  const details: string[] = []
+  const initialCount = formatCount(meta.initial_candidates)
+  const scoreMin = formatNumeric(meta.score_min)
+  const scoreMax = formatNumeric(meta.score_max)
+  if (initialCount) {
+    details.push(`initial candidates: ${initialCount}`)
+  }
+  if (scoreMin || scoreMax) {
+    details.push(`score range: ${scoreMin ?? '—'} to ${scoreMax ?? '—'}`)
+  }
+  const topSources = formatSourceList(meta.top_sources)
+  if (topSources) {
+    details.push(`top matches: ${topSources}`)
+  }
+  const entityGate =
+    meta.entity_gate && typeof meta.entity_gate === 'object' ? (meta.entity_gate as StageMeta) : null
+  if (entityGate) {
+    const required = Array.isArray(entityGate.required_entities) ? entityGate.required_entities : null
+    const requiredLabel = required && required.length ? required.join(', ') : null
+    const applied = Boolean(entityGate.applied)
+    if (requiredLabel) {
+      details.push(`entity gate required: ${requiredLabel} (${applied ? 'applied' : 'not applied'})`)
+    }
+    if (applied) {
+      const kept = formatCount(entityGate.kept)
+      if (kept === '0') {
+        details.push('entity gate filtered out all clips')
+      }
+    }
+  }
+  return details
+}
+
+function formatRerankDetails(meta: StageMeta): string[] {
+  const details: string[] = []
+  const kept = formatCount(meta.kept_after_ce ?? meta.kept)
+  const pcut = formatNumeric(meta.pcut)
+  if (kept || pcut) {
+    details.push(`kept clips: ${kept ?? '?'}` + (pcut ? ` (pcut ${pcut})` : ''))
+  }
+  const keptSources = formatSourceList(meta.kept_sources)
+  if (keptSources) {
+    details.push(`kept sources: ${keptSources}`)
+  }
+  return details
+}
+
+function formatReviewDetails(stageKey: string, meta: StageMeta): string[] {
+  const details: string[] = []
+  const inputCount = formatCount(meta.input_count)
+  const outputCount = formatCount(meta.output_count ?? meta.final_candidates)
+  if (inputCount || outputCount) {
+    details.push(`clips ${inputCount ?? '?'} -> ${outputCount ?? '?'}`)
+  }
+  const sampleField =
+    stageKey === 'review_docs' ? meta.sample_sources ?? meta.cleaned_sources : meta.final_candidates
+  const sample = formatSourceList(sampleField)
+  if (sample) {
+    details.push(
+      (stageKey === 'review_docs' ? 'cleaned clips: ' : 'final candidates: ') + sample
+    )
+  }
+  return details
+}
+
+function formatSynthesizeDetails(meta: StageMeta): string[] {
+  const details: string[] = []
+  const model = typeof meta.llm_model === 'string' ? meta.llm_model : null
+  const tokens = formatCount(meta.tokens_estimate ?? meta.total_tokens)
+  if (model || tokens) {
+    details.push(
+      `${model ? `model ${model}` : ''}${model && tokens ? ' · ' : ''}${tokens ? `~${tokens} tokens` : ''}`.trim()
+    )
+  }
+  const finalSources = formatSourceList(meta.final_sources)
+  if (finalSources) {
+    details.push(`answer sources: ${finalSources}`)
+  }
+  return details
+}
+
+function formatStageLines(stage: DisplayStage): string[] {
+  const lines: string[] = []
+  const meta = (stage.meta ?? {}) as StageMeta
+  const header = `${stageStatusMarker(stage.status)} ${stage.label} — ${describeStageStatus(stage)}`
+  lines.push(header)
+
+  let detailLines: string[] = []
+  switch (stage.key) {
+    case 'retrieve':
+      detailLines = formatRetrieveDetails(meta)
+      break
+    case 'rerank':
+    case 'rerank_cross_encoder':
+      detailLines = formatRerankDetails(meta)
+      break
+    case 'review':
+    case 'review_docs':
+    case 'stitch':
+      detailLines = formatReviewDetails(stage.key, meta)
+      break
+    case 'synthesize':
+    case 'synth':
+      detailLines = formatSynthesizeDetails(meta)
+      break
+    default:
+      detailLines = []
+      break
+  }
+
+  if (stage.status === 'skipped' && detailLines.length === 0) {
+    const reason = extractReason(meta)
+    if (reason) {
+      detailLines.push(reason)
+    }
+  }
+
+  detailLines.forEach((detail) => {
+    lines.push(`    - ${detail}`)
+  })
+
+  return lines
+}
+
+function formatProgressMetadata(meta: Record<string, unknown> | undefined): string[] {
+  if (!meta) return []
+  const lines: string[] = []
+  Object.entries(meta).forEach(([key, value]) => {
+    if (value == null) return
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      lines.push(`${key}: ${value}`)
+      return
+    }
+    if (Array.isArray(value)) {
+      if (!value.length) return
+      const printable = value
+        .filter((item): item is string | number => typeof item === 'string' || typeof item === 'number')
+        .slice(0, 5)
+        .map((item) => item.toString())
+      if (!printable.length) return
+      const suffix = value.length > printable.length ? ', ...' : ''
+      lines.push(`${key}: [${printable.join(', ')}${suffix}]`)
+      return
+    }
+    if (typeof value === 'object') {
+      const nestedKeys = Object.keys(value as Record<string, unknown>)
+      if (!nestedKeys.length) return
+      const preview = nestedKeys.slice(0, 5).join(', ')
+      const suffix = nestedKeys.length > 5 ? ', ...' : ''
+      lines.push(`${key}: { ${preview}${suffix} }`)
+    }
+  })
+  return lines
+}
 
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
@@ -1687,12 +1922,55 @@ export function Chat({
     return currentDiagnostics ?? null
   }, [liveProgress, currentDiagnostics])
 
-  const shouldShowProgress = useMemo(() => {
-    if (shared_chat) return false
-    if (isProcessingQuery) return true
-    const progressEntries = progressDiagnostics?.progress
-    return Array.isArray(progressEntries) && progressEntries.length > 0
-  }, [shared_chat, isProcessingQuery, progressDiagnostics])
+  const progressSummary = useMemo(() => {
+    if (shared_chat) return null
+    if (!isProcessingQuery) return null
+    const diagnostics = progressDiagnostics
+    const progressSource =
+      liveProgress.length > 0
+        ? liveProgress
+        : (diagnostics?.progress as Array<Record<string, unknown>> | undefined)
+    const normalized = normalizeProgress(progressSource)
+    if (!normalized.length) {
+      const hintedStage =
+        DEFAULT_PIPELINE[
+          ((progressSource && Array.isArray(progressSource) ? progressSource.length : 0) %
+            DEFAULT_PIPELINE.length) || 0
+        ]?.label ?? 'Processing'
+      return `[progress] Working... ${hintedStage}\n\nWaiting for backend progress telemetry...`
+    }
+    const totalStages = normalized.length
+    const completedStages = normalized.filter((stage) => stage.status === 'completed').length
+    const activeStage =
+      normalized.find((stage) => stage.status === 'running') ??
+      normalized.find((stage) => stage.status === 'pending') ??
+      normalized[normalized.length - 1]
+    const header = `[progress] Working... ${activeStage?.label ?? 'Processing'}`
+    const summaryLine = `Progress ${Math.min(completedStages, totalStages)}/${totalStages}`
+    const stageLines = normalized.flatMap((stage) => formatStageLines(stage))
+    const metadataLines = formatProgressMetadata(diagnostics?.progress_metadata)
+    const tailLines: string[] = []
+    if (metadataLines.length) {
+      tailLines.push('Metadata detail:')
+      metadataLines.forEach((line) => tailLines.push(`- ${line}`))
+    }
+    if (diagnostics?.request_id) {
+      tailLines.push(`Request ID: ${diagnostics.request_id}`)
+    }
+    return [header, '', summaryLine, ...stageLines, ...(tailLines.length ? ['', ...tailLines] : [])].join('\n')
+  }, [shared_chat, isProcessingQuery, liveProgress, progressDiagnostics])
+
+  const displayMessages = useMemo(() => {
+    if (!progressSummary) return newMessages
+    const progressMessage: MetadataMessage = {
+      id: `progress-status-${newMessages.length}`,
+      role: 'assistant',
+      content: progressSummary,
+      structured_metadata: [],
+      diagnostics: progressDiagnostics
+    }
+    return [...newMessages, progressMessage]
+  }, [newMessages, progressSummary, progressDiagnostics])
 
   return (
     <>
@@ -1719,22 +1997,11 @@ export function Chat({
 
         <div className={middlePanelClass}>
           <div className={styles.scrollableContainer}>
-            {/* Conditional rendering for ChatList */}
-            {shouldShowProgress ? (
-              <div className="mb-6">
-                <QueryProgress
-                  loading={isProcessingQuery}
-                  diagnostics={progressDiagnostics}
-                  stageHintIndex={liveProgress.length}
-                />
-              </div>
-            ) : null}
-
             {showChatList && (
               <div className={QuestionsOverlayStyles.fadeIn}>
                 <ChatList 
                   ref={chatListEndRef} 
-                  messages={newMessages} 
+                  messages={displayMessages} 
                   lastMessageRole={lastMessageRole}
                   onViewSources={() => setIsModalOpen(true)}
                   isMobile={isMobile}

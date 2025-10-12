@@ -9,6 +9,8 @@ import {
 } from '@/lib/utils'
 import type { DiagnosticsPayload } from '@/lib/types'
 
+export const maxDuration = 300
+
 const KV_REST_API_URL = process.env.KV_REST_API_URL
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN
 const isKvConfigured = Boolean(KV_REST_API_URL && KV_REST_API_TOKEN)

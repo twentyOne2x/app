@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+export const maxDuration = 300
+
 function getBackendBaseUrl() {
   return (
     process.env.RAG_SERVICE_URL ??

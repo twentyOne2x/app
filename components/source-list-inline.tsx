@@ -12,9 +12,45 @@ type Props = {
   className?: string
 }
 
-function time(h?: string, e?: string) {
-  if (!h || !e) return ''
-  return `${h}–${e}`
+function parseHmsToSeconds(hms?: string): number | null {
+  if (!hms) return null
+  const trimmed = hms.trim()
+  if (!trimmed) return null
+  const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
+  if (!match) return null
+  const [, hh, mm, ss, fraction] = match
+  const hours = Number(hh)
+  const minutes = Number(mm)
+  const seconds = Number(ss)
+  const fractional = fraction ? Number(`0.${fraction}`) : 0
+  return hours * 3600 + minutes * 60 + seconds + fractional
+}
+
+function secondsToHms(seconds: number): string {
+  const totalMillis = Math.round(seconds * 1000)
+  const hours = Math.floor(totalMillis / 3600000)
+  const minutes = Math.floor((totalMillis % 3600000) / 60000)
+  const secs = Math.floor((totalMillis % 60000) / 1000)
+  const millis = totalMillis % 1000
+  const base = [
+    hours.toString().padStart(2, '0'),
+    minutes.toString().padStart(2, '0'),
+    secs.toString().padStart(2, '0')
+  ].join(':')
+  return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
+}
+
+function formatClipRange(clip: ClipItemV2): string {
+  const start =
+    (clip.startHMS && clip.startHMS.trim()) ??
+    (typeof clip.startS === 'number'
+      ? secondsToHms(Math.max(0, clip.startS))
+      : '')
+  const end =
+    (clip.endHMS && clip.endHMS.trim()) ??
+    (typeof clip.endS === 'number' ? secondsToHms(Math.max(0, clip.endS)) : '')
+  if (start && end) return `${start} – ${end}`
+  return start || end || ''
 }
 
 function clipHref(
@@ -74,6 +110,7 @@ function ClipRow({
     clip.thumbnailUrl ??
     parent.thumbnailUrl ??
     youtubeThumb(clip.videoId ?? parent.videoId, clip.clipUrl ?? parent.url)
+  const timestampLabel = formatClipRange(clip)
   return (
     <Link
       href={href}
@@ -100,7 +137,7 @@ function ClipRow({
           {/* Hover overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover:bg-black/30 group-hover:opacity-100">
             <div className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium text-black">
-              ▶ {time(clip.startHMS, clip.endHMS) || 'Play clip'}
+              ▶ {timestampLabel || 'Play clip'}
             </div>
           </div>
         </div>
@@ -118,7 +155,7 @@ function ClipRow({
               : ''}
           </div>
           {clip.excerpt ? (
-            <div className="mt-1 line-clamp-2 text-xs text-white/70">
+            <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/70">
               {clip.excerpt}
             </div>
           ) : null}

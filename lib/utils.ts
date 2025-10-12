@@ -9,7 +9,8 @@ export function cn(...inputs: ClassValue[]) {
 
 const NAME_ALIASES: Record<string, string> = {
   cupsy: 'Cupsey',
-  hyperliquid: 'Hyper Liquid'
+  hyperliquid: 'Hyper Liquid',
+  anzo: 'Anza'
 }
 
 function aliasKey(value: string): string {
@@ -108,12 +109,15 @@ export interface ParsedMetadataEntryV2 {
   publishedAt?: string
   publishedDate?: string
   thumbnailUrl?: string
+  parentId?: string
+  id?: string
   channel_name?: string
   channel_id?: string
   published_at?: string
   published_date?: string
   video_id?: string
   thumbnail_url?: string
+  parent_id?: string
 }
 
 /** Pull the trailing sources section out of the LLM answer text. */
@@ -373,6 +377,111 @@ export function normalizeMetadataEntries(
       : undefined
   }
 
+  const parseHmsToSeconds = (hms?: string): number | null => {
+    if (!hms) return null
+    const trimmed = hms.trim()
+    if (!trimmed) return null
+    const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
+    if (!match) return null
+    const [, hh, mm, ss, fraction] = match
+    const hours = Number(hh)
+    const minutes = Number(mm)
+    const seconds = Number(ss)
+    const fractional = fraction ? Number(`0.${fraction}`) : 0
+    return hours * 3600 + minutes * 60 + seconds + fractional
+  }
+
+  const secondsToHms = (seconds: number): string => {
+    const totalMillis = Math.round(seconds * 1000)
+    const hours = Math.floor(totalMillis / 3600000)
+    const minutes = Math.floor((totalMillis % 3600000) / 60000)
+    const secs = Math.floor((totalMillis % 60000) / 1000)
+    const millis = totalMillis % 1000
+    const base = [
+      hours.toString().padStart(2, '0'),
+      minutes.toString().padStart(2, '0'),
+      secs.toString().padStart(2, '0')
+    ].join(':')
+    return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
+  }
+
+  const clipStartSeconds = (clip: ClipItemV2): number | null => {
+    if (typeof clip.startS === 'number') return clip.startS
+    return parseHmsToSeconds(clip.startHMS)
+  }
+
+  const clipEndSeconds = (clip: ClipItemV2): number | null => {
+    if (typeof clip.endS === 'number') return clip.endS
+    return parseHmsToSeconds(clip.endHMS)
+  }
+
+  const choosePreferredClip = (a: ClipItemV2, b: ClipItemV2): ClipItemV2 => {
+    const scoreA = typeof a.score === 'number' ? a.score : null
+    const scoreB = typeof b.score === 'number' ? b.score : null
+    if (scoreA == null && scoreB == null) {
+      const excerptLenA = a.excerpt?.length ?? 0
+      const excerptLenB = b.excerpt?.length ?? 0
+      return excerptLenB > excerptLenA ? b : a
+    }
+    if (scoreA == null) return b
+    if (scoreB == null) return a
+    if (scoreB > scoreA) return b
+    if (scoreA > scoreB) return a
+    const excerptLenA = a.excerpt?.length ?? 0
+    const excerptLenB = b.excerpt?.length ?? 0
+    return excerptLenB > excerptLenA ? b : a
+  }
+
+  const mergeOverlappingClips = (clips: ClipItemV2[]): ClipItemV2[] => {
+    if (clips.length <= 1) return clips
+    const sorted = [...clips].sort((a, b) => {
+      const startA = clipStartSeconds(a)
+      const startB = clipStartSeconds(b)
+      if (startA == null && startB == null) return 0
+      if (startA == null) return 1
+      if (startB == null) return -1
+      return startA - startB
+    })
+
+    const merged: ClipItemV2[] = []
+
+    sorted.forEach(current => {
+      const startSec = clipStartSeconds(current)
+      const endSec = clipEndSeconds(current)
+      const last = merged[merged.length - 1]
+
+      if (last && startSec != null && endSec != null && endSec > startSec) {
+        const lastStart = clipStartSeconds(last)
+        const lastEnd = clipEndSeconds(last)
+        if (lastStart != null && lastEnd != null && startSec <= lastEnd + 0.5) {
+          const newStart = Math.min(lastStart, startSec)
+          const newEnd = Math.max(lastEnd, endSec)
+          const preferred = choosePreferredClip(last, current)
+
+          last.startS = newStart
+          last.startHMS = secondsToHms(newStart)
+          last.endS = newEnd
+          last.endHMS = secondsToHms(newEnd)
+          last.excerpt = preferred.excerpt
+          last.speaker = undefined
+          last.score = preferred.score ?? last.score
+          last.clipUrl = preferred.clipUrl ?? last.clipUrl
+          last.url = preferred.url ?? last.url
+          last.segmentId = preferred.segmentId ?? last.segmentId
+          last.videoId = preferred.videoId ?? last.videoId
+          last.thumbnailUrl = preferred.thumbnailUrl ?? last.thumbnailUrl
+          last.documentType = preferred.documentType ?? last.documentType
+          last.nodeType = preferred.nodeType ?? last.nodeType
+          return
+        }
+      }
+
+      merged.push({ ...current, speaker: undefined })
+    })
+
+    return merged
+  }
+
   return entries.map(entry => {
     const entryRecord = entry as unknown as Record<string, unknown>
     const rawEntryChannelName =
@@ -386,7 +495,15 @@ export function normalizeMetadataEntries(
 
     const entryChannelId =
       entry.channelId ?? readString(entryRecord, 'channel_id')
-    const entryVideoId = entry.videoId ?? readString(entryRecord, 'video_id')
+    const entryVideoId =
+      entry.videoId ??
+      readString(entryRecord, 'video_id') ??
+      readString(entryRecord, 'parent_id') ??
+      readString(entryRecord, 'id')
+    const entryParentId =
+      entry.parentId ??
+      readString(entryRecord, 'parent_id') ??
+      readString(entryRecord, 'id')
     const entryUrlCandidate =
       toAbsoluteUrl(entry.url) ??
       toAbsoluteUrl(readString(entryRecord, 'url')) ??
@@ -460,7 +577,7 @@ export function normalizeMetadataEntries(
         channel: clipChannelName,
         channelName: clipChannelName,
         channelId: clipChannelId,
-        speaker: applyNameAlias(clip.speaker) ?? clip.speaker,
+        speaker: undefined,
         clipUrl: clipClipUrl,
         parentId: clipParentId,
         videoId: clipVideoId,
@@ -470,16 +587,19 @@ export function normalizeMetadataEntries(
       }
     })
 
+    const mergedClips = mergeOverlappingClips(normalizedClips)
+
     return {
       ...entry,
       channel: normalizedChannelName,
       channelName: normalizedChannelName,
       channelId: entryChannelId,
       videoId: entryVideoId,
+      parentId: entryParentId ?? entryVideoId,
       publishedAt: entryPublishedAt ?? undefined,
       publishedDate: entryPublishedDate ?? undefined,
       date: entryPublishedAt ?? entry.date,
-      clips: normalizedClips,
+      clips: mergedClips,
       thumbnailUrl: entryThumbnail
     }
   })

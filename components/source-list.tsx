@@ -26,17 +26,46 @@ export interface SourceListProps {
   selection?: ClipSelectionHandle
 }
 
-function secondsOrHms(startS?: number, startHMS?: string) {
-  if (startHMS) return startHMS
-  if (startS != null) return `t=${Math.floor(Math.max(0, startS))}s`
-  return 'clip'
+function parseHmsToSeconds(hms?: string): number | null {
+  if (!hms) return null
+  const trimmed = hms.trim()
+  if (!trimmed) return null
+  const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
+  if (!match) return null
+  const [, hh, mm, ss, fraction] = match
+  const hours = Number(hh)
+  const minutes = Number(mm)
+  const seconds = Number(ss)
+  const fractional = fraction ? Number(`0.${fraction}`) : 0
+  return hours * 3600 + minutes * 60 + seconds + fractional
 }
 
-function clipWindow(clip: ClipItemV2) {
-  const start = secondsOrHms(clip.startS, clip.startHMS)
-  const end =
-    clip.endHMS ?? (clip.endS != null ? `${Math.floor(clip.endS)}s` : null)
-  return end ? `${start} → ${end}` : start
+function secondsToHms(seconds: number): string {
+  const totalMillis = Math.round(seconds * 1000)
+  const hours = Math.floor(totalMillis / 3600000)
+  const minutes = Math.floor((totalMillis % 3600000) / 60000)
+  const secs = Math.floor((totalMillis % 60000) / 1000)
+  const millis = totalMillis % 1000
+  const parts = [
+    hours.toString().padStart(2, '0'),
+    minutes.toString().padStart(2, '0'),
+    secs.toString().padStart(2, '0')
+  ]
+  const base = parts.join(':')
+  return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
+}
+
+function formatClipRange(clip: ClipItemV2): string | null {
+  const startLabel =
+    (clip.startHMS && clip.startHMS.trim()) ||
+    (clip.startS != null ? secondsToHms(Math.max(0, clip.startS)) : null)
+  const endLabel =
+    (clip.endHMS && clip.endHMS.trim()) ||
+    (clip.endS != null ? secondsToHms(Math.max(0, clip.endS)) : null)
+
+  if (!startLabel && !endLabel) return null
+  if (startLabel && endLabel) return `${startLabel} – ${endLabel}`
+  return startLabel ?? endLabel
 }
 
 function formatScore(score?: number) {
@@ -230,6 +259,7 @@ export function SourceList({
                     const clipScore = formatScore(clip.score)
                     const selected = selectionHandle.isSelected(parent, clip)
                     const playback = buildClipPlayback(parent, clip)
+                    const timestampLabel = formatClipRange(clip)
                     const derivedClipThumb = extractYouTubeThumbnail(
                       clip.clipUrl ??
                         playback.watchUrl ??
@@ -265,18 +295,23 @@ export function SourceList({
                       >
                         <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
                           <div className="flex min-w-0 flex-1 flex-col gap-3">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span className="font-medium text-zinc-100">
-                                {clipWindow(clip)}
+                            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-emerald-200/80">
+                              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100/90">
+                                clip
                               </span>
                               {clipScore ? (
                                 <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
                                   {clipScore}
                                 </span>
                               ) : null}
+                              {timestampLabel ? (
+                                <span className="text-zinc-200/80 normal-case">
+                                  {timestampLabel}
+                                </span>
+                              ) : null}
                             </div>
                             {clip.excerpt ? (
-                              <p className="text-sm text-zinc-100">
+                              <p className="text-xs text-zinc-100">
                                 {clip.excerpt}
                               </p>
                             ) : (
@@ -284,7 +319,7 @@ export function SourceList({
                                 No excerpt provided.
                               </p>
                             )}
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300 pointer-events-auto">
                               <button
                                 type="button"
                                 onClick={() =>

@@ -708,6 +708,14 @@ export function Chat({
       processedContent = processedContent.replace(pattern, replacement)
     })
 
+    const quotePattern = /"([^"]+)"(\s*\([^)]*\))?/g
+    processedContent = processedContent.replace(quotePattern, (_match, quotedText: string, trailing: string | undefined) => {
+      const displayQuote = quotedText.trim()
+      if (!displayQuote) return _match
+      const suffix = trailing ?? ''
+      return `<span class="quote-chip">“${displayQuote}”${suffix}</span>`
+    })
+
     if (processedContent !== original) {
       console.debug('chat: processResponseContent normalized terms', {
         traceId: currentTraceIdRef.current

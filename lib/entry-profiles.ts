@@ -24,10 +24,19 @@ const CODE_ALIASES: Record<string, string> = {
 export const DEFAULT_ENTRY_PROFILE_CODE = DEFAULT_PROFILE_CODE;
 
 const DEFAULT_QUESTIONS: string[] = [
-  'What are the latest trends in Internet Capital Markets this week?',
-  'Summarize the newest DeFi research the chatbot has indexed.',
-  'Highlight recent conversations or interviews about DATs and CCM innovations.',
-  'What notable regulatory updates should I know about in ICM right now?'
+  'return all videos about DATs and Kyle Samani',
+  'what is a DAT on Solana?',
+  'show me all clips where Kyle Samani details how DATs will be deployed in DeFi',
+  'In the video where Cooker talks to Threadguy about Aster, did Cooker call the fact that Threadguy will soon interview CZ, the CEO of Binance?',
+  "who's cupsey?",
+  "what's aster?",
+  "who's cookerflips?",
+  "what's alpenglow?",
+  "what's firedancer?",
+  'return all videos about firedancer',
+  'return all videos from Anza',
+  'how much money has been raised on solana DATs and where will it be deployed in defi?',
+  'what is the first and most recent mention of firedancer?'
 ];
 
 const ENTRY_PROFILES: Record<string, EntryProfile> = {
@@ -45,16 +54,7 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
     headline: 'Welcome Orangie 👋 — let’s dive into your Web3 content.',
     description:
       'These starter prompts surface insights from your recent videos, streams, and interviews so you can demo how the assistant covers your work.',
-    questions: [
-      'What are the key takeaways from Orangie’s latest YouTube deep dive on web3 storytelling?',
-      'Summarize Orangie’s collaborations with other creators over the past month.',
-      'How is Orangie explaining crypto culture trends to the broader audience right now?',
-      'Pull highlights from Orangie’s recent live streams that resonated with viewers.',
-      'Which on-chain metrics does Orangie track to evaluate a new project before covering it?',
-      'Collect the top audience questions that came up during Orangie’s last three Twitter Spaces.',
-      'Find the most-shared clips where Orangie discusses creator monetization strategies in web3.',
-      'Where has Orangie spoken about the tooling stack used to produce and distribute content?'
-    ]
+    questions: DEFAULT_QUESTIONS
   },
   [THREADGUY_PROFILE_CODE]: {
     code: THREADGUY_PROFILE_CODE,
@@ -62,12 +62,7 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
     headline: 'Hey Threadguy — here’s the fastest way to review your spaces and threads.',
     description:
       'Use these prompts to surface takeaways, viral moments, and community reactions from your recent X threads and audio sessions.',
-    questions: [
-      'Summarize the hottest alpha drops from Threadguy’s most recent X Space.',
-      'Which projects did Threadguy spotlight in the last week and why did they stand out?',
-      'Find the timestamps where Threadguy debated NFT market rotations with guests.',
-      'Highlight viral community reactions pulled from Threadguy’s latest threads.'
-    ]
+    questions: DEFAULT_QUESTIONS
   },
   [ASHROBIN_PROFILE_CODE]: {
     code: ASHROBIN_PROFILE_CODE,
@@ -75,12 +70,7 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
     headline: 'Welcome Ash — let’s surface the smartest takes from your build logs.',
     description:
       'These questions focus on your technical deep dives, growth experiments, and AMAs so you can showcase product learnings quickly.',
-    questions: [
-      'Summarize Ash Robin’s latest shipping updates and what problems they solve.',
-      'Find the clip where Ash explains the north-star metrics behind the current roadmap.',
-      'Which guests joined Ash Robin recently to discuss product market fit and what did they share?',
-      'Pull actionable tactics Ash recommends for founders in the most recent videos or streams.'
-    ]
+    questions: DEFAULT_QUESTIONS
   }
 };
 

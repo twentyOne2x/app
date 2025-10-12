@@ -120,15 +120,39 @@ export function SourceList({
           const clipCount = parent.clips?.length ?? 0
           const parentScoreText = parentScore(parent.scoreMax)
           const canToggle = clipCount > 0
+          const primaryUrl =
+            parent.url ??
+            (Array.isArray(parent.clips)
+              ? parent.clips.find((clip) => clip.url)?.url ?? null
+              : null)
+          const parentThumbnailUrl = extractYouTubeThumbnail(primaryUrl ?? undefined) ?? undefined
 
           return (
             <div
               key={key}
               className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
             >
-              <div className="flex flex-wrap items-start gap-3 sm:flex-nowrap">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black sm:w-64">
+                  <div className="relative pb-[56.25%]">
+                    {parentThumbnailUrl ? (
+                      <Image
+                        src={parentThumbnailUrl}
+                        alt={`Thumbnail for ${parent.parentTitle}`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 256px"
+                        className="object-cover"
+                        priority={false}
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
+                        No preview available
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                     <span>{parent.channel}</span>
                     {parent.date ? <span>· {parent.date}</span> : null}
                     {parentScoreText ? (
@@ -137,38 +161,39 @@ export function SourceList({
                       </span>
                     ) : null}
                   </div>
-                  <h3 className="mt-1 line-clamp-2 text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
-                </div>
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  {parent.url ? (
-                    <a
-                      href={parent.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
+                  <h3 className="line-clamp-2 text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
+                  <div className="mt-auto flex flex-wrap items-center gap-2">
+                    {parent.url ? (
+                      <a
+                        href={parent.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
+                      >
+                        Open source
+                      </a>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => (canToggle ? handleToggle(key) : undefined)}
+                      className={cn(
+                        'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
+                        canToggle
+                          ? 'text-zinc-100 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50'
+                          : 'cursor-not-allowed text-zinc-500 opacity-70'
+                      )}
+                      aria-expanded={isActive}
+                      aria-controls={`${key}-clips`}
+                      disabled={!canToggle}
                     >
-                      Open source
-                    </a>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => (canToggle ? handleToggle(key) : undefined)}
-                    className={cn(
-                      'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
-                      canToggle
-                        ? 'text-zinc-100 hover:bg-white/10'
-                        : 'cursor-not-allowed text-zinc-500 opacity-70'
-                    )}
-                    aria-expanded={isActive}
-                    disabled={!canToggle}
-                  >
-                    {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
-                  </button>
+                      {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {isActive && clipCount > 0 ? (
-                <ol className="mt-4 space-y-3">
+                <ol id={`${key}-clips`} className="mt-4 space-y-3">
                   {parent.clips.map((clip, clipIdx) => {
                     const clipKey = `${key}__${clipIdx}`
                     const clipScore = formatScore(clip.score)
@@ -195,7 +220,7 @@ export function SourceList({
                         <div className="flex flex-wrap items-start gap-3">
                           <label
                             className={cn(
-                              'shrink-0 cursor-pointer select-none rounded-md border border-transparent p-1 transition',
+                              'inline-flex shrink-0 cursor-pointer select-none rounded-md border border-transparent p-1 transition',
                               selected ? 'border-emerald-400/30 bg-emerald-400/20' : 'border-transparent'
                             )}
                             title={selected ? 'Remove clip from bundle' : 'Add clip to bundle'}
@@ -212,10 +237,11 @@ export function SourceList({
                             type="button"
                             onClick={() => handleClipToggle(clipKey)}
                             className={cn(
-                              'flex min-w-0 flex-1 items-stretch gap-3 rounded-lg border border-transparent px-2 py-1 text-left transition',
+                              'relative z-[1] flex min-w-0 flex-1 items-stretch gap-3 rounded-lg border border-transparent px-2 py-1 text-left transition',
                               'hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50'
                             )}
                             aria-expanded={isClipExpanded}
+                            aria-controls={`${clipKey}-details`}
                           >
                             <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/60">
                               {thumbnailUrl ? (
@@ -282,7 +308,7 @@ export function SourceList({
                           </div>
                         </div>
                         {isClipExpanded ? (
-                          <div className="mt-3 rounded-lg border border-white/10 bg-black/60 p-3">
+                          <div id={`${clipKey}-details`} className="mt-3 rounded-lg border border-white/10 bg-black/60 p-3">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                               <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-black sm:w-64">
                                 <div className="relative pb-[56.25%]">

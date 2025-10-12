@@ -24,19 +24,19 @@ const CODE_ALIASES: Record<string, string> = {
 export const DEFAULT_ENTRY_PROFILE_CODE = DEFAULT_PROFILE_CODE;
 
 const DEFAULT_QUESTIONS: string[] = [
-  'return all videos about DATs and Kyle Samani',
-  'what is a DAT on Solana?',
-  'show me all clips where Kyle Samani details how DATs will be deployed in DeFi',
+  'Return all videos about DATs and Kyle Samani',
+  'What is a DAT on Solana?',
+  'Show me all clips where Kyle Samani details how DATs will be deployed in DeFi',
   'In the video where Cooker talks to Threadguy about Aster, did Cooker call the fact that Threadguy will soon interview CZ, the CEO of Binance?',
-  "who's cupsey?",
-  "what's aster?",
-  "who's cookerflips?",
-  "what's alpenglow?",
-  "what's firedancer?",
-  'return all videos about firedancer',
-  'return all videos from Anza',
-  'how much money has been raised on solana DATs and where will it be deployed in defi?',
-  'what is the first and most recent mention of firedancer?'
+  "Who's cupsey?",
+  "What's aster?",
+  "Who's cookerflips?",
+  "What's alpenglow?",
+  "What's firedancer?",
+  'Return all videos about firedancer',
+  'Return all videos from Anza',
+  'How much money has been raised on solana DATs and where will it be deployed in defi?',
+  'What is the first and most recent mention of firedancer?'
 ];
 
 const ENTRY_PROFILES: Record<string, EntryProfile> = {

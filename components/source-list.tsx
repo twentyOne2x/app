@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from 'react'
 import Image from 'next/image'
-import { cn } from '@/lib/utils'
+import { cn, formatDate } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
@@ -120,12 +120,19 @@ export function SourceList({
           const clipCount = parent.clips?.length ?? 0
           const parentScoreText = parentScore(parent.scoreMax)
           const canToggle = clipCount > 0
-          const primaryUrl =
-            parent.url ??
-            (Array.isArray(parent.clips)
-              ? parent.clips.find((clip) => clip.url)?.url ?? null
-              : null)
-          const parentThumbnailUrl = extractYouTubeThumbnail(primaryUrl ?? undefined) ?? undefined
+          const firstClip = parent.clips?.[0] ?? null
+          const playbackForParent = firstClip ? buildClipPlayback(parent, firstClip) : undefined
+          const primaryUrl = playbackForParent?.watchUrl ?? parent.url ?? firstClip?.url ?? undefined
+          const parentThumbnailUrl = extractYouTubeThumbnail(primaryUrl) ?? undefined
+          if (!parentThumbnailUrl) {
+            console.debug('source-list: missing thumbnail for parent', {
+              title: parent.parentTitle,
+              channel: parent.channel,
+              clipCount,
+              primaryUrl
+            })
+          }
+          const displayDate = parent.date ? formatDate(parent.date) : null
 
           return (
             <div
@@ -154,18 +161,18 @@ export function SourceList({
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                     <span>{parent.channel}</span>
-                    {parent.date ? <span>· {parent.date}</span> : null}
+                    {displayDate ? <span>· {displayDate}</span> : null}
                     {parentScoreText ? (
                       <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-emerald-200/80">
                         {parentScoreText}
                       </span>
                     ) : null}
                   </div>
-                  <h3 className="line-clamp-2 text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
+                  <h3 className="break-words text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
                   <div className="mt-auto flex flex-wrap items-center gap-2">
-                    {parent.url ? (
+                    {primaryUrl ? (
                       <a
-                        href={parent.url}
+                        href={primaryUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
@@ -199,7 +206,15 @@ export function SourceList({
                     const clipScore = formatScore(clip.score)
                     const selected = selectionHandle.isSelected(parent, clip)
                     const playback = buildClipPlayback(parent, clip)
-                    const thumbnailUrl = extractYouTubeThumbnail(clip.url ?? parent.url) ?? undefined
+                    const thumbnailUrl = extractYouTubeThumbnail(playback.watchUrl ?? clip.url ?? primaryUrl) ?? undefined
+                    if (!thumbnailUrl) {
+                      console.debug('source-list: missing clip thumbnail', {
+                        parentTitle: parent.parentTitle,
+                        clipTitle: clip.parentTitle,
+                        clipUrl: clip.url,
+                        playbackUrl: playback.watchUrl
+                      })
+                    }
                     const isClipExpanded = Boolean(expandedClips[clipKey])
 
                     return (

@@ -120,14 +120,14 @@ export function SourceList({
               className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:bg-white/[0.07]"
             >
               <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="relative w-full overflow-hidden rounded-xl border border-white/10 bg-black sm:w-64">
-                  <div className="relative pb-[56.25%]">
+                <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-black">
+                  <div className="absolute inset-0">
                     {parentThumbnailUrl ? (
                       <Image
                         src={parentThumbnailUrl}
                         alt={`Thumbnail for ${parent.parentTitle}`}
                         fill
-                        sizes="(max-width: 768px) 100vw, 256px"
+                        sizes="(max-width: 768px) 90vw, 320px"
                         className="object-cover"
                         priority={false}
                       />

@@ -999,7 +999,7 @@ export function Chat({
     processedContent = processedContent.replace(quotePattern, (_match, quotedText: string, trailing: string | undefined) => {
       const displayQuote = quotedText.trim()
       if (!displayQuote) return _match
-      const suffix = trailing ?? ''
+      const suffix = trailing ? ` ${trailing.replace(/\s+/g, ' ').trim()}` : ''
       return `<span class="quote-chip">“${displayQuote}”${suffix}</span>`
     })
 

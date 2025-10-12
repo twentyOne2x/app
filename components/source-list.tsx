@@ -47,25 +47,35 @@ function parentScore(scoreMax?: number) {
   return `${pct}% match`
 }
 
-function extractYouTubeThumbnail(rawUrl?: string): { url: string | null; videoId: string | null } {
-  if (!rawUrl) return { url: null, videoId: null }
-  try {
-    const parsed = new URL(rawUrl)
-    let videoId: string | null = null
-    if (parsed.hostname.includes('youtu.be')) {
-      videoId = parsed.pathname.replace('/', '').split('?')[0] || null
-    } else if (parsed.hostname.includes('youtube.com')) {
-      videoId = parsed.searchParams.get('v')
+function extractYouTubeThumbnail(rawUrl?: string, fallbackVideoId?: string | null): { url: string | null; videoId: string | null } {
+  if (rawUrl) {
+    try {
+      const parsed = new URL(rawUrl)
+      let videoId: string | null = null
+      if (parsed.hostname.includes('youtu.be')) {
+        videoId = parsed.pathname.replace('/', '').split('?')[0] || null
+      } else if (parsed.hostname.includes('youtube.com')) {
+        videoId = parsed.searchParams.get('v')
+      }
+      if (videoId) {
+        return {
+          url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+          videoId
+        }
+      }
+    } catch (error) {
+      console.debug('source-list: failed to parse youtube URL', { rawUrl, error })
     }
-    if (!videoId) return { url: null, videoId: null }
-    return {
-      url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-      videoId
-    }
-  } catch (error) {
-    console.debug('source-list: failed to parse youtube URL', { rawUrl, error })
-    return { url: null, videoId: null }
   }
+
+  if (fallbackVideoId) {
+    return {
+      url: `https://i.ytimg.com/vi/${fallbackVideoId}/hqdefault.jpg`,
+      videoId: fallbackVideoId
+    }
+  }
+
+  return { url: null, videoId: null }
 }
 
 export function SourceList({
@@ -107,7 +117,7 @@ export function SourceList({
           const firstClip = parent.clips?.[0] ?? null
           const playbackForParent = firstClip ? buildClipPlayback(parent, firstClip) : undefined
           const primaryUrl = playbackForParent?.watchUrl ?? parent.url ?? firstClip?.url ?? undefined
-          const parentThumb = extractYouTubeThumbnail(primaryUrl)
+          const parentThumb = extractYouTubeThumbnail(primaryUrl, parent.videoId ?? firstClip?.videoId)
           if (!parentThumb.url) {
             console.debug('source-list: missing thumbnail for parent', {
               title: parent.parentTitle,
@@ -117,7 +127,9 @@ export function SourceList({
               videoId: parentThumb.videoId
             })
           }
-          const displayDate = parent.date ? formatDate(parent.date) : null
+          const rawPublished = parent.publishedAt ?? parent.publishedDate ?? parent.date
+          const displayDate = rawPublished ? formatDate(rawPublished) : null
+          const channelLabel = parent.channelName ?? parent.channel
 
           return (
             <div
@@ -147,7 +159,7 @@ export function SourceList({
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                    <span>{parent.channel}</span>
+                    <span>{channelLabel}</span>
                     {displayDate ? <span>· {displayDate}</span> : null}
                     {parentScoreText ? (
                       <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-emerald-200/80">
@@ -187,7 +199,10 @@ export function SourceList({
                     const clipScore = formatScore(clip.score)
                     const selected = selectionHandle.isSelected(parent, clip)
                     const playback = buildClipPlayback(parent, clip)
-                    const clipThumb = extractYouTubeThumbnail(playback.watchUrl ?? clip.url ?? primaryUrl)
+                    const clipThumb = extractYouTubeThumbnail(
+                      clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
+                      clip.videoId ?? parent.videoId
+                    )
                     if (!clipThumb.url) {
                       console.debug('source-list: missing clip thumbnail', {
                         parentTitle: parent.parentTitle,
@@ -197,6 +212,7 @@ export function SourceList({
                         videoId: clipThumb.videoId
                       })
                     }
+                    const clipTitle = clip.parentTitle ?? parent.parentTitle
 
                     return (
                       <li
@@ -225,14 +241,18 @@ export function SourceList({
                             />
                           </label>
                           <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                              <span className="max-w-[180px] truncate whitespace-nowrap text-ellipsis">{clipWindow(clip)}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold text-white/90">{clipTitle}</span>
                               {clipScore ? (
                                 <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
                                   {clipScore}
                                 </span>
                               ) : null}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
+                              <span className="max-w-[200px] truncate whitespace-nowrap text-ellipsis">{clipWindow(clip)}</span>
                               {clip.speaker ? <span className="text-zinc-300">{clip.speaker}</span> : null}
+                              {clip.channelName ? <span className="text-zinc-300">{clip.channelName}</span> : null}
                             </div>
                             {clip.excerpt ? (
                               <p className="group/clip relative overflow-hidden text-sm text-zinc-100">
@@ -244,9 +264,9 @@ export function SourceList({
                               <p className="text-xs text-zinc-400">No excerpt provided.</p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                              {clip.url ? (
+                              {clip.clipUrl || clip.url ? (
                                 <a
-                                  href={playback.watchUrl ?? clip.url ?? primaryUrl ?? '#'}
+                                  href={clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl ?? '#'}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="relative z-10 rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"

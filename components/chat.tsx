@@ -35,6 +35,14 @@ import { DEFAULT_PIPELINE, DEFAULT_STAGE_ORDER, normalizeProgress } from '@/lib/
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 import { useRouter } from 'next/navigation'
 
+type ChannelOption = {
+  id?: string | null
+  name: string
+}
+
+const channelOptionKey = (option: ChannelOption): string =>
+  option.id ? `id:${option.id}` : `name:${option.name.trim().toLowerCase()}`
+
 // Extend the Message type to include structured_metadata
 export interface MetadataMessage extends Message {
   structured_metadata?: ParsedMetadataEntryV2[]; // Ideally, define a more specific type instead of any[]
@@ -142,7 +150,7 @@ export function Chat({
     null
   )
   const entryProfile = useEntryProfile();
-  const [channelCatalogCache, setChannelCatalogCache] = useLocalStorage<string[]>(
+  const [channelCatalogCache, setChannelCatalogCache] = useLocalStorage<ChannelOption[]>(
     `channel-catalog:${entryProfile.code}`,
     []
   )
@@ -201,7 +209,7 @@ export function Chat({
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
   const [liveProgress, setLiveProgress] = useState<Array<Record<string, unknown>>>([]);
   const [input, setInput] = useState('');
-  const [availableChannels, setAvailableChannels] = useState<string[]>(channelCatalogCache);
+  const [availableChannels, setAvailableChannels] = useState<ChannelOption[]>(channelCatalogCache);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
   const channelCatalogStateRef = useRef<{
@@ -223,18 +231,14 @@ export function Chat({
     () => `channel-filter:${entryProfile.code}`,
     [entryProfile.code]
   );
-  const [excludedChannelNames, setExcludedChannelNames] = useLocalStorage<string[]>(
+  const [excludedChannelKeys, setExcludedChannelKeys] = useLocalStorage<string[]>(
     channelFilterStorageKey,
     []
   );
 
   useEffect(() => {
-    setAvailableChannels((prev) => {
-      if (prev.length === channelCatalogCache.length && prev.every((name, idx) => name === channelCatalogCache[idx])) {
-        return prev
-      }
-      return channelCatalogCache
-    })
+    if (!channelCatalogCache.length) return
+    setAvailableChannels(channelCatalogCache)
   }, [channelCatalogCache])
 
   useEffect(() => {
@@ -354,10 +358,10 @@ export function Chat({
 
   useEffect(() => {
     console.debug('chat: excluded channels updated', {
-      count: excludedChannelNames.length,
-      excluded: excludedChannelNames
+      count: excludedChannelKeys.length,
+      excluded: excludedChannelKeys
     })
-  }, [excludedChannelNames])
+  }, [excludedChannelKeys])
 
   useEffect(() => {
     channelDefaultsAppliedRef.current = null
@@ -382,19 +386,19 @@ export function Chat({
 
   useEffect(() => {
     if (!availableChannels.length) return
-    setExcludedChannelNames((prev) => {
+    setExcludedChannelKeys((prev) => {
       if (!prev?.length) return prev ?? []
-      const availableSet = new Set(availableChannels)
-      const filtered = prev.filter((name) => availableSet.has(name))
+      const availableSet = new Set(availableChannels.map((option) => channelOptionKey(option)))
+      const filtered = prev.filter((key) => availableSet.has(key))
       return filtered.length === prev.length ? prev : filtered
     })
-  }, [availableChannels, setExcludedChannelNames])
+  }, [availableChannels, setExcludedChannelKeys])
 
   useEffect(() => {
     const now = Date.now()
     const state = channelCatalogStateRef.current
     const sameProfile = state.code === entryProfile.code
-    const hasStoredSelection = excludedChannelNames.length > 0
+    const hasStoredSelection = excludedChannelKeys.length > 0
     const catalogAlreadyLoaded = sameProfile && availableChannels.length > 0
     const recentlyFetched = sameProfile && now - state.lastFetched < 15000
 
@@ -462,36 +466,43 @@ export function Chat({
           ? ((data as { channelDetails: unknown[] }).channelDetails as unknown[])
           : []
 
-        const names = channelEntries
-          .map((entry) => {
-            if (typeof entry === 'string') return entry.trim()
-            if (
-              entry &&
-              typeof entry === 'object' &&
-              typeof (entry as { name?: unknown }).name === 'string'
-            ) {
-              return ((entry as { name: string }).name).trim()
-            }
-            return ''
-          })
-          .filter((name): name is string => Boolean(name))
+        const optionMap = new Map<string, ChannelOption>()
+        for (const entry of channelEntries) {
+          if (typeof entry === 'string') {
+            const name = entry.trim()
+            if (!name) continue
+            const option: ChannelOption = { name }
+            optionMap.set(channelOptionKey(option), option)
+          } else if (entry && typeof entry === 'object') {
+            const rawName = typeof (entry as { name?: unknown }).name === 'string' ? (entry as { name: string }).name.trim() : ''
+            if (!rawName) continue
+            const id = typeof (entry as { id?: unknown }).id === 'string' ? (entry as { id: string }).id : undefined
+            const option: ChannelOption = { name: rawName, id }
+            optionMap.set(channelOptionKey(option), option)
+          }
+        }
 
-        const sanitized = Array.from(new Set(names))
-          .filter(Boolean)
-          .sort((a, b) => a.localeCompare(b))
+        const sanitizedOptions = Array.from(optionMap.values()).sort((a, b) => a.name.localeCompare(b.name))
         console.debug('chat: channel catalog sanitized', {
           traceId: currentTraceIdRef.current,
           receivedCount: channelEntries.length,
-          sanitizedCount: sanitized.length
+          sanitizedCount: sanitizedOptions.length
         })
-        if (!sanitized.length) return
+        if (!sanitizedOptions.length) return
 
         let catalogUpdated = false
         setAvailableChannels((prev) => {
-          if (prev.length === sanitized.length && prev.every((name, idx) => name === sanitized[idx])) {
+          const sameLength = prev.length === sanitizedOptions.length
+          const sameContent =
+            sameLength &&
+            prev.every((option, idx) => {
+              const next = sanitizedOptions[idx]
+              return channelOptionKey(option) === channelOptionKey(next) && option.name === next.name
+            })
+          if (sameContent) {
             console.debug('chat: channel catalog unchanged', {
               traceId: currentTraceIdRef.current,
-              count: sanitized.length
+              count: sanitizedOptions.length
             })
             return prev
           }
@@ -499,34 +510,37 @@ export function Chat({
           console.debug('chat: channel catalog updated', {
             traceId: currentTraceIdRef.current,
             previousCount: prev.length,
-            nextCount: sanitized.length
+            nextCount: sanitizedOptions.length
           })
-          return sanitized
+          return sanitizedOptions
         })
         if (catalogUpdated) {
-          setChannelCatalogCache(sanitized)
+          setChannelCatalogCache(sanitizedOptions)
         }
 
         let defaultsApplied = state.defaultsApplied
-        const hasStoredSelectionNow = excludedChannelNames.length > 0
+        const hasStoredSelectionNow = excludedChannelKeys.length > 0
         if (!hasStoredSelectionNow && channelDefaultsAppliedRef.current !== entryProfile.code) {
+          const sanitizedNames = sanitizedOptions.map((option) => option.name)
           const defaultsSource =
             (data as { defaultSelected?: unknown }).defaultSelected ??
             (data as { default_selected?: unknown }).default_selected ??
-            sanitized
+            sanitizedNames
           const defaults = Array.isArray(defaultsSource)
             ? (defaultsSource as unknown[])
                 .map((name) => (typeof name === 'string' ? name.trim() : ''))
                 .filter((name): name is string => Boolean(name))
-            : sanitized
+            : sanitizedNames
           const defaultSet = new Set<string>(defaults)
-          const excluded: string[] = sanitized.filter((name) => !defaultSet.has(name))
+          const excludedKeys = sanitizedOptions
+            .filter((option) => !defaultSet.has(option.name))
+            .map((option) => channelOptionKey(option))
           console.debug('chat: applying default channel selection', {
             traceId: currentTraceIdRef.current,
             defaultCount: defaults.length,
-            excludedCount: excluded.length
+            excludedCount: excludedKeys.length
           })
-          setExcludedChannelNames(excluded)
+          setExcludedChannelKeys(excludedKeys)
           channelDefaultsAppliedRef.current = entryProfile.code
           defaultsApplied = true
         }
@@ -557,9 +571,9 @@ export function Chat({
     }
   }, [
     entryProfile.code,
-    excludedChannelNames,
+    excludedChannelKeys,
     availableChannels.length,
-    setExcludedChannelNames
+    setExcludedChannelKeys
   ])
 
   const selectionScope = useMemo(() => {
@@ -778,36 +792,48 @@ export function Chat({
         uniqueCount: unique.length,
         traceId: currentTraceIdRef.current
       })
-      setExcludedChannelNames(unique);
+      setExcludedChannelKeys(unique);
     },
-    [setExcludedChannelNames]
+    [setExcludedChannelKeys]
   );
 
-  const selectedChannelNames = useMemo(() => {
+  const selectedChannelOptions = useMemo(() => {
     if (!availableChannels.length) return []
-    const excludedSet = new Set(excludedChannelNames.filter(Boolean))
-    return availableChannels.filter((channel) => !excludedSet.has(channel))
-  }, [availableChannels, excludedChannelNames])
+    const excludedSet = new Set(excludedChannelKeys.filter(Boolean))
+    return availableChannels.filter((option) => !excludedSet.has(channelOptionKey(option)))
+  }, [availableChannels, excludedChannelKeys])
 
   useEffect(() => {
     if (!availableChannels.length) return
     console.debug('chat: channel catalog updated', {
       totalAvailable: availableChannels.length,
-      selected: selectedChannelNames,
-      excluded: excludedChannelNames
+      selected: selectedChannelOptions.map((option) => option.name),
+      excludedKeys: excludedChannelKeys
     })
-  }, [availableChannels, selectedChannelNames, excludedChannelNames])
+  }, [availableChannels, selectedChannelOptions, excludedChannelKeys])
 
   const channelFilterPayload = useMemo<ChannelFilterPayload | undefined>(() => {
     if (!availableChannels.length) return undefined
-    if (selectedChannelNames.length === 0) {
+    if (selectedChannelOptions.length === 0) {
       return { include_names: [] }
     }
-    if (selectedChannelNames.length === availableChannels.length) {
+    if (selectedChannelOptions.length === availableChannels.length) {
       return undefined
     }
-    return { include_names: selectedChannelNames }
-  }, [availableChannels, selectedChannelNames]);
+    const includeIds = selectedChannelOptions
+      .map((option) => option.id)
+      .filter((id): id is string => Boolean(id))
+    const includeNames = selectedChannelOptions
+      .filter((option) => !option.id)
+      .map((option) => option.name)
+    const payload: ChannelFilterPayload = {}
+    if (includeIds.length) payload.include_ids = includeIds
+    if (includeNames.length) payload.include_names = includeNames
+    if (!payload.include_ids && !payload.include_names) {
+      payload.include_names = []
+    }
+    return payload
+  }, [availableChannels, selectedChannelOptions])
 
   const buildChatRequestPayload = useCallback(
     (history: MetadataMessage[], options?: { clientTraceId?: string }) => {
@@ -1337,17 +1363,20 @@ export function Chat({
       structuredMetadataEntries.length > 0 ? structuredMetadataEntries : sanitizedStructuredMetadata
     if (!Array.isArray(source) || !source.length) return
 
-    const collected = source
-      .map((entry) =>
-        entry && typeof entry === 'object' && typeof entry.channel === 'string'
-          ? entry.channel.trim()
-          : ''
-      )
-      .filter(Boolean)
+    const optionMap = new Map<string, ChannelOption>()
+    source.forEach((entry) => {
+      if (!entry || typeof entry !== 'object') return
+      const nameCandidate = entry.channelName ?? entry.channel
+      const finalName = typeof nameCandidate === 'string' ? nameCandidate.trim() : ''
+      if (!finalName) return
+      const candidateId = entry.channelId ?? entry.clips?.find((clip) => clip.channelId)?.channelId ?? null
+      const option: ChannelOption = { name: finalName, id: candidateId ?? undefined }
+      optionMap.set(channelOptionKey(option), option)
+    })
 
-    if (!collected.length) return
+    if (!optionMap.size) return
 
-    const signature = Array.from(new Set(collected)).sort().join('|')
+    const signature = Array.from(optionMap.keys()).sort().join('|')
     if (metadataChannelSignatureRef.current === signature) {
       console.debug('chat: metadata channel signature unchanged, skipping merge', {
         traceId: currentTraceIdRef.current
@@ -1356,37 +1385,43 @@ export function Chat({
     }
     metadataChannelSignatureRef.current = signature
 
-    let merged: string[] | null = null
+    let mergedOptions: ChannelOption[] | null = null
     setAvailableChannels((prev) => {
-      const next = new Set(prev)
-      let added = false
-      for (const name of collected) {
-        if (!next.has(name)) {
-          next.add(name)
-          added = true
+      const nextMap = new Map<string, ChannelOption>()
+      prev.forEach((option) => nextMap.set(channelOptionKey(option), option))
+      optionMap.forEach((option, key) => {
+        if (!nextMap.has(key)) {
+          nextMap.set(key, option)
         }
-      }
-      if (!added) {
+      })
+      const nextOptions = Array.from(nextMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+      const sameLength = nextOptions.length === prev.length
+      const sameContent =
+        sameLength &&
+        prev.every((option, idx) => {
+          const next = nextOptions[idx]
+          return channelOptionKey(option) === channelOptionKey(next) && option.name === next.name
+        })
+      if (sameContent) {
         console.debug('chat: metadata channels already present', {
           traceId: currentTraceIdRef.current
         })
         return prev
       }
 
-      const sorted = Array.from(next).filter(Boolean)
-      sorted.sort((a, b) => a.localeCompare(b))
-      merged = sorted
-
+      mergedOptions = nextOptions
       console.debug('chat: metadata channels merged from clip metadata', {
         traceId: currentTraceIdRef.current,
-        added: sorted.filter((name) => !prev.includes(name)),
-        total: sorted.length
+        added: nextOptions.filter(
+          (option) => !prev.some((existing) => channelOptionKey(existing) === channelOptionKey(option))
+        ),
+        total: nextOptions.length
       })
 
-      return sorted
+      return nextOptions
     })
-    if (merged) {
-      setChannelCatalogCache(merged)
+    if (mergedOptions) {
+      setChannelCatalogCache(mergedOptions)
     }
   }, [structuredMetadataEntries, sanitizedStructuredMetadata])
 
@@ -1712,7 +1747,7 @@ export function Chat({
               <div className={styles.leftPanelFilter}>
                 <ChannelFilterPanel
                   channels={availableChannels}
-                  excluded={excludedChannelNames}
+                  excluded={excludedChannelKeys}
                   onExcludedChange={handleExcludedChannelsChange}
                 />
               </div>
@@ -1756,7 +1791,7 @@ export function Chat({
                 <div className="mb-4">
                   <ChannelFilterPanel
                     channels={availableChannels}
-                    excluded={excludedChannelNames}
+                    excluded={excludedChannelKeys}
                     onExcludedChange={handleExcludedChannelsChange}
                   />
                 </div>

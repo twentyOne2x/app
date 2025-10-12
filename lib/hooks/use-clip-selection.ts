@@ -19,6 +19,9 @@ export interface ClipSelectionEntry {
     | 'speaker'
     | 'excerpt'
     | 'url'
+    | 'clipUrl'
+    | 'segmentId'
+    | 'videoId'
   >
 }
 
@@ -32,6 +35,7 @@ export interface ClipSelectionHandle {
 
 export function buildClipSelectionKey(parent: ParsedMetadataEntryV2, clip: ClipItemV2): string {
   const parts = [
+    clip.segmentId ?? '',
     parent.parentTitle ?? '',
     parent.channel ?? '',
     parent.date ?? '',
@@ -66,7 +70,10 @@ function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): Clip
       endS: clip.endS,
       speaker: clip.speaker,
       excerpt: clip.excerpt,
-      url: clip.url
+      url: clip.url,
+      clipUrl: clip.clipUrl,
+      segmentId: clip.segmentId,
+      videoId: clip.videoId
     }
   }
 }

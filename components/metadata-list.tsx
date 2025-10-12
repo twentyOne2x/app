@@ -48,12 +48,19 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({ entries 
 
   const getThumbnailUrl = (entry: ParsedMetadataEntryV2) => {
     let thumbnailUrl: string | undefined;
+    const videoId = entry.videoId || entry.clips.find((c) => c.videoId)?.videoId || null;
     const anyUrl = entry.url || entry.clips.find((c) => c.url)?.url || '';
 
-    if (anyUrl.includes('youtube.com') || anyUrl.includes('youtu.be')) {
-      const u = new URL(anyUrl);
-      const id = u.searchParams.get('v') || u.pathname.split('/').pop() || '';
-      thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '/default-youtube-thumbnail.jpg';
+    if (videoId) {
+      thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+    } else if (anyUrl.includes('youtube.com') || anyUrl.includes('youtu.be')) {
+      try {
+        const u = new URL(anyUrl);
+        const id = u.searchParams.get('v') || u.pathname.split('/').pop() || '';
+        thumbnailUrl = id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : '/default-youtube-thumbnail.jpg';
+      } catch {
+        thumbnailUrl = '/default-youtube-thumbnail.jpg';
+      }
     } else if (anyUrl) {
       const domain = extractDomain(anyUrl);
       const documentName = getDocumentName(anyUrl);
@@ -81,7 +88,8 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({ entries 
 
   const clipTime = (c: ClipItemV2) => (c.startHMS && c.endHMS ? `(${c.startHMS}–${c.endHMS})` : '');
 
-  const parentHref = (e: ParsedMetadataEntryV2) => e.url || e.clips.find((c) => c.url)?.url || '#';
+  const parentHref = (e: ParsedMetadataEntryV2) =>
+    e.url || e.clips.find((c) => c.clipUrl || c.url)?.clipUrl || e.clips.find((c) => c.url)?.url || '#';
 
   return (
     <ol className={styles.metadataList}>
@@ -106,15 +114,15 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({ entries 
             </div>
             <div className={styles.metadataMiddle}>
               <span className={styles.metadataListSpan}>
-                {entry.channel}
-                {entry.date ? ` · ${entry.date}` : ''}
+                {entry.channelName ?? entry.channel}
+                {entry.publishedAt ?? entry.publishedDate ?? entry.date ? ` · ${entry.publishedAt ?? entry.publishedDate ?? entry.date}` : ''}
               </span>
               {entry.clips?.length ? (
                 <ul style={{ marginTop: 6 }}>
                   {entry.clips.map((c, i) => (
                     <li key={i} style={{ marginBottom: 4 }}>
-                      {c.url ? (
-                        <a href={c.url} target="_blank" rel="noopener noreferrer">
+                      {c.clipUrl || c.url ? (
+                        <a href={c.clipUrl ?? c.url ?? '#'} target="_blank" rel="noopener noreferrer">
                           {clipTime(c)} {c.speaker ? `· ${c.speaker}` : ''}
                           {c.excerpt ? ` — ${c.excerpt}` : ''}
                         </a>

@@ -4,29 +4,45 @@ import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import styles from './ChannelFilterPanel.module.css'
 
+interface ChannelOption {
+  id?: string | null
+  name: string
+}
+
+const getChannelKey = (option: ChannelOption): string =>
+  option.id ? `id:${option.id}` : `name:${option.name.trim().toLowerCase()}`
+
 interface ChannelFilterPanelProps {
-  channels: string[]
+  channels: ChannelOption[]
   excluded: string[]
   onExcludedChange: (next: string[]) => void
 }
 
 export function ChannelFilterPanel({ channels, excluded, onExcludedChange }: ChannelFilterPanelProps) {
   const sortedChannels = useMemo(() => {
-    const unique = Array.from(new Set(channels.filter(Boolean)))
-    unique.sort((a, b) => a.localeCompare(b))
-    return unique
+    const unique = new Map<string, ChannelOption>()
+    channels.forEach((option) => {
+      if (!option?.name) return
+      const key = getChannelKey(option)
+      if (!unique.has(key)) unique.set(key, option)
+    })
+    return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [channels])
 
   const excludedSet = useMemo(() => new Set(excluded.filter(Boolean)), [excluded])
-  const selectedCount = sortedChannels.reduce((acc, name) => acc + (excludedSet.has(name) ? 0 : 1), 0)
+  const selectedCount = sortedChannels.reduce(
+    (acc, option) => acc + (excludedSet.has(getChannelKey(option)) ? 0 : 1),
+    0
+  )
   const totalCount = sortedChannels.length
 
-  const toggleChannel = (channel: string, include: boolean) => {
+  const toggleChannel = (channel: ChannelOption, include: boolean) => {
+    const key = getChannelKey(channel)
     const next = new Set(excludedSet)
     if (include) {
-      next.delete(channel)
+      next.delete(key)
     } else {
-      next.add(channel)
+      next.add(key)
     }
     onExcludedChange(Array.from(next))
   }
@@ -37,7 +53,7 @@ export function ChannelFilterPanel({ channels, excluded, onExcludedChange }: Cha
 
   const excludeAll = () => {
     if (!sortedChannels.length) return
-    onExcludedChange(sortedChannels.slice())
+    onExcludedChange(sortedChannels.map((option) => getChannelKey(option)))
   }
 
   return (
@@ -56,13 +72,14 @@ export function ChannelFilterPanel({ channels, excluded, onExcludedChange }: Cha
       {sortedChannels.length > 0 ? (
         <div className={cn('mt-3 grid gap-2', styles.scrollContainer)}>
           {sortedChannels.map((channel) => {
-            const isIncluded = !excludedSet.has(channel)
+            const key = getChannelKey(channel)
+            const isIncluded = !excludedSet.has(key)
             return (
               <label
-                key={channel}
+                key={key}
                 className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-zinc-100 hover:border-white/20"
               >
-                <span className="truncate">{channel}</span>
+                <span className="truncate">{channel.name}</span>
                 <input
                   type="checkbox"
                   className="size-4 rounded border-white/30 bg-black/40 accent-emerald-400"

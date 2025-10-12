@@ -74,6 +74,16 @@ export interface ClipItemV2 {
   endS?: number
   speaker?: string
   excerpt?: string
+  segmentId?: string
+  parentId?: string
+  videoId?: string
+  documentType?: string
+  nodeType?: string
+  clipUrl?: string
+  channelId?: string
+  channelName?: string
+  publishedAt?: string
+  publishedDate?: string
 }
 
 export interface ParsedMetadataEntryV2 {
@@ -83,6 +93,11 @@ export interface ParsedMetadataEntryV2 {
   url?: string          // canonical/first link we saw for this parent
   scoreMax?: number
   clips: ClipItemV2[]
+  videoId?: string
+  channelId?: string
+  channelName?: string
+  publishedAt?: string
+  publishedDate?: string
 }
 
 /** Pull the trailing sources section out of the LLM answer text. */
@@ -237,6 +252,15 @@ export function parseMetadata(
           existing.scoreMax == null ? c.score : Math.max(existing.scoreMax, c.score)
       }
       if (!existing.url && c.url) existing.url = c.url
+      existing.videoId = existing.videoId ?? c.videoId ?? c.parentId
+      existing.channelId = existing.channelId ?? c.channelId
+      existing.channelName = existing.channelName ?? c.channelName ?? c.channel
+      if (!existing.publishedAt) {
+        existing.publishedAt = c.publishedAt
+      }
+      if (!existing.publishedDate) {
+        existing.publishedDate = c.publishedDate ?? c.date
+      }
     } else {
       byParent.set(k, {
         parentTitle: c.parentTitle,
@@ -244,7 +268,12 @@ export function parseMetadata(
         date: c.date,
         url: c.url,
         scoreMax: c.score,
-        clips: [c]
+        clips: [c],
+        videoId: c.videoId ?? c.parentId,
+        channelId: c.channelId,
+        channelName: c.channelName ?? c.channel,
+        publishedAt: c.publishedAt,
+        publishedDate: c.publishedDate ?? c.date
       })
     }
   }
@@ -266,15 +295,32 @@ export function parseMetadata(
 
 export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): ParsedMetadataEntryV2[] {
   return entries.map((entry) => {
-    const normalizedChannel = applyNameAlias(entry.channel) ?? entry.channel
-    const normalizedClips = entry.clips.map((clip) => ({
-      ...clip,
-      channel: applyNameAlias(clip.channel) ?? clip.channel,
-      speaker: applyNameAlias(clip.speaker) ?? clip.speaker
-    }))
+    const normalizedChannelName = applyNameAlias(entry.channelName ?? entry.channel) ?? entry.channelName ?? entry.channel
+    const normalizedPublishedAt = entry.publishedAt ?? entry.publishedDate ?? entry.date
+    const normalizedClips = entry.clips.map((clip) => {
+      const clipChannelName = applyNameAlias(clip.channelName ?? clip.channel) ?? clip.channelName ?? clip.channel
+      return {
+        ...clip,
+        channel: clipChannelName,
+        channelName: clipChannelName,
+        channelId: clip.channelId ?? entry.channelId,
+        speaker: applyNameAlias(clip.speaker) ?? clip.speaker,
+        clipUrl: clip.clipUrl ?? clip.url,
+        parentId: clip.parentId ?? entry.videoId ?? clip.videoId,
+        videoId: clip.videoId ?? entry.videoId,
+        publishedAt: clip.publishedAt ?? normalizedPublishedAt,
+        publishedDate: clip.publishedDate ?? normalizedPublishedAt ?? clip.date
+      }
+    })
     return {
       ...entry,
-      channel: normalizedChannel,
+      channel: normalizedChannelName,
+      channelName: normalizedChannelName,
+      channelId: entry.channelId,
+      videoId: entry.videoId,
+      publishedAt: normalizedPublishedAt ?? undefined,
+      publishedDate: entry.publishedDate ?? normalizedPublishedAt ?? undefined,
+      date: normalizedPublishedAt ?? entry.date,
       clips: normalizedClips
     }
   })

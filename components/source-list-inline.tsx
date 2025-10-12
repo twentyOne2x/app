@@ -16,7 +16,8 @@ function time(h?: string, e?: string) {
   return `${h}–${e}`
 }
 
-function clipHref(parentUrl?: string, startS?: number) {
+function clipHref(parentUrl?: string, startS?: number, clipUrl?: string | null) {
+  if (clipUrl) return clipUrl
   if (!parentUrl) return '#'
   try {
     const u = new URL(parentUrl)
@@ -42,8 +43,20 @@ function ScoreBadge({ score }: { score?: number }) {
   )
 }
 
+function youtubeThumb(videoId?: string | null, fallbackUrl?: string) {
+  if (videoId) return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+  if (!fallbackUrl) return '/default-video-thumbnail.jpg'
+  try {
+    const url = new URL(fallbackUrl)
+    const v = url.searchParams.get('v')
+    return v ? `https://i.ytimg.com/vi/${v}/hqdefault.jpg` : '/default-video-thumbnail.jpg'
+  } catch {
+    return '/default-video-thumbnail.jpg'
+  }
+}
+
 function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipItemV2 }) {
-  const href = clipHref(parent.url, clip.startS)
+  const href = clipHref(parent.url, clip.startS, clip.clipUrl)
   return (
     <Link
       href={href}
@@ -55,19 +68,7 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
         {/* Thumbnail */}
         <div className="relative h-16 w-28 overflow-hidden rounded">
           <img
-            src={
-              parent.url && parent.url.includes('youtube.com')
-                ? (() => {
-                    try {
-                      const u = new URL(parent.url)
-                      const v = u.searchParams.get('v')
-                      return v ? `https://img.youtube.com/vi/${v}/hqdefault.jpg` : '/default-youtube-thumbnail.jpg'
-                    } catch {
-                      return '/default-youtube-thumbnail.jpg'
-                    }
-                  })()
-                : '/default-video-thumbnail.jpg'
-            }
+            src={youtubeThumb(clip.videoId ?? parent.videoId, parent.url)}
             alt={parent.parentTitle}
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.03]"
             loading="lazy"
@@ -83,12 +84,12 @@ function ClipRow({ parent, clip }: { parent: ParsedMetadataEntryV2; clip: ClipIt
         {/* Text */}
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-white/90 line-clamp-1">
-            {parent.parentTitle}
+            {clip.parentTitle ?? parent.parentTitle}
             <ScoreBadge score={clip.score} />
           </div>
           <div className="mt-0.5 text-xs text-white/60">
-            {parent.channel}
-            {parent.date ? ` · ${parent.date}` : ''}
+            {parent.channelName ?? parent.channel}
+            {parent.publishedAt ?? parent.publishedDate ?? parent.date ? ` · ${parent.publishedAt ?? parent.publishedDate ?? parent.date}` : ''}
             {clip.speaker ? ` · ${clip.speaker}` : ''}
           </div>
           {clip.excerpt ? (
@@ -109,8 +110,8 @@ export function SourceListInline({ entries, className }: Props) {
           <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-semibold text-white/90">{p.parentTitle}</div>
             <div className="text-xs text-white/60">
-              {p.channel}
-              {p.date ? ` · ${p.date}` : ''}
+              {p.channelName ?? p.channel}
+              {p.publishedAt ?? p.publishedDate ?? p.date ? ` · ${p.publishedAt ?? p.publishedDate ?? p.date}` : ''}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -71,23 +71,42 @@ function appendGenericTimestamp(base: URL, start?: number): ClipPlayback {
 }
 
 export function buildClipPlayback(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipPlayback {
-  const candidateUrl = ensureAbsoluteUrl(clip.url) ?? ensureAbsoluteUrl(parent.url)
-  if (!candidateUrl) return {}
-
   const start = clip.startS ?? hmsToSeconds(clip.startHMS)
   const end = clip.endS ?? hmsToSeconds(clip.endHMS)
 
-  let base: URL
-  try {
-    base = new URL(candidateUrl)
-  } catch {
-    return { watchUrl: candidateUrl, startSeconds: start, endSeconds: end }
+  const candidateUrl =
+    ensureAbsoluteUrl(clip.clipUrl) ??
+    ensureAbsoluteUrl(clip.url) ??
+    ensureAbsoluteUrl(parent.url)
+
+  if (candidateUrl) {
+    try {
+      const base = new URL(candidateUrl)
+      if (base.hostname.includes('youtube.com') || base.hostname.includes('youtu.be')) {
+        return buildYouTubeUrls(base, start, end)
+      }
+      return appendGenericTimestamp(base, start)
+    } catch {
+      return { watchUrl: candidateUrl, startSeconds: start, endSeconds: end }
+    }
   }
 
-  if (base.hostname.includes('youtube.com') || base.hostname.includes('youtu.be')) {
-    return buildYouTubeUrls(base, start, end)
+  const videoId = clip.videoId ?? parent.videoId
+  if (videoId) {
+    const fallbackBase = new URL(`https://www.youtube.com/watch?v=${videoId}`)
+    return buildYouTubeUrls(fallbackBase, start, end)
   }
-  return appendGenericTimestamp(base, start)
+
+  if (parent.url) {
+    try {
+      const base = new URL(parent.url)
+      return appendGenericTimestamp(base, start)
+    } catch {
+      return { watchUrl: parent.url, startSeconds: start, endSeconds: end }
+    }
+  }
+
+  return {}
 }
 
 interface ClipDrawerProps {

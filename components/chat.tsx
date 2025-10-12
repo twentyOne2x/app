@@ -125,10 +125,14 @@ function formatSourceList(value: unknown, limit = 3): string | null {
 function formatRetrieveDetails(meta: StageMeta): string[] {
   const details: string[] = []
   const initialCount = formatCount(meta.initial_candidates)
+  const similarityTopK = formatCount(meta.similarity_top_k ?? meta.top_k)
   const scoreMin = formatNumeric(meta.score_min)
   const scoreMax = formatNumeric(meta.score_max)
   if (initialCount) {
     details.push(`initial candidates: ${initialCount}`)
+  }
+  if (similarityTopK) {
+    details.push(`similarity top-k: ${similarityTopK}`)
   }
   if (scoreMin || scoreMax) {
     details.push(`score range: ${scoreMin ?? '—'} to ${scoreMax ?? '—'}`)
@@ -160,8 +164,15 @@ function formatRerankDetails(meta: StageMeta): string[] {
   const details: string[] = []
   const kept = formatCount(meta.kept_after_ce ?? meta.kept)
   const pcut = formatNumeric(meta.pcut)
+  const model = typeof meta.model === 'string' ? meta.model : null
+  const batchSize = formatCount(meta.batch_size)
   if (kept || pcut) {
     details.push(`kept clips: ${kept ?? '?'}` + (pcut ? ` (pcut ${pcut})` : ''))
+  }
+  if (model || batchSize) {
+    details.push(
+      `${model ? `model ${model}` : ''}${model && batchSize ? ' · ' : ''}${batchSize ? `batch ${batchSize}` : ''}`.trim()
+    )
   }
   const keptSources = formatSourceList(meta.kept_sources)
   if (keptSources) {
@@ -276,6 +287,32 @@ function formatProgressMetadata(meta: Record<string, unknown> | undefined): stri
     }
   })
   return lines
+}
+
+function coerceProgressStage(stage: Record<string, unknown>): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...stage }
+  const metadata = stage.metadata
+  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
+    const existingMeta =
+      stage.meta && typeof stage.meta === 'object' && !Array.isArray(stage.meta)
+        ? (stage.meta as Record<string, unknown>)
+        : {}
+    next.meta = { ...existingMeta, ...(metadata as Record<string, unknown>) }
+  }
+  if (typeof stage.name === 'string' && typeof next.stage !== 'string') {
+    next.stage = stage.name
+  }
+  if (typeof stage.stage === 'string' && typeof next.name !== 'string') {
+    next.name = stage.stage
+  }
+  return next
+}
+
+function coerceProgressArray(progress: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(progress)) return []
+  return progress
+    .filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object')
+    .map((entry) => coerceProgressStage(entry as Record<string, unknown>))
 }
 
 // Extend the Message type to include structured_metadata
@@ -1156,7 +1193,7 @@ export function Chat({
         stripSourcesBlock(rawAssistantContent)
       )
 
-      const diagnostics: DiagnosticsPayload | null =
+      const diagnosticsRaw: DiagnosticsPayload | null =
         (data.diagnostics as DiagnosticsPayload | undefined) ??
         ((data.message as { diagnostics?: DiagnosticsPayload })?.diagnostics ?? null)
 
@@ -1175,6 +1212,11 @@ export function Chat({
         console.debug('chat: normalizing assistant role', { traceId, rawRole, safeRole })
       }
 
+      const normalizedProgressEntries = coerceProgressArray(diagnosticsRaw?.progress)
+      const normalizedDiagnostics = diagnosticsRaw
+        ? { ...diagnosticsRaw, progress: normalizedProgressEntries as DiagnosticsPayload['progress'] }
+        : null
+
       const assistantMessage: MetadataMessage = {
         id:
           (data.message as { id?: string })?.id ??
@@ -1183,7 +1225,7 @@ export function Chat({
         role: safeRole,
         content: sanitizedContent,
         structured_metadata: normalizedMetadata,
-        diagnostics
+        diagnostics: normalizedDiagnostics
       }
 
       console.debug('chat: assistant content prepared', {
@@ -1202,15 +1244,16 @@ export function Chat({
       })
       setLastMessageRole('assistant')
 
-      if (diagnostics) {
+     if (normalizedDiagnostics) {
         console.debug('chat: diagnostics payload applied', {
           traceId,
-          progressCount: Array.isArray(diagnostics.progress) ? diagnostics.progress.length : 0
+          progressCount: Array.isArray(normalizedDiagnostics.progress)
+            ? normalizedDiagnostics.progress.length
+            : 0
         })
-        setCurrentDiagnostics(diagnostics)
-        if (Array.isArray(diagnostics.progress)) {
-          setLiveProgress(diagnostics.progress as Array<Record<string, unknown>>)
-        }
+        setCurrentDiagnostics(normalizedDiagnostics)
+        setLiveProgress(normalizedProgressEntries)
+        assistantMessage.diagnostics = normalizedDiagnostics
       } else {
         setCurrentDiagnostics(null)
         setLiveProgress([])
@@ -1274,31 +1317,59 @@ export function Chat({
       let finalPayload: Record<string, unknown> | null = null
 
       const commitProgress = (stage: Record<string, unknown>) => {
-        setLiveProgress((prev) => {
-          const next = [...prev]
-          const stageName =
-            typeof stage.name === 'string'
-              ? stage.name
-              : typeof stage.stage === 'string'
-              ? stage.stage
+        const normalizedStage = coerceProgressStage(stage)
+        const stageKey =
+          typeof normalizedStage.name === 'string'
+            ? normalizedStage.name
+            : typeof normalizedStage.stage === 'string'
+              ? normalizedStage.stage
               : undefined
-          if (stageName) {
-            const index = next.findIndex((entry) =>
-              entry && typeof entry === 'object' && (entry as { name?: unknown }).name === stageName
-            )
+
+        setLiveProgress((prev) => {
+          const updated = [...prev]
+          if (stageKey) {
+            const index = updated.findIndex((entry) => {
+              if (!entry || typeof entry !== 'object') return false
+              const candidate = entry as { name?: unknown; stage?: unknown }
+              return candidate.name === stageKey || candidate.stage === stageKey
+            })
             if (index >= 0) {
-              next[index] = { ...next[index], ...stage }
+              const existingEntry = updated[index] as Record<string, unknown>
+              const existingMeta =
+                existingEntry &&
+                typeof (existingEntry as { meta?: unknown }).meta === 'object' &&
+                !Array.isArray((existingEntry as { meta?: unknown }).meta)
+                  ? ((existingEntry as { meta: Record<string, unknown> }).meta)
+                  : undefined
+              const incomingMeta =
+                typeof (normalizedStage as { meta?: unknown }).meta === 'object' &&
+                !Array.isArray((normalizedStage as { meta?: unknown }).meta)
+                  ? ((normalizedStage as { meta: Record<string, unknown> }).meta)
+                  : undefined
+              const mergedMeta =
+                existingMeta || incomingMeta
+                  ? { ...(existingMeta ?? {}), ...(incomingMeta ?? {}) }
+                  : undefined
+              updated[index] = {
+                ...existingEntry,
+                ...normalizedStage,
+                ...(mergedMeta ? { meta: mergedMeta } : {})
+              }
             } else {
-              next.push(stage)
+              updated.push(normalizedStage)
             }
           } else {
-            next.push(stage)
+            updated.push(normalizedStage)
           }
+
+          const normalizedProgress = updated.map((entry) =>
+            coerceProgressStage(entry as Record<string, unknown>)
+          )
           setCurrentDiagnostics((prevDiagnostics) => ({
             ...(prevDiagnostics ?? {}),
-            progress: next as DiagnosticsPayload['progress']
+            progress: normalizedProgress as DiagnosticsPayload['progress']
           }))
-          return next
+          return normalizedProgress
         })
       }
 
@@ -1346,10 +1417,15 @@ export function Chat({
                 eventData.diagnostics && typeof eventData.diagnostics === 'object'
                   ? (eventData.diagnostics as DiagnosticsPayload)
                   : null
-              if (Array.isArray(resultDiagnostics?.progress)) {
-                setLiveProgress(resultDiagnostics.progress as Array<Record<string, unknown>>)
-              }
-              setCurrentDiagnostics(resultDiagnostics ?? null)
+              const normalizedProgressEntries = coerceProgressArray(resultDiagnostics?.progress)
+              setLiveProgress(normalizedProgressEntries)
+              const normalizedDiagnostics = resultDiagnostics
+                ? {
+                    ...resultDiagnostics,
+                    progress: normalizedProgressEntries as DiagnosticsPayload['progress']
+                  }
+                : null
+              setCurrentDiagnostics(normalizedDiagnostics)
 
               let structuredMetadata: ParsedMetadataEntryV2[] = Array.isArray(
                 (eventData as { structured_metadata?: unknown }).structured_metadata
@@ -1374,7 +1450,7 @@ export function Chat({
                   structured_metadata: normalizedStructuredMetadata
                 },
                 structured_metadata: normalizedStructuredMetadata,
-                diagnostics: resultDiagnostics
+                diagnostics: normalizedDiagnostics
               }
 
               renderAssistantPayload(finalData, traceId)
@@ -1947,7 +2023,7 @@ export function Chat({
       normalized[normalized.length - 1]
     const header = `[progress] Working... ${activeStage?.label ?? 'Processing'}`
     const summaryLine = `Progress ${Math.min(completedStages, totalStages)}/${totalStages}`
-    const stageLines = normalized.flatMap((stage) => formatStageLines(stage))
+    const stageLines = activeStage ? formatStageLines(activeStage) : []
     const metadataLines = formatProgressMetadata(diagnostics?.progress_metadata)
     const tailLines: string[] = []
     if (metadataLines.length) {
@@ -1957,7 +2033,14 @@ export function Chat({
     if (diagnostics?.request_id) {
       tailLines.push(`Request ID: ${diagnostics.request_id}`)
     }
-    return [header, '', summaryLine, ...stageLines, ...(tailLines.length ? ['', ...tailLines] : [])].join('\n')
+    const sections = [header, '', summaryLine]
+    if (stageLines.length) {
+      sections.push('', ...stageLines)
+    }
+    if (tailLines.length) {
+      sections.push('', ...tailLines)
+    }
+    return sections.join('\n')
   }, [shared_chat, isProcessingQuery, liveProgress, progressDiagnostics])
 
   const displayMessages = useMemo(() => {

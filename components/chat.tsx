@@ -142,6 +142,10 @@ export function Chat({
     null
   )
   const entryProfile = useEntryProfile();
+  const [channelCatalogCache, setChannelCatalogCache] = useLocalStorage<string[]>(
+    `channel-catalog:${entryProfile.code}`,
+    []
+  )
   const sanitizedStructuredMetadata = useMemo(
     () => normalizeMetadataEntries(structured_metadata),
     [structured_metadata]
@@ -197,7 +201,7 @@ export function Chat({
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
   const [liveProgress, setLiveProgress] = useState<Array<Record<string, unknown>>>([]);
   const [input, setInput] = useState('');
-  const [availableChannels, setAvailableChannels] = useState<string[]>([]);
+  const [availableChannels, setAvailableChannels] = useState<string[]>(channelCatalogCache);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
   const channelCatalogStateRef = useRef<{
@@ -223,6 +227,15 @@ export function Chat({
     channelFilterStorageKey,
     []
   );
+
+  useEffect(() => {
+    setAvailableChannels((prev) => {
+      if (prev.length === channelCatalogCache.length && prev.every((name, idx) => name === channelCatalogCache[idx])) {
+        return prev
+      }
+      return channelCatalogCache
+    })
+  }, [channelCatalogCache])
 
   useEffect(() => {
     console.debug('chat: component mounted', {
@@ -473,6 +486,7 @@ export function Chat({
         })
         if (!sanitized.length) return
 
+        let catalogUpdated = false
         setAvailableChannels((prev) => {
           if (prev.length === sanitized.length && prev.every((name, idx) => name === sanitized[idx])) {
             console.debug('chat: channel catalog unchanged', {
@@ -481,6 +495,7 @@ export function Chat({
             })
             return prev
           }
+          catalogUpdated = true
           console.debug('chat: channel catalog updated', {
             traceId: currentTraceIdRef.current,
             previousCount: prev.length,
@@ -488,6 +503,9 @@ export function Chat({
           })
           return sanitized
         })
+        if (catalogUpdated) {
+          setChannelCatalogCache(sanitized)
+        }
 
         let defaultsApplied = state.defaultsApplied
         const hasStoredSelectionNow = excludedChannelNames.length > 0
@@ -1330,6 +1348,7 @@ export function Chat({
     }
     metadataChannelSignatureRef.current = signature
 
+    let merged: string[] | null = null
     setAvailableChannels((prev) => {
       const next = new Set(prev)
       let added = false
@@ -1348,6 +1367,7 @@ export function Chat({
 
       const sorted = Array.from(next).filter(Boolean)
       sorted.sort((a, b) => a.localeCompare(b))
+      merged = sorted
 
       console.debug('chat: metadata channels merged from clip metadata', {
         traceId: currentTraceIdRef.current,
@@ -1357,6 +1377,9 @@ export function Chat({
 
       return sorted
     })
+    if (merged) {
+      setChannelCatalogCache(merged)
+    }
   }, [structuredMetadataEntries, sanitizedStructuredMetadata])
 
   useEffect(() => {

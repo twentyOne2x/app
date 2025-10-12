@@ -40,7 +40,7 @@ const DEFAULT_QUESTIONS: string[] = [
   'How much money has been raised on solana DATs and where will it be deployed in defi?',
   'What is the first and most recent mention of Firedancer?',
   "What does SIMD mean?",
-  "What's SIMD-0326.?",
+  "What's SIMD-0326?",
   "What is done concretely to Increase Bandwitdth and Reduce Latency?",
 ];
 

@@ -31,9 +31,9 @@ import { coerceContent, isRenderableMessage } from '@/lib/coerce-content';
 import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload } from '@/lib/types';
-import { DEFAULT_PIPELINE, DEFAULT_STAGE_ORDER, normalizeProgress } from '@/lib/progress-display';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 import { useRouter } from 'next/navigation'
+import QueryProgress from '@/components/query-progress'
 
 type ChannelOption = {
   id?: string | null
@@ -1677,60 +1677,22 @@ export function Chat({
   [styles.rightPanelNoPaddingTop]: noPaddingTop,
   });
 
-  const progressSummary = useMemo(() => {
-    if (!isProcessingQuery) return null
-    const progressSource =
-      liveProgress.length > 0
-        ? liveProgress
-        : (currentDiagnostics?.progress as Array<Record<string, unknown>> | undefined)
-    const normalized = normalizeProgress(progressSource)
-    if (!normalized.length) {
-      const initialLabel = DEFAULT_PIPELINE[0]?.label ?? 'Processing'
-      return `▍ Working… ${initialLabel}\n\nWaiting for backend progress…`
+  const progressDiagnostics = useMemo<DiagnosticsPayload | null>(() => {
+    if (liveProgress.length) {
+      return {
+        ...(currentDiagnostics ?? {}),
+        progress: liveProgress as DiagnosticsPayload['progress']
+      }
     }
+    return currentDiagnostics ?? null
+  }, [liveProgress, currentDiagnostics])
 
-    const stagesByKey = new Map<string, (typeof normalized)[number]>()
-    normalized.forEach((stage) => {
-      if (stage?.key) stagesByKey.set(stage.key, stage)
-    })
-
-    const finishedStatuses = new Set(['completed', 'skipped', 'error'])
-    const plannedTotal = DEFAULT_STAGE_ORDER.length
-    const total = plannedTotal || stagesByKey.size || normalized.length
-
-    const completed = DEFAULT_STAGE_ORDER.reduce((count, key) => {
-      const stage = stagesByKey.get(key)
-      if (!stage) return count
-      return finishedStatuses.has(stage.status) ? count + 1 : count
-    }, 0)
-
-    const currentKey =
-      DEFAULT_STAGE_ORDER.find((key) => stagesByKey.get(key)?.status === 'running') ??
-      DEFAULT_STAGE_ORDER.find((key) => stagesByKey.get(key)?.status === 'pending') ??
-      DEFAULT_STAGE_ORDER[DEFAULT_STAGE_ORDER.length - 1]
-
-    const currentStage =
-      (currentKey ? stagesByKey.get(currentKey) : undefined) ??
-      normalized.find((stage) => stage.status === 'running') ??
-      normalized.find((stage) => stage.status === 'pending') ??
-      normalized[normalized.length - 1]
-
-    const activeLabel = currentStage?.label ?? 'Processing'
-    const statusLine = total > 0 ? `Progress ${Math.min(completed, total)}/${total}` : 'Tracking progress…'
-    return `▍ Working… ${activeLabel}\n\n${statusLine}`
-  }, [isProcessingQuery, liveProgress, currentDiagnostics])
-
-  const displayMessages = useMemo(() => {
-    if (!progressSummary) return newMessages
-    const progressMessage: MetadataMessage = {
-      id: `progress-status-${newMessages.length}`,
-      role: 'assistant',
-      content: progressSummary,
-      structured_metadata: [],
-      diagnostics: null
-    }
-    return [...newMessages, progressMessage]
-  }, [newMessages, progressSummary])
+  const shouldShowProgress = useMemo(() => {
+    if (shared_chat) return false
+    if (isProcessingQuery) return true
+    const progressEntries = progressDiagnostics?.progress
+    return Array.isArray(progressEntries) && progressEntries.length > 0
+  }, [shared_chat, isProcessingQuery, progressDiagnostics])
 
   return (
     <>
@@ -1758,11 +1720,21 @@ export function Chat({
         <div className={middlePanelClass}>
           <div className={styles.scrollableContainer}>
             {/* Conditional rendering for ChatList */}
+            {shouldShowProgress ? (
+              <div className="mb-6">
+                <QueryProgress
+                  loading={isProcessingQuery}
+                  diagnostics={progressDiagnostics}
+                  stageHintIndex={liveProgress.length}
+                />
+              </div>
+            ) : null}
+
             {showChatList && (
               <div className={QuestionsOverlayStyles.fadeIn}>
                 <ChatList 
                   ref={chatListEndRef} 
-                  messages={displayMessages} 
+                  messages={newMessages} 
                   lastMessageRole={lastMessageRole}
                   onViewSources={() => setIsModalOpen(true)}
                   isMobile={isMobile}

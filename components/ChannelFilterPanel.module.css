@@ -1,6 +1,7 @@
 .scrollContainer {
   max-height: 13rem;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 0.25rem;
   scrollbar-width: none;
   -ms-overflow-style: none;

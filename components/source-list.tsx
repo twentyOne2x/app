@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import Image from 'next/image'
 import { cn, formatDate } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
@@ -10,7 +10,6 @@ import {
   useClipSelection,
   type ClipSelectionHandle
 } from '@/lib/hooks/use-clip-selection'
-import { IconChevronUpDown } from '@/components/ui/icons'
 
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
@@ -73,25 +72,8 @@ export function SourceList({
   selection
 }: SourceListProps) {
   const parents = useMemo(() => entries ?? [], [entries])
-  const [expandedParent, setExpandedParent] = useState<string | null>(null)
-  const [expandedClips, setExpandedClips] = useState<Record<string, boolean>>({})
   const fallbackSelection = useClipSelection(selectionScope ?? 'global')
   const selectionHandle = selection ?? fallbackSelection
-
-  const handleToggle = useCallback((key: string) => {
-    setExpandedParent((current) => {
-      if (current === key) {
-        setExpandedClips({})
-        return null
-      }
-      setExpandedClips({})
-      return key
-    })
-  }, [])
-
-  const handleClipToggle = useCallback((clipKey: string) => {
-    setExpandedClips((prev) => ({ ...prev, [clipKey]: !prev[clipKey] }))
-  }, [])
 
   const handleClipSelect = useCallback(
     (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
@@ -116,10 +98,8 @@ export function SourceList({
       <div className={cn('space-y-4', className)}>
         {parents.map((parent, idx) => {
           const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
-          const isActive = expandedParent === key
           const clipCount = parent.clips?.length ?? 0
           const parentScoreText = parentScore(parent.scoreMax)
-          const canToggle = clipCount > 0
           const firstClip = parent.clips?.[0] ?? null
           const playbackForParent = firstClip ? buildClipPlayback(parent, firstClip) : undefined
           const primaryUrl = playbackForParent?.watchUrl ?? parent.url ?? firstClip?.url ?? undefined
@@ -169,7 +149,7 @@ export function SourceList({
                     ) : null}
                   </div>
                   <h3 className="break-words text-base font-semibold text-zinc-100">{parent.parentTitle}</h3>
-                  <div className="mt-auto flex flex-wrap items-center gap-2">
+                  <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                     {primaryUrl ? (
                       <a
                         href={primaryUrl}
@@ -180,27 +160,21 @@ export function SourceList({
                         Open source
                       </a>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={() => (canToggle ? handleToggle(key) : undefined)}
-                      className={cn(
-                        'rounded-full border border-white/15 px-3 py-1 text-xs font-semibold transition',
-                        canToggle
-                          ? 'text-zinc-100 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50'
-                          : 'cursor-not-allowed text-zinc-500 opacity-70'
-                      )}
-                      aria-expanded={isActive}
-                      aria-controls={`${key}-clips`}
-                      disabled={!canToggle}
-                    >
-                      {canToggle ? (isActive ? 'Hide clips' : `See clips (${clipCount})`) : 'No clips'}
-                    </button>
+                    {clipCount > 0 ? (
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
+                        {clipCount} clip{clipCount === 1 ? '' : 's'}
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-500">
+                        No clips available
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {isActive && clipCount > 0 ? (
-                <ol id={`${key}-clips`} className="mt-4 space-y-3">
+              {clipCount > 0 ? (
+                <ol className="mt-4 space-y-3">
                   {parent.clips.map((clip, clipIdx) => {
                     const clipKey = `${key}__${clipIdx}`
                     const clipScore = formatScore(clip.score)
@@ -215,7 +189,6 @@ export function SourceList({
                         playbackUrl: playback.watchUrl
                       })
                     }
-                    const isClipExpanded = Boolean(expandedClips[clipKey])
 
                     return (
                       <li
@@ -248,59 +221,58 @@ export function SourceList({
                               aria-label={selected ? 'Deselect clip' : 'Select clip for bundling'}
                             />
                           </label>
-                          <button
-                            type="button"
-                            onClick={() => handleClipToggle(clipKey)}
-                            className={cn(
-                              'relative z-[1] flex min-w-0 flex-1 items-stretch gap-3 rounded-lg border border-transparent px-2 py-1 text-left transition',
-                              'hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/50'
-                            )}
-                            aria-expanded={isClipExpanded}
-                            aria-controls={`${clipKey}-details`}
-                          >
-                            <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/60">
-                              {thumbnailUrl ? (
-                                <Image
-                                  src={thumbnailUrl}
-                                  alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
-                                  fill
-                                  sizes="128px"
-                                  className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                                  priority={false}
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex items-center justify-center text-[11px] text-zinc-400">
-                                  No thumbnail
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex flex-1 flex-col justify-center gap-1 pr-4">
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
-                                <span>{clipWindow(clip)}</span>
-                                {clipScore ? (
-                                  <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
-                                    {clipScore}
-                                  </span>
-                                ) : null}
-                                {clip.speaker ? <span className="text-zinc-300">{clip.speaker}</span> : null}
+                          <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/60">
+                            {thumbnailUrl ? (
+                              <Image
+                                src={thumbnailUrl}
+                                alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
+                                fill
+                                sizes="128px"
+                                className="object-cover"
+                                priority={false}
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex items-center justify-center text-[11px] text-zinc-400">
+                                No thumbnail
                               </div>
-                              {clip.excerpt ? (
-                                <p className="line-clamp-2 text-sm text-zinc-100">{clip.excerpt}</p>
-                              ) : (
-                                <p className="text-xs text-zinc-400">Click to view clip details</p>
-                              )}
+                            )}
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-2 pr-4">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-emerald-200/80">
+                              <span>{clipWindow(clip)}</span>
+                              {clipScore ? (
+                                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
+                                  {clipScore}
+                                </span>
+                              ) : null}
+                              {clip.speaker ? <span className="text-zinc-300">{clip.speaker}</span> : null}
                             </div>
-                            <span
-                              className={cn(
-                                'mt-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-transform',
-                                isClipExpanded ? 'rotate-180' : 'rotate-0'
-                              )}
-                              aria-hidden="true"
-                            >
-                              <IconChevronUpDown className="h-4 w-4" />
-                            </span>
-                          </button>
-                          <div className="flex shrink-0 flex-col items-end justify-between gap-2">
+                            {clip.excerpt ? (
+                              <p className="line-clamp-3 text-sm text-zinc-100">{clip.excerpt}</p>
+                            ) : (
+                              <p className="text-xs text-zinc-400">No excerpt provided.</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                              {clip.url ? (
+                                <a
+                                  href={playback.watchUrl ?? clip.url ?? primaryUrl ?? '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                                >
+                                  Open clip
+                                </a>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() => handleClipSelect(parent, clip)}
+                                className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
+                              >
+                                View details
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-2">
                             <button
                               type="button"
                               onClick={() => handleClipSelect(parent, clip)}
@@ -322,67 +294,6 @@ export function SourceList({
                             </button>
                           </div>
                         </div>
-                        {isClipExpanded ? (
-                          <div id={`${clipKey}-details`} className="mt-3 rounded-lg border border-white/10 bg-black/60 p-3">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                              <div className="relative w-full overflow-hidden rounded-lg border border-white/10 bg-black sm:w-64">
-                                <div className="relative pb-[56.25%]">
-                                  {playback.embedUrl ? (
-                                    <iframe
-                                      title={`Preview for ${clip.parentTitle || parent.parentTitle}`}
-                                      src={playback.embedUrl}
-                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                      allowFullScreen
-                                      loading="lazy"
-                                      className="absolute inset-0 h-full w-full"
-                                    />
-                                  ) : thumbnailUrl ? (
-                                    <Image
-                                      src={thumbnailUrl}
-                                      alt={`Thumbnail for ${clip.parentTitle || parent.parentTitle}`}
-                                      fill
-                                      sizes="(max-width: 640px) 100vw, 256px"
-                                      className="object-cover"
-                                      priority={false}
-                                    />
-                                  ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-400">
-                                      Preview unavailable
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="min-w-0 flex-1 text-sm text-zinc-100">
-                                {clip.excerpt ? (
-                                  <p>{clip.excerpt}</p>
-                                ) : (
-                                  <p className="text-zinc-300">
-                                    Click play to jump straight to this segment.
-                                  </p>
-                                )}
-                                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                                  {clip.url ? (
-                                    <a
-                                      href={playback.watchUrl ?? clip.url ?? parent.url ?? '#'}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
-                                    >
-                                      Open source
-                                    </a>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    onClick={() => handleClipSelect(parent, clip)}
-                                    className="rounded-md border border-white/20 px-3 py-1 font-medium text-zinc-100 transition hover:bg-white/10"
-                                  >
-                                    View details
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ) : null}
                       </li>
                     )
                   })}

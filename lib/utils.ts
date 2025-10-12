@@ -84,6 +84,13 @@ export interface ClipItemV2 {
   channelName?: string
   publishedAt?: string
   publishedDate?: string
+  channel_name?: string
+  channel_id?: string
+  published_at?: string
+  published_date?: string
+  clip_url?: string
+  video_id?: string
+  parent_id?: string
 }
 
 export interface ParsedMetadataEntryV2 {
@@ -98,6 +105,11 @@ export interface ParsedMetadataEntryV2 {
   channelName?: string
   publishedAt?: string
   publishedDate?: string
+  channel_name?: string
+  channel_id?: string
+  published_at?: string
+  published_date?: string
+  video_id?: string
 }
 
 /** Pull the trailing sources section out of the LLM answer text. */
@@ -252,14 +264,14 @@ export function parseMetadata(
           existing.scoreMax == null ? c.score : Math.max(existing.scoreMax, c.score)
       }
       if (!existing.url && c.url) existing.url = c.url
-      existing.videoId = existing.videoId ?? c.videoId ?? c.parentId
-      existing.channelId = existing.channelId ?? c.channelId
-      existing.channelName = existing.channelName ?? c.channelName ?? c.channel
+      existing.videoId = existing.videoId ?? c.videoId ?? c.parentId ?? c.video_id ?? c.parent_id
+      existing.channelId = existing.channelId ?? c.channelId ?? c.channel_id
+      existing.channelName = existing.channelName ?? c.channelName ?? c.channel ?? c.channel_name
       if (!existing.publishedAt) {
-        existing.publishedAt = c.publishedAt
+        existing.publishedAt = c.publishedAt ?? c.published_at
       }
       if (!existing.publishedDate) {
-        existing.publishedDate = c.publishedDate ?? c.date
+        existing.publishedDate = c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
       }
     } else {
       byParent.set(k, {
@@ -269,11 +281,11 @@ export function parseMetadata(
         url: c.url,
         scoreMax: c.score,
         clips: [c],
-        videoId: c.videoId ?? c.parentId,
-        channelId: c.channelId,
-        channelName: c.channelName ?? c.channel,
-        publishedAt: c.publishedAt,
-        publishedDate: c.publishedDate ?? c.date
+        videoId: c.videoId ?? c.parentId ?? c.video_id ?? c.parent_id,
+        channelId: c.channelId ?? c.channel_id,
+        channelName: c.channelName ?? c.channel ?? c.channel_name,
+        publishedAt: c.publishedAt ?? c.published_at,
+        publishedDate: c.publishedDate ?? c.published_at ?? c.published_date ?? c.date
       })
     }
   }
@@ -294,33 +306,84 @@ export function parseMetadata(
 }
 
 export function normalizeMetadataEntries(entries: ParsedMetadataEntryV2[]): ParsedMetadataEntryV2[] {
+  const readString = (obj: Record<string, unknown>, key: string): string | undefined => {
+    const value = obj?.[key]
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      return trimmed ? trimmed : undefined
+    }
+    return undefined
+  }
+
   return entries.map((entry) => {
-    const normalizedChannelName = applyNameAlias(entry.channelName ?? entry.channel) ?? entry.channelName ?? entry.channel
-    const normalizedPublishedAt = entry.publishedAt ?? entry.publishedDate ?? entry.date
+    const entryRecord = entry as Record<string, unknown>
+    const rawEntryChannelName =
+      entry.channelName ?? readString(entryRecord, 'channel_name') ?? entry.channel
+    const normalizedChannelName =
+      applyNameAlias(rawEntryChannelName) ?? rawEntryChannelName ?? entry.channel
+
+    const entryChannelId = entry.channelId ?? readString(entryRecord, 'channel_id')
+    const entryVideoId = entry.videoId ?? readString(entryRecord, 'video_id')
+
+    const entryPublishedAt =
+      entry.publishedAt ??
+      readString(entryRecord, 'published_at') ??
+      readString(entryRecord, 'published_date') ??
+      entry.date
+    const entryPublishedDate =
+      entry.publishedDate ??
+      readString(entryRecord, 'published_date') ??
+      entryPublishedAt ??
+      entry.date
+
     const normalizedClips = entry.clips.map((clip) => {
-      const clipChannelName = applyNameAlias(clip.channelName ?? clip.channel) ?? clip.channelName ?? clip.channel
+      const clipRecord = clip as Record<string, unknown>
+      const rawClipChannelName =
+        clip.channelName ?? readString(clipRecord, 'channel_name') ?? clip.channel
+      const clipChannelName =
+        applyNameAlias(rawClipChannelName) ?? rawClipChannelName ?? normalizedChannelName
+
+      const clipChannelId =
+        clip.channelId ?? readString(clipRecord, 'channel_id') ?? entryChannelId
+      const clipVideoId =
+        clip.videoId ?? readString(clipRecord, 'video_id') ?? entryVideoId
+      const clipParentId =
+        clip.parentId ?? readString(clipRecord, 'parent_id') ?? clipVideoId ?? entryVideoId
+      const clipClipUrl = clip.clipUrl ?? readString(clipRecord, 'clip_url') ?? clip.url
+      const clipPublishedAt =
+        clip.publishedAt ??
+        readString(clipRecord, 'published_at') ??
+        readString(clipRecord, 'published_date') ??
+        entryPublishedAt
+      const clipPublishedDate =
+        clip.publishedDate ??
+        readString(clipRecord, 'published_date') ??
+        clipPublishedAt ??
+        clip.date
+
       return {
         ...clip,
         channel: clipChannelName,
         channelName: clipChannelName,
-        channelId: clip.channelId ?? entry.channelId,
+        channelId: clipChannelId,
         speaker: applyNameAlias(clip.speaker) ?? clip.speaker,
-        clipUrl: clip.clipUrl ?? clip.url,
-        parentId: clip.parentId ?? entry.videoId ?? clip.videoId,
-        videoId: clip.videoId ?? entry.videoId,
-        publishedAt: clip.publishedAt ?? normalizedPublishedAt,
-        publishedDate: clip.publishedDate ?? normalizedPublishedAt ?? clip.date
+        clipUrl: clipClipUrl,
+        parentId: clipParentId,
+        videoId: clipVideoId,
+        publishedAt: clipPublishedAt ?? undefined,
+        publishedDate: clipPublishedDate ?? undefined
       }
     })
+
     return {
       ...entry,
       channel: normalizedChannelName,
       channelName: normalizedChannelName,
-      channelId: entry.channelId,
-      videoId: entry.videoId,
-      publishedAt: normalizedPublishedAt ?? undefined,
-      publishedDate: entry.publishedDate ?? normalizedPublishedAt ?? undefined,
-      date: normalizedPublishedAt ?? entry.date,
+      channelId: entryChannelId,
+      videoId: entryVideoId,
+      publishedAt: entryPublishedAt ?? undefined,
+      publishedDate: entryPublishedDate ?? undefined,
+      date: entryPublishedAt ?? entry.date,
       clips: normalizedClips
     }
   })

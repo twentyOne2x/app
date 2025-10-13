@@ -10,7 +10,8 @@ export function cn(...inputs: ClassValue[]) {
 const NAME_ALIASES: Record<string, string> = {
   cupsy: 'Cupsey',
   hyperliquid: 'Hyper Liquid',
-  anzo: 'Anza'
+  anzo: 'Anza',
+  Soul: 'SOL',
 }
 
 function aliasKey(value: string): string {

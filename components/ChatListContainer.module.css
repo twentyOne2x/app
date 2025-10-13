@@ -43,9 +43,9 @@
 }
 
 .rightPanel {
-  flex: 0 1 30%; /* Reduce the flex-basis to 30% and allow them to shrink if necessary */
-  min-width: 350px; /* Minimum width */
-  max-width: 30%; /* Adjusted maximum width */
+  flex: 0 1 25%;
+  min-width: 320px;
+  max-width: 28%;
   display: flex;
   flex-direction: column;
   align-items: center; /* Horizontally center */
@@ -63,9 +63,9 @@
 
 /* Middle panel for chatlist and prompt form */
 .middlePanel {
-  flex: 0 1 50%; /* Increase the flex-basis to 50% for the middle panel */
-  min-width: 500px; /* Minimum width to ensure it doesn't get too small */
-  max-width: 50%; /* Adjusted maximum width */
+  flex: 0 1 60%;
+  min-width: 560px;
+  max-width: 62%;
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* This pushes the ChatPanel to the bottom */

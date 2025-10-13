@@ -198,6 +198,10 @@ export async function POST(req: Request) {
   let responseBody: any
   try {
     responseBody = await chatResponse.json()
+    console.debug('chat-route: backend json payload', {
+      traceId,
+      responseBody
+    })
   } catch (error) {
     console.error('chat-route: failed to parse backend JSON', { traceId }, error)
     return persistAndRespond(
@@ -241,6 +245,18 @@ export async function POST(req: Request) {
     typeof responseBody === 'object'
       ? (responseBody.request_id ?? diagnostics?.request_id ?? null)
       : null
+
+  const finalKeptRaw =
+    (diagnostics && (diagnostics as { final_kept?: unknown }).final_kept) ??
+    (typeof responseBody === 'object' ? (responseBody.final_kept as unknown) : undefined)
+  const finalKept = Array.isArray(finalKeptRaw) ? finalKeptRaw : []
+
+  console.debug('chat-route: backend diagnostics snapshot', {
+    traceId,
+    requestId,
+    finalKeptCount: Array.isArray(finalKept) ? finalKept.length : 0,
+    sampleFinalKept: Array.isArray(finalKept) ? finalKept.slice(0, 2) : null
+  })
 
   let structuredMetadata: ParsedMetadataEntryV2[] = []
   try {

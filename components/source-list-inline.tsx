@@ -25,15 +25,26 @@ function secondsToHms(seconds: number): string {
   return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
 }
 
+const normalizeHmsLabel = (value?: string | null): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.includes('-1:-1:-1')) return null
+  if (/^[-]+/.test(trimmed)) return null
+  return trimmed
+}
+
 function formatClipRange(clip: ClipItemV2): string {
   const start =
-    (clip.startHMS && clip.startHMS.trim()) ??
-    (typeof clip.startS === 'number'
+    normalizeHmsLabel(clip.startHMS) ??
+    (typeof clip.startS === 'number' && clip.startS >= 0
       ? secondsToHms(Math.max(0, clip.startS))
       : '')
   const end =
-    (clip.endHMS && clip.endHMS.trim()) ??
-    (typeof clip.endS === 'number' ? secondsToHms(Math.max(0, clip.endS)) : '')
+    normalizeHmsLabel(clip.endHMS) ??
+    (typeof clip.endS === 'number' && clip.endS >= 0
+      ? secondsToHms(Math.max(0, clip.endS))
+      : '')
   if (start && end) return `${start} – ${end}`
   return start || end || ''
 }

@@ -45,6 +45,9 @@ export function parseYouTubeIdFromString(
   if (!trimmed) return undefined
 
   if (YOUTUBE_ID_REGEX.test(trimmed) && trimmed.length === 11) {
+    console.debug('utils: parseYouTubeIdFromString matched raw id', {
+      candidate
+    })
     return trimmed
   }
 
@@ -54,26 +57,64 @@ export function parseYouTubeIdFromString(
     const host = url.hostname.toLowerCase()
     if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
       const match = trimmed.match(YOUTUBE_ID_REGEX)
+      if (match) {
+        console.debug('utils: parseYouTubeIdFromString matched non-youtube string', {
+          candidate,
+          derived: match[0]
+        })
+      }
       return match ? match[0] : undefined
     }
     if (host.includes('youtu.be')) {
       const slug = url.pathname.split('/').filter(Boolean)[0]
-      if (slug && YOUTUBE_ID_REGEX.test(slug)) return slug.slice(0, 11)
+      if (slug && YOUTUBE_ID_REGEX.test(slug)) {
+        console.debug('utils: parseYouTubeIdFromString matched youtu.be slug', {
+          candidate,
+          slug
+        })
+        return slug.slice(0, 11)
+      }
     }
     const idParam = url.searchParams.get('v')
-    if (idParam && YOUTUBE_ID_REGEX.test(idParam)) return idParam.slice(0, 11)
+    if (idParam && YOUTUBE_ID_REGEX.test(idParam)) {
+      console.debug('utils: parseYouTubeIdFromString matched search param', {
+        candidate,
+        idParam
+      })
+      return idParam.slice(0, 11)
+    }
     const segments = url.pathname.split('/').filter(Boolean)
     for (const segment of segments) {
       if (segment.length >= 11 && YOUTUBE_ID_REGEX.test(segment.slice(-11))) {
+        console.debug('utils: parseYouTubeIdFromString matched path segment', {
+          candidate,
+          segment
+        })
         return segment.slice(-11)
       }
     }
   } catch {
     const match = trimmed.match(YOUTUBE_ID_REGEX)
+    if (match) {
+      console.debug('utils: parseYouTubeIdFromString recovered from error', {
+        candidate,
+        derived: match[0]
+      })
+    }
     if (match) return match[0]
   }
 
   const looseMatch = trimmed.match(YOUTUBE_ID_REGEX)
+  if (looseMatch) {
+    console.debug('utils: parseYouTubeIdFromString loose match', {
+      candidate,
+      derived: looseMatch[0]
+    })
+  } else {
+    console.debug('utils: parseYouTubeIdFromString failed to derive id', {
+      candidate
+    })
+  }
   return looseMatch ? looseMatch[0] : undefined
 }
 
@@ -84,6 +125,11 @@ export function youtubeThumbFor(
   const id =
     parseYouTubeIdFromString(candidateUrl) ??
     parseYouTubeIdFromString(fallbackVideoId ?? undefined)
+  console.debug('utils: youtubeThumbFor', {
+    candidateUrl,
+    fallbackVideoId,
+    derivedId: id
+  })
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined
 }
 
@@ -131,6 +177,11 @@ export function resolveVideoId(
     const id = parseYouTubeIdFromString(candidate)
     if (id) return id
   }
+  console.debug('utils: resolveVideoId failed', {
+    entryTitle: entry.parentTitle,
+    clipTitle: clip?.parentTitle,
+    candidates
+  })
   return undefined
 }
 
@@ -146,6 +197,14 @@ export function resolveThumbnailUrl(
   const videoId =
     resolveVideoId(entry, clip) ??
     parseYouTubeIdFromString(clip?.clipUrl ?? clip?.url)
+
+  console.debug('utils: resolveThumbnailUrl', {
+    entryTitle: entry.parentTitle,
+    clipTitle: clip?.parentTitle,
+    direct,
+    videoId,
+    fallback
+  })
 
   if (videoId) {
     return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`

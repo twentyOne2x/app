@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { cn, formatDate, youtubeThumbFor, buildCanonicalClipLink } from '@/lib/utils'
+import { cn, formatDate, youtubeThumbFor } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
@@ -55,13 +55,26 @@ function parseHmsToSeconds(hms?: string): number | null {
   return hours * 3600 + minutes * 60 + seconds + fractional
 }
 
+const normalizeHmsLabel = (value?: string | null): string | null => {
+  if (!value) return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.includes('-1:-1:-1')) return null
+  if (/^[-]+/.test(trimmed)) return null
+  return trimmed
+}
+
 function formatClipRange(clip: ClipItemV2): string | null {
   const startLabel =
-    (clip.startHMS && clip.startHMS.trim()) ||
-    (clip.startS != null ? secondsToHms(Math.max(0, clip.startS)) : null)
+    normalizeHmsLabel(clip.startHMS) ||
+    (clip.startS != null && clip.startS >= 0
+      ? secondsToHms(Math.max(0, clip.startS))
+      : null)
   const endLabel =
-    (clip.endHMS && clip.endHMS.trim()) ||
-    (clip.endS != null ? secondsToHms(Math.max(0, clip.endS)) : null)
+    normalizeHmsLabel(clip.endHMS) ||
+    (clip.endS != null && clip.endS >= 0
+      ? secondsToHms(Math.max(0, clip.endS))
+      : null)
 
   if (!startLabel && !endLabel) return null
   if (startLabel && endLabel) return `${startLabel} – ${endLabel}`
@@ -179,16 +192,6 @@ export function SourceList({
                   {parent.parentTitle}
                 </h3>
                 <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                  {primaryUrl ? (
-                    <a
-                      href={primaryUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
-                    >
-                      Open source
-                    </a>
-                  ) : null}
                   {clipCount > 0 ? (
                     <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
                       {clipCount} clip{clipCount === 1 ? '' : 's'}
@@ -217,14 +220,6 @@ export function SourceList({
                       clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
                       clip.videoId ?? parent.videoId
                     )
-
-                  const externalHref =
-                    buildCanonicalClipLink(clip, parent) ??
-                    playback.watchUrl ??
-                    clip.clipUrl ??
-                    clip.url ??
-                    primaryUrl ??
-                    '#'
 
                   return (
                     <li
@@ -268,16 +263,6 @@ export function SourceList({
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation()
-                                handleClipSelect(parent, clip, 'play')
-                              }}
-                              className="inline-flex cursor-pointer items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
-                            >
-                              Play clip
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
                                 handleClipSelect(parent, clip, 'edit')
                               }}
                               className="inline-flex cursor-pointer items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
@@ -297,19 +282,8 @@ export function SourceList({
                                   : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
                               )}
                             >
-                              {selected ? 'Added to bundle' : 'Add to bundle'}
-                            </button>
-                            {externalHref ? (
-                              <a
-                                href={externalHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex cursor-pointer items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
-                                onClick={(event) => event.stopPropagation()}
-                              >
-                                Open source
-                              </a>
-                            ) : null}
+                                {selected ? 'Added to bundle' : 'Add to bundle'}
+                              </button>
                             {selected ? (
                               <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
                                 In bundle

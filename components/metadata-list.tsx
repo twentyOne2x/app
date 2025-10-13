@@ -33,21 +33,30 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
     return thumbnail ?? '/default-thumbnail.jpg'
   }
 
+  const normalizeHmsLabel = (value?: string | null): string | null => {
+    if (!value) return null
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    if (trimmed.includes('-1:-1:-1')) return null
+    if (/^[-]+/.test(trimmed)) return null
+    return trimmed
+  }
+
   const formatClipRange = (clip: ClipItemV2) => {
-    const start =
-      (clip.startHMS && clip.startHMS.trim()) ||
-      (typeof clip.startS === 'number'
+    const startLabel =
+      normalizeHmsLabel(clip.startHMS) ||
+      (typeof clip.startS === 'number' && clip.startS >= 0
         ? new Date(Math.max(0, clip.startS) * 1000).toISOString().slice(11, 23)
         : '')
-    const end =
-      (clip.endHMS && clip.endHMS.trim()) ||
-      (typeof clip.endS === 'number'
+    const endLabel =
+      normalizeHmsLabel(clip.endHMS) ||
+      (typeof clip.endS === 'number' && clip.endS >= 0
         ? new Date(Math.max(0, clip.endS) * 1000).toISOString().slice(11, 23)
         : '')
 
-    if (start && end) return `(${start} – ${end})`
-    if (start) return `(${start})`
-    if (end) return `(${end})`
+    if (startLabel && endLabel) return `(${startLabel} – ${endLabel})`
+    if (startLabel) return `(${startLabel})`
+    if (endLabel) return `(${endLabel})`
     return ''
   }
 

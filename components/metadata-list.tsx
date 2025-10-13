@@ -3,7 +3,8 @@ import React from 'react'
 import {
   type ParsedMetadataEntryV2,
   type ClipItemV2,
-  resolveThumbnailUrl
+  youtubeThumbFor,
+  buildCanonicalClipLink
 } from '@/lib/utils'
 import styles from './MetadataList.module.css'
 import { toast } from 'react-hot-toast'
@@ -13,6 +14,7 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
   entries
 }) => {
   const getThumbnailUrl = (entry: ParsedMetadataEntryV2) => {
+    if (entry.thumbnailUrl) return entry.thumbnailUrl
     const primaryClip = entry.clips?.find(clip =>
       Boolean(
         clip.thumbnailUrl ||
@@ -23,9 +25,12 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
       )
     )
 
-    return resolveThumbnailUrl(entry, primaryClip, {
-      fallback: '/default-thumbnail.jpg'
-    })
+    const thumbnail = youtubeThumbFor(
+      primaryClip?.clipUrl ?? primaryClip?.url ?? entry.url,
+      primaryClip?.videoId ?? primaryClip?.parentId ?? entry.videoId ?? entry.parentId ?? null
+    )
+
+    return thumbnail ?? '/default-thumbnail.jpg'
   }
 
   const formatClipRange = (clip: ClipItemV2) => {
@@ -116,7 +121,12 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
                       <li key={i} style={{ marginBottom: 4 }}>
                         {c.clipUrl || c.url ? (
                           <a
-                            href={c.clipUrl ?? c.url ?? '#'}
+                            href={
+                              buildCanonicalClipLink(c, entry) ??
+                              c.clipUrl ??
+                              c.url ??
+                              '#'
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
                             className={styles.metadataClipText}

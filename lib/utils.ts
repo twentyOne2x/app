@@ -77,6 +77,42 @@ export function parseYouTubeIdFromString(
   return looseMatch ? looseMatch[0] : undefined
 }
 
+export function youtubeThumbFor(
+  candidateUrl?: string | null,
+  fallbackVideoId?: string | null
+): string | undefined {
+  const id =
+    parseYouTubeIdFromString(candidateUrl) ??
+    parseYouTubeIdFromString(fallbackVideoId ?? undefined)
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined
+}
+
+export function buildCanonicalClipLink(
+  clip: ClipItemV2,
+  parent?: ParsedMetadataEntryV2
+): string | undefined {
+  const base =
+    clip.clipUrl ??
+    clip.url ??
+    parent?.url ??
+    (parent?.videoId ? `https://www.youtube.com/watch?v=${parent.videoId}` : undefined)
+  if (!base) return undefined
+
+  const seconds =
+    (typeof clip.startS === 'number' ? clip.startS : undefined) ??
+    timeToSeconds(clip.startHMS)
+  if (seconds == null) return base
+
+  try {
+    const url = new URL(base)
+    url.searchParams.set('t', `${Math.max(0, Math.floor(seconds))}s`)
+    return url.toString()
+  } catch {
+    const sep = base.includes('?') ? '&' : '?'
+    return `${base}${sep}t=${Math.max(0, Math.floor(seconds))}s`
+  }
+}
+
 export function resolveVideoId(
   entry: ParsedMetadataEntryV2,
   clip?: ClipItemV2
@@ -211,6 +247,31 @@ export interface ParsedMetadataEntryV2 {
   video_id?: string
   thumbnail_url?: string
   parent_id?: string
+}
+
+export interface BackendFinalClip {
+  segment_id: string
+  parent_id?: string | null
+  video_id?: string | null
+  document_type?: string | null
+  score?: number | null
+  published_at?: string | null
+  is_explainer?: boolean | null
+  router_boost?: number | null
+  entities?: string[] | null
+  speaker?: string | null
+  chapter?: string | null
+  start_hms?: string | null
+  end_hms?: string | null
+  start_seconds?: number | null
+  clip_url?: string | null
+  url?: string | null
+  title?: string | null
+  channel_name?: string | null
+  channel_id?: string | null
+  parent_channel_name?: string | null
+  parent_channel_id?: string | null
+  text_preview?: string | null
 }
 
 /** Pull the trailing sources section out of the LLM answer text. */
@@ -413,6 +474,87 @@ export function parseMetadata(
     return String(b.date ?? '') < String(a.date ?? '') ? -1 : 1
   })
 
+  return normalizeMetadataEntries(parents)
+}
+
+export function parseMetadataEntriesV2FromFinalKept(
+  rows: BackendFinalClip[]
+): ParsedMetadataEntryV2[] {
+  if (!Array.isArray(rows) || rows.length === 0) return []
+
+  const clips: ClipItemV2[] = rows.map(row => {
+    const channelLabel = row.channel_name ?? row.parent_channel_name ?? ''
+    const aliasedChannel = applyNameAlias(channelLabel) ?? channelLabel
+    const startSeconds =
+      typeof row.start_seconds === 'number'
+        ? row.start_seconds
+        : timeToSeconds(row.start_hms ?? undefined)
+    const endSeconds = timeToSeconds(row.end_hms ?? undefined)
+    const videoId = row.video_id ?? row.parent_id ?? undefined
+    const clipUrl = row.clip_url ?? undefined
+    const url = row.url ?? undefined
+
+    return {
+      parentTitle: row.title ?? '',
+      channel: aliasedChannel,
+      channelName: aliasedChannel || undefined,
+      channelId: row.channel_id ?? row.parent_channel_id ?? undefined,
+      date: row.published_at ?? undefined,
+      url,
+      clipUrl,
+      score: typeof row.score === 'number' ? row.score : undefined,
+      startHMS: row.start_hms ?? undefined,
+      endHMS: row.end_hms ?? undefined,
+      startS: startSeconds ?? undefined,
+      endS: endSeconds ?? undefined,
+      speaker: undefined,
+      excerpt: row.text_preview ?? undefined,
+      segmentId: row.segment_id,
+      parentId: row.parent_id ?? row.video_id ?? undefined,
+      videoId,
+      documentType: row.document_type ?? undefined,
+      publishedAt: row.published_at ?? undefined,
+      publishedDate: row.published_at ?? undefined,
+      thumbnailUrl: youtubeThumbFor(clipUrl ?? url, videoId)
+    }
+  })
+
+  const keyOf = (clip: ClipItemV2) =>
+    `${clip.parentTitle}|||${clip.channel}|||${clip.parentId ?? ''}|||${clip.date ?? ''}`
+
+  const byParent = new Map<string, ParsedMetadataEntryV2>()
+
+  clips.forEach(clip => {
+    const key = keyOf(clip)
+    const existing = byParent.get(key)
+    if (existing) {
+      existing.clips.push(clip)
+      if (clip.score != null) {
+        existing.scoreMax =
+          existing.scoreMax == null ? clip.score : Math.max(existing.scoreMax, clip.score)
+      }
+      if (!existing.url && clip.url) existing.url = clip.url
+      existing.thumbnailUrl = existing.thumbnailUrl ?? youtubeThumbFor(clip.url ?? clip.clipUrl, clip.videoId ?? existing.videoId)
+    } else {
+      byParent.set(key, {
+        parentTitle: clip.parentTitle,
+        channel: clip.channel,
+        date: clip.date,
+        url: clip.url,
+        scoreMax: clip.score,
+        clips: [clip],
+        videoId: clip.videoId ?? clip.parentId,
+        parentId: clip.parentId ?? clip.videoId,
+        channelId: clip.channelId,
+        channelName: clip.channelName ?? clip.channel,
+        publishedAt: clip.publishedAt,
+        publishedDate: clip.publishedDate ?? clip.date,
+        thumbnailUrl: youtubeThumbFor(clip.url ?? clip.clipUrl, clip.videoId ?? clip.parentId)
+      })
+    }
+  })
+
+  const parents = Array.from(byParent.values())
   return normalizeMetadataEntries(parents)
 }
 

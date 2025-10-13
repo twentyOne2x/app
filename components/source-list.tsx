@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { cn, formatDate, resolveThumbnailUrl } from '@/lib/utils'
+import { cn, formatDate, youtubeThumbFor, buildCanonicalClipLink } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
@@ -10,7 +10,6 @@ import {
   useClipSelection,
   type ClipSelectionHandle
 } from '@/lib/hooks/use-clip-selection'
-import styles from './SourceList.module.css'
 
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
@@ -27,20 +26,6 @@ export interface SourceListProps {
   selection?: ClipSelectionHandle
 }
 
-function parseHmsToSeconds(hms?: string): number | null {
-  if (!hms) return null
-  const trimmed = hms.trim()
-  if (!trimmed) return null
-  const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
-  if (!match) return null
-  const [, hh, mm, ss, fraction] = match
-  const hours = Number(hh)
-  const minutes = Number(mm)
-  const seconds = Number(ss)
-  const fractional = fraction ? Number(`0.${fraction}`) : 0
-  return hours * 3600 + minutes * 60 + seconds + fractional
-}
-
 function secondsToHms(seconds: number): string {
   const totalMillis = Math.round(seconds * 1000)
   const hours = Math.floor(totalMillis / 3600000)
@@ -54,6 +39,20 @@ function secondsToHms(seconds: number): string {
   ]
   const base = parts.join(':')
   return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
+}
+
+function parseHmsToSeconds(hms?: string): number | null {
+  if (!hms) return null
+  const trimmed = hms.trim()
+  if (!trimmed) return null
+  const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
+  if (!match) return null
+  const [, hh, mm, ss, fraction] = match
+  const hours = Number(hh)
+  const minutes = Number(mm)
+  const seconds = Number(ss)
+  const fractional = fraction ? Number(`0.${fraction}`) : 0
+  return hours * 3600 + minutes * 60 + seconds + fractional
 }
 
 function formatClipRange(clip: ClipItemV2): string | null {
@@ -115,216 +114,219 @@ export function SourceList({
   if (!parents.length) return null
 
   return (
-    <>
-      <div className={cn('space-y-4', className)}>
-        {parents.map((parent, idx) => {
-          const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
-          const clipCount = parent.clips?.length ?? 0
-          const parentScoreText = parentScore(parent.scoreMax)
-          const firstClip = parent.clips?.[0] ?? null
-          const playbackForParent = firstClip
-            ? buildClipPlayback(parent, firstClip)
-            : undefined
-          const primaryUrl =
-            playbackForParent?.watchUrl ??
-            parent.url ??
-            firstClip?.url ??
-            undefined
-          const parentThumbUrl = resolveThumbnailUrl(parent, firstClip, {
-            fallback: '/default-youtube-thumbnail.jpg'
-          })
-          const rawPublished =
-            parent.publishedAt ?? parent.publishedDate ?? parent.date
-          const displayDate = rawPublished ? formatDate(rawPublished) : null
-          const channelLabel = parent.channelName ?? parent.channel
+    <div className={cn('space-y-4', className)}>
+      {parents.map((parent, idx) => {
+        const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
+        const clipCount = parent.clips?.length ?? 0
+        const parentScoreText = parentScore(parent.scoreMax)
 
-          return (
-            <div
-              key={key}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
-            >
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <div className="rounded-xl bg-black/80 px-3 py-1">
-                  <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-lg border border-white/15 bg-black">
-                    <div className="absolute inset-0">
-                      {parentThumbUrl ? (
-                        <Image
-                          src={parentThumbUrl}
-                          alt={`Thumbnail for ${parent.parentTitle}`}
-                          fill
-                          sizes="(max-width: 768px) 90vw, 320px"
-                          className="object-cover"
-                          priority={false}
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
-                          No preview available
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                    <span>{channelLabel}</span>
-                    {displayDate ? <span>· {displayDate}</span> : null}
-                    {parentScoreText ? (
-                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-emerald-200/80">
-                        {parentScoreText}
-                      </span>
-                    ) : null}
-                  </div>
-                  <h3 className="break-words text-base font-semibold text-zinc-100">
-                    {parent.parentTitle}
-                  </h3>
-                  <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
-                    {primaryUrl ? (
-                      <a
-                        href={primaryUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
-                      >
-                        Open source
-                      </a>
-                    ) : null}
-                    {clipCount > 0 ? (
-                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
-                        {clipCount} clip{clipCount === 1 ? '' : 's'}
-                      </span>
+        const firstClip = parent.clips?.[0] ?? null
+        const playbackForParent = firstClip
+          ? buildClipPlayback(parent, firstClip)
+          : undefined
+        const primaryUrl =
+          playbackForParent?.watchUrl ??
+          parent.url ??
+          firstClip?.url ??
+          undefined
+
+        const parentThumbUrl =
+          parent.thumbnailUrl ??
+          youtubeThumbFor(primaryUrl, parent.videoId)
+
+        const rawPublished =
+          parent.publishedAt ?? parent.publishedDate ?? parent.date
+        const displayDate = rawPublished ? formatDate(rawPublished) : null
+        const channelLabel = parent.channelName ?? parent.channel
+
+        return (
+          <div
+            key={key}
+            className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="rounded-xl bg-black/80 px-3 py-1">
+                <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-lg border border-white/15 bg-black">
+                  <div className="absolute inset-0">
+                    {parentThumbUrl ? (
+                      <Image
+                        src={parentThumbUrl}
+                        alt={`Thumbnail for ${parent.parentTitle}`}
+                        fill
+                        sizes="(max-width: 768px) 90vw, 320px"
+                        className="object-cover"
+                        priority={false}
+                      />
                     ) : (
-                      <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-500">
-                        No clips available
-                      </span>
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
+                        No preview available
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+                  <span>{channelLabel}</span>
+                  {displayDate ? <span>· {displayDate}</span> : null}
+                  {parentScoreText ? (
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-emerald-200/80">
+                      {parentScoreText}
+                    </span>
+                  ) : null}
+                </div>
+                <h3 className="break-words text-base font-semibold text-zinc-100">
+                  {parent.parentTitle}
+                </h3>
+                <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                  {primaryUrl ? (
+                    <a
+                      href={primaryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-full border border-white/15 px-3 py-1 text-xs font-medium text-zinc-100 hover:bg-white/10"
+                    >
+                      Open source
+                    </a>
+                  ) : null}
+                  {clipCount > 0 ? (
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
+                      {clipCount} clip{clipCount === 1 ? '' : 's'}
+                    </span>
+                  ) : (
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-500">
+                      No clips available
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
 
-              {clipCount > 0 ? (
-                <ol className="mt-4 space-y-3">
-                  {parent.clips.map((clip, clipIdx) => {
-                    const clipKey = `${key}__${clipIdx}`
-                    const clipScore = formatScore(clip.score)
-                    const selected = selectionHandle.isSelected(parent, clip)
-                    const playback = buildClipPlayback(parent, clip)
-                    const timestampLabel = formatClipRange(clip)
-                    const clipThumbUrl = resolveThumbnailUrl(parent, clip, {
-                      fallback: '/default-youtube-thumbnail.jpg'
-                    })
-                    return (
-                      <li
-                        key={clipKey}
-                        className={cn(
-                          styles.clipCard,
-                          'group rounded-xl border border-white/10 bg-black/40 p-3 transition',
-                          selected
-                            ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
-                            : ''
-                        )}
-                        data-thumbnail={clipThumbUrl ?? undefined}
-                      >
-                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
-                          <div className="flex min-w-0 flex-1 flex-col gap-3">
-                            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-emerald-200/80">
-                              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100/90">
-                                clip
+            {clipCount > 0 ? (
+              <ol className="mt-4 space-y-3">
+                {parent.clips.map((clip, clipIdx) => {
+                  const clipKey = `${key}__${clipIdx}`
+                  const clipScore = formatScore(clip.score)
+                  const selected = selectionHandle.isSelected(parent, clip)
+                  const playback = buildClipPlayback(parent, clip)
+                  const timestampLabel = formatClipRange(clip)
+
+                  const clipThumbUrl =
+                    clip.thumbnailUrl ??
+                    youtubeThumbFor(
+                      clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
+                      clip.videoId ?? parent.videoId
+                    )
+
+                  const externalHref =
+                    buildCanonicalClipLink(clip, parent) ??
+                    playback.watchUrl ??
+                    clip.clipUrl ??
+                    clip.url ??
+                    primaryUrl ??
+                    '#'
+
+                  return (
+                    <li
+                      key={clipKey}
+                      className={cn(
+                        'relative isolate rounded-xl border border-white/10 bg-black/40 p-3 transition',
+                        selected
+                          ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
+                          : ''
+                      )}
+                      data-thumbnail={clipThumbUrl ?? undefined}
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:gap-4">
+                        <div className="flex min-w-0 flex-1 flex-col gap-3">
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-emerald-200/80">
+                            <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-100/90">
+                              clip
+                            </span>
+                            {clipScore ? (
+                              <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
+                                {clipScore}
                               </span>
-                              {clipScore ? (
-                                <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-100">
-                                  {clipScore}
-                                </span>
-                              ) : null}
-                              {timestampLabel ? (
-                                <span className="normal-case text-zinc-200/80">
-                                  {timestampLabel}
-                                </span>
-                              ) : null}
-                            </div>
-                            {clip.excerpt ? (
-                              <p className="text-xs text-zinc-100">
-                                {clip.excerpt}
-                              </p>
-                            ) : (
-                              <p className="text-xs italic text-zinc-400">
-                                No excerpt provided.
-                              </p>
-                            )}
-                            <div
+                            ) : null}
+                            {timestampLabel ? (
+                              <span className="normal-case text-zinc-200/80">
+                                {timestampLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                          {clip.excerpt ? (
+                            <p className="text-xs text-zinc-100">
+                              {clip.excerpt}
+                            </p>
+                          ) : (
+                            <p className="text-xs italic text-zinc-400">
+                              No excerpt provided.
+                            </p>
+                          )}
+                          <div className="relative z-50 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                handleClipSelect(parent, clip, 'play')
+                              }}
+                              className="inline-flex cursor-pointer items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                            >
+                              Play clip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                handleClipSelect(parent, clip, 'edit')
+                              }}
+                              className="inline-flex cursor-pointer items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
+                            >
+                              Edit clip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                handleCheckboxToggle(parent, clip)
+                              }}
                               className={cn(
-                                styles.clipActions,
-                                'pointer-events-auto text-xs text-zinc-300'
+                                'inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
+                                selected
+                                  ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
+                                  : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
                               )}
                             >
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleClipSelect(parent, clip, 'play')
-                                }}
-                                className="inline-flex cursor-pointer items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                              {selected ? 'Added to bundle' : 'Add to bundle'}
+                            </button>
+                            {externalHref ? (
+                              <a
+                                href={externalHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex cursor-pointer items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+                                onClick={(event) => event.stopPropagation()}
                               >
-                                Play clip
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleClipSelect(parent, clip, 'edit')
-                                }}
-                                className="inline-flex cursor-pointer items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
-                              >
-                                Edit clip
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation()
-                                  handleCheckboxToggle(parent, clip)
-                                }}
-                                className={cn(
-                                  'inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
-                                  selected
-                                    ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
-                                    : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
-                                )}
-                              >
-                                {selected ? 'Added to bundle' : 'Add to bundle'}
-                              </button>
-                              {clip.clipUrl || clip.url || primaryUrl ? (
-                                <a
-                                  href={
-                                    clip.clipUrl ??
-                                    playback.watchUrl ??
-                                    clip.url ??
-                                    primaryUrl ??
-                                    '#'
-                                  }
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex cursor-pointer items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
-                                >
-                                  Open source
-                                </a>
-                              ) : null}
-                              {selected ? (
-                                <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                                  In bundle
-                                </span>
-                              ) : null}
-                            </div>
+                                Open source
+                              </a>
+                            ) : null}
+                            {selected ? (
+                              <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                                In bundle
+                              </span>
+                            ) : null}
                           </div>
                         </div>
-                      </li>
-                    )
-                  })}
-                </ol>
-              ) : null}
-            </div>
-          )
-        })}
-      </div>
-    </>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
+            ) : null}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 

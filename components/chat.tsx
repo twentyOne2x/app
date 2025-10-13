@@ -25,6 +25,8 @@ import {
   parseMetadata,
   normalizeMetadataEntries,
   normalizeAliasesInText,
+  parseMetadataEntriesV2FromFinalKept,
+  type BackendFinalClip,
   type ParsedMetadataEntryV2,
   type ClipItemV2
 } from '@/lib/utils';
@@ -1190,6 +1192,10 @@ export function Chat({
       const rawAssistantContent = coerceContent(rawAssistantContentValue)
       const aliasNormalizedContent = normalizeAliasesInText(rawAssistantContent)
 
+      const diagnosticsRaw: DiagnosticsPayload | null =
+        (data.diagnostics as DiagnosticsPayload | undefined) ??
+        ((data.message as { diagnostics?: DiagnosticsPayload })?.diagnostics ?? null)
+
       let metadata: ParsedMetadataEntryV2[] = Array.isArray(
         data.message && typeof data.message === 'object'
           ? (data.message as { structured_metadata?: unknown }).structured_metadata
@@ -1199,6 +1205,21 @@ export function Chat({
         : Array.isArray(data.structured_metadata)
         ? (data.structured_metadata as ParsedMetadataEntryV2[])
         : []
+
+      if ((!metadata || metadata.length === 0) && diagnosticsRaw) {
+        const finalKept = (diagnosticsRaw as { final_kept?: unknown }).final_kept
+        if (Array.isArray(finalKept) && finalKept.length) {
+          const parsed = parseMetadataEntriesV2FromFinalKept(finalKept as BackendFinalClip[])
+          if (parsed.length) metadata = parsed
+        }
+      }
+
+      if ((!metadata || metadata.length === 0) && Array.isArray((data as { final_kept?: unknown }).final_kept)) {
+        const parsed = parseMetadataEntriesV2FromFinalKept(
+          (data as { final_kept: BackendFinalClip[] }).final_kept
+        )
+        if (parsed.length) metadata = parsed
+      }
 
       if ((!metadata || metadata.length === 0) && aliasNormalizedContent) {
         const sourcesBlock = extractSourcesBlock(aliasNormalizedContent) ?? ''
@@ -1224,10 +1245,6 @@ export function Chat({
       const sanitizedContent = processResponseContent(
         stripSourcesBlock(aliasNormalizedContent)
       )
-
-      const diagnosticsRaw: DiagnosticsPayload | null =
-        (data.diagnostics as DiagnosticsPayload | undefined) ??
-        ((data.message as { diagnostics?: DiagnosticsPayload })?.diagnostics ?? null)
 
       const rawRole = (data.message as { role?: string })?.role ?? null
       const allowedRoles: MetadataMessage['role'][] = [

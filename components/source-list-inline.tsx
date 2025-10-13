@@ -1,29 +1,14 @@
-// components/source-list-inline.tsx
 'use client'
 
 import React from 'react'
 import Link from 'next/link'
-import { cn, resolveThumbnailUrl } from '@/lib/utils'
+import { cn, youtubeThumbFor, buildCanonicalClipLink } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import Image from 'next/image'
 
 type Props = {
   entries: ParsedMetadataEntryV2[]
   className?: string
-}
-
-function parseHmsToSeconds(hms?: string): number | null {
-  if (!hms) return null
-  const trimmed = hms.trim()
-  if (!trimmed) return null
-  const match = /^(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?$/.exec(trimmed)
-  if (!match) return null
-  const [, hh, mm, ss, fraction] = match
-  const hours = Number(hh)
-  const minutes = Number(mm)
-  const seconds = Number(ss)
-  const fractional = fraction ? Number(`0.${fraction}`) : 0
-  return hours * 3600 + minutes * 60 + seconds + fractional
 }
 
 function secondsToHms(seconds: number): string {
@@ -53,37 +38,6 @@ function formatClipRange(clip: ClipItemV2): string {
   return start || end || ''
 }
 
-function clipHref(
-  parentUrl?: string,
-  startS?: number,
-  clipUrl?: string | null
-) {
-  if (clipUrl) return clipUrl
-  if (!parentUrl) return '#'
-  try {
-    const u = new URL(parentUrl)
-    // YouTube supports &t=<seconds>s
-    u.searchParams.set('t', `${Math.max(0, Math.floor(startS ?? 0))}s`)
-    return u.toString()
-  } catch {
-    return parentUrl
-  }
-}
-
-function ScoreBadge({ score }: { score?: number }) {
-  if (score == null) return null
-  // map [0..1] to 0–100 and clamp
-  const pct = Math.round(Math.max(0, Math.min(1, score)) * 100)
-  return (
-    <span
-      title={`Relevance score: ${pct}/100`}
-      className="ml-2 inline-flex items-center rounded-full border border-white/15 px-2 py-0.5 text-[10px] leading-4 text-white/80"
-    >
-      {pct}/100
-    </span>
-  )
-}
-
 function ClipRow({
   parent,
   clip
@@ -91,10 +45,19 @@ function ClipRow({
   parent: ParsedMetadataEntryV2
   clip: ClipItemV2
 }) {
-  const href = clipHref(parent.url, clip.startS, clip.clipUrl)
-  const thumbnailSrc = resolveThumbnailUrl(parent, clip, {
-    fallback: '/default-video-thumbnail.jpg'
-  })
+  const href =
+    buildCanonicalClipLink(clip, parent) ??
+    clip.clipUrl ??
+    clip.url ??
+    parent.url ??
+    '#'
+
+  const thumbnailSrc =
+    clip.thumbnailUrl ??
+    parent.thumbnailUrl ??
+    youtubeThumbFor(clip.clipUrl ?? clip.url ?? parent.url, clip.videoId ?? parent.videoId) ??
+    '/default-video-thumbnail.jpg'
+
   const timestampLabel = formatClipRange(clip)
   return (
     <Link
@@ -104,7 +67,6 @@ function ClipRow({
       className="group block rounded-lg border border-white/10 bg-white/5 p-3 hover:border-white/20"
     >
       <div className="flex items-start gap-3">
-        {/* Thumbnail */}
         <div className="relative h-16 w-28 overflow-hidden rounded">
           {thumbnailSrc ? (
             <Image
@@ -119,7 +81,6 @@ function ClipRow({
               No preview
             </div>
           )}
-          {/* Hover overlay */}
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all duration-150 group-hover:bg-black/30 group-hover:opacity-100">
             <div className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-medium text-black">
               ▶ {timestampLabel || 'Play clip'}
@@ -127,11 +88,9 @@ function ClipRow({
           </div>
         </div>
 
-        {/* Text */}
         <div className="min-w-0 flex-1">
           <div className="line-clamp-1 text-sm font-medium text-white/90">
             {clip.parentTitle ?? parent.parentTitle}
-            <ScoreBadge score={clip.score} />
           </div>
           <div className="mt-0.5 text-xs text-white/60">
             {parent.channelName ?? parent.channel}

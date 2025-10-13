@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { cn, formatDate } from '@/lib/utils'
+import { cn, formatDate, resolveThumbnailUrl } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
@@ -10,6 +10,7 @@ import {
   useClipSelection,
   type ClipSelectionHandle
 } from '@/lib/hooks/use-clip-selection'
+import styles from './SourceList.module.css'
 
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
@@ -78,43 +79,6 @@ function parentScore(scoreMax?: number) {
   if (scoreMax == null) return null
   const pct = Math.round(Math.max(0, Math.min(1, scoreMax)) * 100)
   return `${pct}% match`
-}
-
-function extractYouTubeThumbnail(
-  rawUrl?: string,
-  fallbackVideoId?: string | null
-): { url: string | null; videoId: string | null } {
-  if (rawUrl) {
-    try {
-      const parsed = new URL(rawUrl)
-      let videoId: string | null = null
-      if (parsed.hostname.includes('youtu.be')) {
-        videoId = parsed.pathname.replace('/', '').split('?')[0] || null
-      } else if (parsed.hostname.includes('youtube.com')) {
-        videoId = parsed.searchParams.get('v')
-      }
-      if (videoId) {
-        return {
-          url: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-          videoId
-        }
-      }
-    } catch (error) {
-      console.debug('source-list: failed to parse youtube URL', {
-        rawUrl,
-        error
-      })
-    }
-  }
-
-  if (fallbackVideoId) {
-    return {
-      url: `https://i.ytimg.com/vi/${fallbackVideoId}/hqdefault.jpg`,
-      videoId: fallbackVideoId
-    }
-  }
-
-  return { url: null, videoId: null }
 }
 
 export function SourceList({
@@ -260,33 +224,15 @@ export function SourceList({
                     const selected = selectionHandle.isSelected(parent, clip)
                     const playback = buildClipPlayback(parent, clip)
                     const timestampLabel = formatClipRange(clip)
-                    const derivedClipThumb = extractYouTubeThumbnail(
-                      clip.clipUrl ??
-                        playback.watchUrl ??
-                        clip.url ??
-                        primaryUrl,
-                      clip.videoId ?? parent.videoId
-                    )
-                    const clipThumbUrl =
-                      clip.thumbnailUrl ?? derivedClipThumb.url
-                    if (!clipThumbUrl) {
-                      console.debug('source-list: missing clip thumbnail', {
-                        parentTitle: parent.parentTitle,
-                        clipTitle: clip.parentTitle,
-                        clipUrl: clip.url,
-                        playbackUrl: playback.watchUrl,
-                        videoId:
-                          derivedClipThumb.videoId ??
-                          clip.videoId ??
-                          parent.videoId ??
-                          null
-                      })
-                    }
+                    const clipThumbUrl = resolveThumbnailUrl(parent, clip, {
+                      fallback: '/default-youtube-thumbnail.jpg'
+                    })
                     return (
                       <li
                         key={clipKey}
                         className={cn(
-                          'group relative rounded-xl border border-white/10 bg-black/40 p-3 transition',
+                          styles.clipCard,
+                          'group rounded-xl border border-white/10 bg-black/40 p-3 transition',
                           selected
                             ? 'border-emerald-300/60 bg-emerald-300/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]'
                             : ''
@@ -319,14 +265,19 @@ export function SourceList({
                                 No excerpt provided.
                               </p>
                             )}
-                            <div className="pointer-events-auto relative z-20 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                            <div
+                              className={cn(
+                                styles.clipActions,
+                                'pointer-events-auto text-xs text-zinc-300'
+                              )}
+                            >
                               <button
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation()
                                   handleClipSelect(parent, clip, 'play')
                                 }}
-                                className="relative z-30 inline-flex cursor-pointer items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
+                                className="inline-flex cursor-pointer items-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-emerald-950 shadow-sm transition hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200"
                               >
                                 Play clip
                               </button>
@@ -336,7 +287,7 @@ export function SourceList({
                                   event.stopPropagation()
                                   handleClipSelect(parent, clip, 'edit')
                                 }}
-                                className="relative z-30 inline-flex cursor-pointer items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
+                                className="inline-flex cursor-pointer items-center rounded-md border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-100 transition hover:bg-white/10"
                               >
                                 Edit clip
                               </button>
@@ -347,7 +298,7 @@ export function SourceList({
                                   handleCheckboxToggle(parent, clip)
                                 }}
                                 className={cn(
-                                  'relative z-30 inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
+                                  'inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
                                   selected
                                     ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
                                     : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
@@ -366,7 +317,7 @@ export function SourceList({
                                   }
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="relative z-30 inline-flex cursor-pointer items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+                                  className="inline-flex cursor-pointer items-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
                                 >
                                   Open source
                                 </a>

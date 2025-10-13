@@ -1,6 +1,10 @@
 // components/metadata-list.tsx
 import React from 'react'
-import { type ParsedMetadataEntryV2, type ClipItemV2 } from '@/lib/utils'
+import {
+  type ParsedMetadataEntryV2,
+  type ClipItemV2,
+  resolveThumbnailUrl
+} from '@/lib/utils'
 import styles from './MetadataList.module.css'
 import { toast } from 'react-hot-toast'
 import Image from 'next/image'
@@ -8,105 +12,20 @@ import Image from 'next/image'
 const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
   entries
 }) => {
-  const YOUTUBE_ID_REGEX = /[A-Za-z0-9_-]{11}/
-
-  const parseYoutubeIdFromUrl = (value: string): string | null => {
-    try {
-      const url = value.match(/^[a-z]+:\/\//i)
-        ? new URL(value)
-        : new URL(`https://${value}`)
-      const host = url.hostname.toLowerCase()
-      if (!host.includes('youtube.com') && !host.includes('youtu.be'))
-        return null
-      if (host.includes('youtu.be')) {
-        const slug = url.pathname.split('/').filter(Boolean)[0]
-        return slug && YOUTUBE_ID_REGEX.test(slug) ? slug.slice(0, 11) : null
-      }
-      const idParam = url.searchParams.get('v')
-      if (idParam && YOUTUBE_ID_REGEX.test(idParam)) return idParam.slice(0, 11)
-      const segments = url.pathname.split('/').filter(Boolean)
-      for (const segment of segments) {
-        if (segment.length >= 11 && YOUTUBE_ID_REGEX.test(segment.slice(-11))) {
-          return segment.slice(-11)
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return null
-  }
-
-  const extractYoutubeId = (candidate?: string | null): string | null => {
-    if (!candidate) return null
-    const trimmed = candidate.trim()
-    if (!trimmed) return null
-    if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed
-    if (trimmed.includes('youtube')) {
-      const parsed = parseYoutubeIdFromUrl(trimmed)
-      if (parsed) return parsed
-    }
-    if (/^https?:\/\//i.test(trimmed)) {
-      const parsed = parseYoutubeIdFromUrl(trimmed)
-      if (parsed) return parsed
-    }
-    const match = trimmed.match(YOUTUBE_ID_REGEX)
-    if (match) return match[0]
-    return null
-  }
-
-  const resolveFallbackVideoId = (
-    entry: ParsedMetadataEntryV2
-  ): string | null => {
-    const candidates: Array<string | null | undefined> = [
-      entry.videoId,
-      entry.parentId,
-      (entry as { id?: string }).id,
-      entry.parentTitle,
-      entry.url
-    ]
-
-    entry.clips?.forEach(clip => {
-      candidates.push(
-        clip.videoId,
-        clip.parentId,
-        clip.segmentId,
-        clip.url,
-        clip.clipUrl,
-        clip.parentTitle
-      )
-    })
-
-    for (const candidate of candidates) {
-      const id = extractYoutubeId(candidate)
-      if (id) return id
-    }
-    return null
-  }
-
   const getThumbnailUrl = (entry: ParsedMetadataEntryV2) => {
-    const fallbackVideoId = resolveFallbackVideoId(entry)
-    const anyUrl = entry.url || entry.clips.find(c => c.url)?.url || ''
+    const primaryClip = entry.clips?.find(clip =>
+      Boolean(
+        clip.thumbnailUrl ||
+          clip.videoId ||
+          clip.parentId ||
+          clip.clipUrl ||
+          clip.url
+      )
+    )
 
-    if (entry.thumbnailUrl) {
-      return entry.thumbnailUrl
-    }
-
-    if (fallbackVideoId) {
-      return `https://img.youtube.com/vi/${fallbackVideoId}/hqdefault.jpg`
-    }
-
-    if (anyUrl.includes('youtube.com') || anyUrl.includes('youtu.be')) {
-      try {
-        const id = parseYoutubeIdFromUrl(anyUrl)
-        return id
-          ? `https://img.youtube.com/vi/${id}/hqdefault.jpg`
-          : '/default-youtube-thumbnail.jpg'
-      } catch {
-        return '/default-youtube-thumbnail.jpg'
-      }
-    }
-
-    return '/default-thumbnail.jpg'
+    return resolveThumbnailUrl(entry, primaryClip, {
+      fallback: '/default-thumbnail.jpg'
+    })
   }
 
   const formatClipRange = (clip: ClipItemV2) => {

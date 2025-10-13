@@ -35,6 +35,89 @@ export function normalizeAliasesInText(text: string): string {
   })
 }
 
+const YOUTUBE_ID_REGEX = /[A-Za-z0-9_-]{11}/
+
+export function parseYouTubeIdFromString(
+  candidate?: string | null
+): string | undefined {
+  if (!candidate) return undefined
+  const trimmed = candidate.trim()
+  if (!trimmed) return undefined
+
+  if (YOUTUBE_ID_REGEX.test(trimmed) && trimmed.length === 11) {
+    return trimmed
+  }
+
+  try {
+    const hasScheme = /^[a-z]+:/i.test(trimmed)
+    const url = new URL(hasScheme ? trimmed : `https://${trimmed}`)
+    const host = url.hostname.toLowerCase()
+    if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
+      const match = trimmed.match(YOUTUBE_ID_REGEX)
+      return match ? match[0] : undefined
+    }
+    if (host.includes('youtu.be')) {
+      const slug = url.pathname.split('/').filter(Boolean)[0]
+      if (slug && YOUTUBE_ID_REGEX.test(slug)) return slug.slice(0, 11)
+    }
+    const idParam = url.searchParams.get('v')
+    if (idParam && YOUTUBE_ID_REGEX.test(idParam)) return idParam.slice(0, 11)
+    const segments = url.pathname.split('/').filter(Boolean)
+    for (const segment of segments) {
+      if (segment.length >= 11 && YOUTUBE_ID_REGEX.test(segment.slice(-11))) {
+        return segment.slice(-11)
+      }
+    }
+  } catch {
+    const match = trimmed.match(YOUTUBE_ID_REGEX)
+    if (match) return match[0]
+  }
+
+  const looseMatch = trimmed.match(YOUTUBE_ID_REGEX)
+  return looseMatch ? looseMatch[0] : undefined
+}
+
+export function resolveVideoId(
+  entry: ParsedMetadataEntryV2,
+  clip?: ClipItemV2
+): string | undefined {
+  const candidates: Array<string | null | undefined> = [
+    clip?.videoId,
+    clip?.parentId,
+    entry.videoId,
+    entry.parentId,
+    clip?.clipUrl,
+    clip?.url,
+    entry.url
+  ]
+
+  for (const candidate of candidates) {
+    const id = parseYouTubeIdFromString(candidate)
+    if (id) return id
+  }
+  return undefined
+}
+
+export function resolveThumbnailUrl(
+  entry: ParsedMetadataEntryV2,
+  clip?: ClipItemV2,
+  options?: { fallback?: string }
+): string {
+  const fallback = options?.fallback ?? '/default-thumbnail.jpg'
+  const direct = clip?.thumbnailUrl ?? entry.thumbnailUrl
+  if (direct) return direct
+
+  const videoId =
+    resolveVideoId(entry, clip) ??
+    parseYouTubeIdFromString(clip?.clipUrl ?? clip?.url)
+
+  if (videoId) {
+    return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+  }
+
+  return fallback
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7

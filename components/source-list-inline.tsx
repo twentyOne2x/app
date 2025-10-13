@@ -3,7 +3,7 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
+import { cn, resolveThumbnailUrl } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import Image from 'next/image'
 
@@ -84,20 +84,6 @@ function ScoreBadge({ score }: { score?: number }) {
   )
 }
 
-function youtubeThumb(videoId?: string | null, fallbackUrl?: string) {
-  if (videoId) return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-  if (!fallbackUrl) return '/default-video-thumbnail.jpg'
-  try {
-    const url = new URL(fallbackUrl)
-    const v = url.searchParams.get('v')
-    return v
-      ? `https://i.ytimg.com/vi/${v}/hqdefault.jpg`
-      : '/default-video-thumbnail.jpg'
-  } catch {
-    return '/default-video-thumbnail.jpg'
-  }
-}
-
 function ClipRow({
   parent,
   clip
@@ -106,10 +92,9 @@ function ClipRow({
   clip: ClipItemV2
 }) {
   const href = clipHref(parent.url, clip.startS, clip.clipUrl)
-  const thumbnailSrc =
-    clip.thumbnailUrl ??
-    parent.thumbnailUrl ??
-    youtubeThumb(clip.videoId ?? parent.videoId, clip.clipUrl ?? parent.url)
+  const thumbnailSrc = resolveThumbnailUrl(parent, clip, {
+    fallback: '/default-video-thumbnail.jpg'
+  })
   const timestampLabel = formatClipRange(clip)
   return (
     <Link

@@ -6,7 +6,6 @@
 import { useState, useEffect } from 'react';
 import { Message } from 'ai';
 import remarkGfm from 'remark-gfm';
-import remarkMath from 'remark-math';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 
@@ -131,7 +130,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
               <MemoizedReactMarkdown
                 className={`prose break-words dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 
           ${isMobile ? styles.customMarkdownFontMobile : styles.customMarkdownFont}`}
-                remarkPlugins={[remarkGfm, remarkMath]}
+                remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw, [rehypeSanitize, chatMarkdownSanitizeSchema]]}
                 components={components}
               >

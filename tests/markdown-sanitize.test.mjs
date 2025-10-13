@@ -4,7 +4,6 @@ import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
 
@@ -29,7 +28,7 @@ test('markdown renderer keeps span markup', () => {
     React.createElement(
       ReactMarkdown,
       {
-        remarkPlugins: [remarkGfm, remarkMath],
+        remarkPlugins: [remarkGfm],
         rehypePlugins: [rehypeRaw, [rehypeSanitize, schema]]
       },
       markdown

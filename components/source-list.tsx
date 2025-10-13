@@ -130,24 +130,9 @@ export function SourceList({
             parent.url ??
             firstClip?.url ??
             undefined
-          const derivedParentThumb = extractYouTubeThumbnail(
-            primaryUrl,
-            parent.videoId ?? firstClip?.videoId
-          )
-          const parentThumbUrl = parent.thumbnailUrl ?? derivedParentThumb.url
-          if (!parentThumbUrl) {
-            console.debug('source-list: missing thumbnail for parent', {
-              title: parent.parentTitle,
-              channel: parent.channel,
-              clipCount,
-              primaryUrl,
-              videoId:
-                derivedParentThumb.videoId ??
-                parent.videoId ??
-                firstClip?.videoId ??
-                null
-            })
-          }
+          const parentThumbUrl = resolveThumbnailUrl(parent, firstClip, {
+            fallback: '/default-youtube-thumbnail.jpg'
+          })
           const rawPublished =
             parent.publishedAt ?? parent.publishedDate ?? parent.date
           const displayDate = rawPublished ? formatDate(rawPublished) : null

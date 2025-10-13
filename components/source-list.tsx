@@ -165,7 +165,7 @@ export function SourceList({
           >
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="rounded-xl bg-black/80 px-3 py-1">
-                <div className="relative aspect-video w-full max-w-[320px] overflow-hidden rounded-lg border border-white/15 bg-black">
+                <div className="relative aspect-video w-full max-w-[360px] overflow-hidden rounded-lg border border-white/15 bg-black">
                   <div className="absolute inset-0">
                     {parentThumbUrl ? (
                       <Image

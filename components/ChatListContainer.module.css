@@ -133,10 +133,10 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(100%, 800px);
+  width: clamp(280px, 90vw, 760px);
   box-sizing: border-box;
   z-index: 10;
-  padding: 1rem 40px 1.5rem;
+  padding: 1rem 32px 1.25rem;
 }
 
 
@@ -190,13 +190,14 @@
   font-size: 1rem;
   background-color: transparent;
   color: #ffffff;
-  margin-right: 2.7rem; /* Adjust if needed to ensure text does not go under the send button */
+  margin-right: 2.4rem;
   margin-left: 0;
-  border: 1px solid rgba(255, 255, 255, 0.2); /* Thin, semi-transparent white border */
-  border-radius: 8px; /* Rounded corners */
-  padding-right: 55px; /* Adjust this padding to prevent text from going under the send button */
-  width: calc(100% - 55px); /* Subtract the padding from the width to maintain the layout */
-  box-sizing: border-box; /* Include padding and border in the element's total width */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding-right: 55px;
+  width: calc(100% - 55px);
+  box-sizing: border-box;
+  min-height: 48px;
 }
 
 .sendButtonContainer {
@@ -219,6 +220,20 @@
   height: 90%; /* Resize SVG to 90% of the button's height */
   display: block; /* This ensures that the img tag does not have any extra space around it */
   margin: auto; /* This will center the image within the button */
+}
+
+@media (max-width: 640px) {
+  .chatPanel {
+    width: min(100%, 95vw);
+    padding: 0.75rem 20px 1rem;
+  }
+
+  .promptTextarea {
+    font-size: 0.95rem;
+    padding: 0.6rem;
+    margin-right: 2rem;
+    padding-right: 48px;
+  }
 }
 
 .loadingContainer {

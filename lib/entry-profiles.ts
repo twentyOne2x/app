@@ -29,7 +29,6 @@ const DEFAULT_QUESTIONS: string[] = [
   'Return all videos about DATs and Kyle Samani',
   'What is a DAT on Solana?',
   'Show me all clips where Kyle Samani details how DATs will be deployed in DeFi',
-  'In the video where Cooker talks to Threadguy about Aster, did Cooker call the fact that Threadguy will soon interview CZ, the CEO of Binance?',
   "Who's Cupsey?",
   "What's Aster?",
   "Who's Cookerflips?",

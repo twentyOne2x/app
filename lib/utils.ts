@@ -25,6 +25,15 @@ export function applyNameAlias(value?: string | null): string | undefined {
   return (normalized ?? trimmed) || undefined
 }
 
+export function normalizeAliasesInText(text: string): string {
+  if (typeof text !== 'string' || !text) return text
+  return text.replace(/\b([A-Za-z][A-Za-z0-9]*)(['’]s)?\b/g, (full, word, possessive) => {
+    const aliased = applyNameAlias(word)
+    if (!aliased || aliased === word) return full
+    return `${aliased}${possessive ?? ''}`
+  })
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7

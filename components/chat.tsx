@@ -24,6 +24,7 @@ import {
   extractSourcesBlock,
   parseMetadata,
   normalizeMetadataEntries,
+  normalizeAliasesInText,
   type ParsedMetadataEntryV2,
   type ClipItemV2
 } from '@/lib/utils';
@@ -1187,6 +1188,7 @@ export function Chat({
             ? data.content
             : ''
       const rawAssistantContent = coerceContent(rawAssistantContentValue)
+      const aliasNormalizedContent = normalizeAliasesInText(rawAssistantContent)
 
       let metadata: ParsedMetadataEntryV2[] = Array.isArray(
         data.message && typeof data.message === 'object'
@@ -1198,10 +1200,10 @@ export function Chat({
         ? (data.structured_metadata as ParsedMetadataEntryV2[])
         : []
 
-      if ((!metadata || metadata.length === 0) && rawAssistantContent) {
-        const sourcesBlock = extractSourcesBlock(rawAssistantContent) ?? ''
+      if ((!metadata || metadata.length === 0) && aliasNormalizedContent) {
+        const sourcesBlock = extractSourcesBlock(aliasNormalizedContent) ?? ''
         if (sourcesBlock) {
-          metadata = parseMetadata(sourcesBlock, rawAssistantContent)
+          metadata = parseMetadata(sourcesBlock, aliasNormalizedContent)
         }
       }
 
@@ -1220,7 +1222,7 @@ export function Chat({
       }
 
       const sanitizedContent = processResponseContent(
-        stripSourcesBlock(rawAssistantContent)
+        stripSourcesBlock(aliasNormalizedContent)
       )
 
       const diagnosticsRaw: DiagnosticsPayload | null =

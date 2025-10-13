@@ -56,7 +56,7 @@ const ENTRY_PROFILES: Record<string, EntryProfile> = {
   [ORANGIE_PROFILE_CODE]: {
     code: ORANGIE_PROFILE_CODE,
     label: 'Orangie Web3 Creator Spotlight',
-    headline: 'Welcome Orangie 👋 — let’s dive into your Web3 content.',
+    headline: 'Spotlight on your latest Web3 content and conversations.',
     description:
       'These starter prompts surface insights from your recent videos, streams, and interviews so you can demo how the assistant covers your work.',
     questions: DEFAULT_QUESTIONS

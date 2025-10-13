@@ -55,9 +55,13 @@
 
 @layer components {
   .quote-chip {
-    @apply inline-flex items-baseline whitespace-nowrap rounded-md font-medium italic text-foreground/90;
+    @apply inline-flex items-baseline rounded-md font-medium italic text-foreground/90;
     background-color: rgba(255, 255, 255, 0.08);
     padding: 0.1rem 0.45rem;
+    flex-wrap: wrap;
+    white-space: normal;
+    max-width: 100%;
+    word-break: break-word;
   }
 }
 

@@ -53,7 +53,7 @@
   /*left: 25px;*/
   right: 30px;
   padding-top: 30px; /* Aligns the top padding with the middle panel (has top-padding: 30px) */
-  padding-bottom: 180px;
+  padding-bottom: 40px;
 }
 
 .rightPanelNoPaddingTop {
@@ -69,7 +69,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* This pushes the ChatPanel to the bottom */
-  padding-bottom: 140px; /* Bottom padding */
+  padding-bottom: 80px; /* Bottom padding */
   padding-top: 40px; /* Reduced top padding, adjust the value as needed */
   position: relative; /* Needed for absolute positioning within */
   box-sizing: border-box;

@@ -48,7 +48,7 @@ export function parseYouTubeIdFromString(
     console.debug('utils: parseYouTubeIdFromString matched raw id', {
       candidate
     })
-    return trimmed
+      return trimmed
   }
 
   try {
@@ -590,6 +590,19 @@ export function parseMetadataEntriesV2FromFinalKept(
       publishedDate: row.published_at ?? undefined,
       thumbnailUrl: youtubeThumbFor(clipUrl ?? url, videoId)
     }
+  })
+
+  clips.forEach((clip, index) => {
+    console.debug('utils: final_kept clip parsed', {
+      index,
+      segmentId: clip.segmentId,
+      parentTitle: clip.parentTitle,
+      channel: clip.channel,
+      videoId: clip.videoId,
+      parentId: clip.parentId,
+      clipUrl: clip.clipUrl,
+      thumbnailUrl: clip.thumbnailUrl
+    })
   })
 
   const keyOf = (clip: ClipItemV2) =>

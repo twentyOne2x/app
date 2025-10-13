@@ -258,6 +258,20 @@ export async function POST(req: Request) {
     sampleFinalKept: Array.isArray(finalKept) ? finalKept.slice(0, 2) : null
   })
 
+  if (Array.isArray(finalKept)) {
+    finalKept.forEach((node, index) => {
+      console.debug('chat-route: final_kept node', {
+        traceId,
+        index,
+        segmentId: (node as { segment_id?: string }).segment_id ?? null,
+        parentId: (node as { parent_id?: string | null }).parent_id ?? null,
+        videoId: (node as { video_id?: string | null }).video_id ?? null,
+        clipUrl: (node as { clip_url?: string | null }).clip_url ?? null,
+        url: (node as { url?: string | null }).url ?? null
+      })
+    })
+  }
+
   let structuredMetadata: ParsedMetadataEntryV2[] = []
   try {
     const sourcesBlock = extractSourcesBlock(rawAnswer)
@@ -275,6 +289,14 @@ export async function POST(req: Request) {
     metadataCount: structuredMetadata.length,
     hasDiagnostics: Boolean(diagnostics),
     requestId
+  })
+
+  console.debug('chat-route: final assistant answer', {
+    traceId,
+    requestId,
+    answerPreview: rawAnswer.slice(0, 500),
+    answerLength: rawAnswer.length,
+    structuredMetadataCount: structuredMetadata.length
   })
 
   return persistAndRespond(

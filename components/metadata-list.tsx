@@ -1,5 +1,5 @@
 // components/metadata-list.tsx
-import React, { useState, useEffect } from 'react'
+import React from 'react'
 import { type ParsedMetadataEntryV2, type ClipItemV2 } from '@/lib/utils'
 import styles from './MetadataList.module.css'
 import { toast } from 'react-hot-toast'
@@ -8,66 +8,6 @@ import Image from 'next/image'
 const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
   entries
 }) => {
-  const [docMappings, setDocMappings] = useState<{ [key: string]: string }>({})
-
-  useEffect(() => {
-    const url = '/docs_mapping.json'
-    fetch(url)
-      .then(response => {
-        if (!response.ok)
-          throw new Error(`HTTP error! status: ${response.status}`)
-        return response.json()
-      })
-      .then(data => setDocMappings(data))
-      .catch(error => console.error('Error fetching document mappings:', error))
-  }, [])
-
-  const extractDomain = (link: string): string => {
-    try {
-      const url = new URL(link)
-      return url.hostname
-    } catch {
-      const m = link.match(/^(?:https?:\/\/)?([^/]+)/)
-      return m?.[1] ?? 'default'
-    }
-  }
-
-  const predefinedDomains = [
-    'papers.ssrn.com',
-    'www.sciencedirect.com',
-    'www.researchgate.net',
-    'xenophonlabs.com',
-    'moallemi.com',
-    'uniswap.org',
-    'www.sec.gov',
-    'cms.nil.foundation',
-    'arxiv.org',
-    'dl.acm.org',
-    'eprint.iacr.org',
-    'www.nature.com',
-    'angeris.github.io',
-    'fc24.ifca.ai',
-    'people.eecs.berkeley.edu',
-    'pub.tik.ee.ethz.ch',
-    'anthonyleezhang.github.io',
-    'atiselsts.github.io',
-    'lamport.azurewebsites.net',
-    'pmg.csail.mit.edu',
-    'business.columbia.edu',
-    'www.cs.purdue.edu',
-    'www.cfainstitute.org'
-  ]
-
-  const normalizeUrl = (u: string) => {
-    const urlObj = new URL(u)
-    return urlObj.origin + urlObj.pathname.replace(/\/$/, '')
-  }
-
-  const getDocumentName = (link: string) => {
-    const normalizedLink = normalizeUrl(link)
-    return docMappings[normalizedLink] || null
-  }
-
   const YOUTUBE_ID_REGEX = /[A-Za-z0-9_-]{11}/
 
   const parseYoutubeIdFromUrl = (value: string): string | null => {
@@ -166,29 +106,7 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
       }
     }
 
-    if (anyUrl) {
-      const domain = extractDomain(anyUrl)
-      const documentName = getDocumentName(anyUrl)
-      if (documentName) {
-        return `/research_paper_thumbnails/${domain}/${encodeURIComponent(documentName)}`
-      }
-      if (predefinedDomains.includes(domain)) {
-        const encodedTitle = encodeURIComponent(entry.parentTitle) + '.png'
-        return `/research_paper_thumbnails/${encodedTitle}`
-      }
-      const encodedTitle = encodeURIComponent(entry.parentTitle) + '.png'
-      return `/research_paper_thumbnails/${domain}/${encodedTitle}`
-    }
-
-    try {
-      const encodedTitle = encodeURIComponent(entry.parentTitle) + '.png'
-      return `/research_paper_thumbnails/${encodedTitle}`
-    } catch (error) {
-      console.error(
-        `Error parsing URL: ${error}. Using default thumbnail as fallback.`
-      )
-      return '/default-thumbnail.jpg'
-    }
+    return '/default-thumbnail.jpg'
   }
 
   const formatClipRange = (clip: ClipItemV2) => {
@@ -209,8 +127,19 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
     return ''
   }
 
-  const sanitizeClipExcerpt = (value?: string | null): string =>
-    (typeof value === 'string' ? value.trim() : '') || ''
+  const sanitizeClipExcerpt = (clip: ClipItemV2): string => {
+    const raw = typeof clip.excerpt === 'string' ? clip.excerpt.trim() : ''
+    if (!raw) return ''
+    const withoutSpeakerRange = raw.replace(
+      /^\[\s*[^|\]]+\|\s*[0-9:.]+(?:\s*[–-]\s*[0-9:.]+)?\]\s*/,
+      ''
+    )
+    const withoutSpeakerOnly = withoutSpeakerRange.replace(
+      /^\[\s*[A-Za-z]\s*\]\s*/,
+      ''
+    )
+    return withoutSpeakerOnly.trim()
+  }
 
   const parentHref = (e: ParsedMetadataEntryV2) =>
     e.url ||
@@ -261,7 +190,7 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
                 <ul style={{ marginTop: 6 }}>
                   {entry.clips.map((c, i) => {
                     const clipRange = formatClipRange(c)
-                    const clipExcerpt = sanitizeClipExcerpt(c.excerpt)
+                    const clipExcerpt = sanitizeClipExcerpt(c)
                     if (!clipRange && !clipExcerpt) return null
 
                     return (

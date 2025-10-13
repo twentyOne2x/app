@@ -290,21 +290,43 @@ function formatProgressMetadata(meta: Record<string, unknown> | undefined): stri
 }
 
 function coerceProgressStage(stage: Record<string, unknown>): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...stage }
-  const metadata = stage.metadata
-  if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) {
-    const existingMeta =
-      stage.meta && typeof stage.meta === 'object' && !Array.isArray(stage.meta)
-        ? (stage.meta as Record<string, unknown>)
-        : {}
-    next.meta = { ...existingMeta, ...(metadata as Record<string, unknown>) }
+  const payload =
+    stage.event && typeof stage.event === 'object' && !Array.isArray(stage.event)
+      ? (stage.event as Record<string, unknown>)
+      : stage
+
+  const next: Record<string, unknown> = { ...payload }
+
+  const metadata = payload.metadata
+  const existingMeta =
+    payload.meta && typeof payload.meta === 'object' && !Array.isArray(payload.meta)
+      ? (payload.meta as Record<string, unknown>)
+      : {}
+
+  const mergedMeta =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? { ...existingMeta, ...(metadata as Record<string, unknown>) }
+      : existingMeta
+
+  if (stage.type && typeof stage.type === 'string') {
+    mergedMeta.event_type = stage.type
   }
-  if (typeof stage.name === 'string' && typeof next.stage !== 'string') {
-    next.stage = stage.name
+
+  if (stage.timestamp && typeof stage.timestamp === 'string') {
+    mergedMeta.event_timestamp = stage.timestamp
   }
-  if (typeof stage.stage === 'string' && typeof next.name !== 'string') {
-    next.name = stage.stage
+
+  if (Object.keys(mergedMeta).length > 0) {
+    next.meta = mergedMeta
   }
+
+  if (typeof payload.name === 'string' && typeof next.stage !== 'string') {
+    next.stage = payload.name
+  }
+  if (typeof payload.stage === 'string' && typeof next.name !== 'string') {
+    next.name = payload.stage
+  }
+
   return next
 }
 

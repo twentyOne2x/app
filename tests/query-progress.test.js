@@ -51,6 +51,48 @@ test('normalizeProgress maps backend entries into display stages', () => {
   assert.equal(fallbackStage.meta?.stage_key, 'fallback')
 })
 
+test('normalizeProgress handles new progress event wrapper format', () => {
+  const progress = [
+    {
+      type: 'progress',
+      event: {
+        name: 'retrieve',
+        label: 'Retrieve candidates',
+        status: 'in_progress',
+        started_at: '2024-05-05T12:00:00Z',
+        metadata: {
+          initial_candidates: 50,
+          percent: 40
+        }
+      }
+    },
+    {
+      type: 'progress',
+      event: {
+        name: 'retrieve',
+        status: 'completed',
+        ended_at: '2024-05-05T12:00:01Z',
+        duration_ms: 1024,
+        metadata: {
+          score_min: 0.21,
+          score_max: 0.91
+        }
+      }
+    }
+  ]
+
+  const stages = normalizeProgress(progress)
+  const retrieve = stages.find((stage) => stage.key === 'retrieve')
+  assert.ok(retrieve)
+  assert.equal(retrieve.status, 'completed')
+  assert.equal(retrieve.durationMs, 1024)
+  assert.equal(retrieve.label, 'Retrieve candidates')
+  assert.equal(retrieve.meta?.initial_candidates, 50)
+  assert.equal(retrieve.meta?.percent, 40)
+  assert.equal(retrieve.meta?.event_type, 'progress')
+  assert.equal(retrieve.meta?.event_timestamp, undefined)
+})
+
 test('normalizeProgress handles empty or missing progress', () => {
   assert.deepEqual(normalizeProgress(undefined), [])
   assert.deepEqual(normalizeProgress([]), [])

@@ -116,42 +116,56 @@ pnpm start
 
 ---
 
-## Appendix: Platform Evolution Since Initial Commit
+## Appendix — Repo Evolution
 
-### Executive Summary
-- **Scope shift:** the product evolved from a generic MEV.fyi chatbot (commit `d9858e0`) into a clip-centric icm.fyi research companion with bundle workflows, shareable chats, and Privy/Twitter auth.
-- **Data focus:** research-paper thumbnail infrastructure was removed in favour of normalised YouTube metadata (`ParsedMetadataEntryV2`, `docs/video-clip-url-spec.md`) and deterministic thumbnail fallbacks.
-- **Developer tooling:** the repo now includes clip selection hooks, regression tests, dedicated debug scripts, Markdown sanitisation hardening, and detailed documentation that did not exist in the first commit.
+### Executive Snapshot
 
-### What Exists in the Current Repo
-- **User-facing**
-  - Top Sources panel with per-clip controls (`Play`, `Edit`, `Add to bundle`) and score badges.
-  - Clip Drawer with timestamp editing, HQ generation hooks, and bundle orchestration.
-  - Share chat header + public share routes, Privy/Twitter authentication, and bundle drawers/bars.
-  - Responsive UI polish: wrapping metadata excerpts, accessible hover states, improved thumbnails.
-- **Data & Retrieval**
-  - Structured metadata parsing (`parseMetadataEntriesV2`) with canonical video IDs, clip URLs, and score handling.
-  - YouTube thumbnail derivation, doc mapping removal, and default fallbacks for non-video sources.
-  - Diagnostics spec for `diagnostics.final_kept[]` documented in `docs/video-clip-url-spec.md`.
-- **Developer Experience**
-  - Tailwind/shadcn component library usage, CSS modules per surface, and design docs under `/docs`.
-  - Local scripts (`dev_with_rag.sh`, `debug_script.sh`) plus selection + markdown tests (`tests/clip-selection-hook.test.js`, `tests/markdown-sanitize.test.mjs`, `tests/query-progress.test.js`).
-  - Updated README structure with role-specific guidance, architecture overview, and troubleshooting notes.
+| Aspect | First Commit `d9858e0` | Current `HEAD` |
+| --- | --- | --- |
+| **Brand & Scope** | “MEV.fyi Chatbot” marketing page; generic LlamaIndex phrasing | Production `icm.fyi` research companion with explicit clip/bundle workflows |
+| **Architecture** | Static marketing README; implied single Next.js chat surface | Next.js 13 App Router app with server components, streaming chat, share routes, bundle drawers, Privy/Twitter auth |
+| **Source Rendering** | No implementation details; assumed plain list of links | `SourceList` + `MetadataList` components with thumbnails, per-clip actions, selection state, toast feedback |
+| **Clip Experience** | Not mentioned | `ClipDrawer`, HQ generation hooks, bundle selection (`useClipSelection`), timestamp editing, diagnostic logging |
+| **Data Handling** | Promised research papers/Twitter threads; stored thousands of PNG thumbnails + `docs_mapping.json` | Lean YouTube-first pipeline, deterministic thumbnail fallbacks, structured metadata parsing (`parseMetadataEntriesV2`), documented `diagnostics.final_kept[]` schema |
+| **Docs & Specs** | README only (deployment + “default questions”) | Roadmaps and UX briefs in `/docs`, video/clip URL spec, onboarding guidance for researchers and developers |
+| **Tooling & Tests** | None referenced | Node test suite (`test:progress`), clip selection/markdown tests, debug scripts (`dev_with_rag.sh`, `debug_script.sh`), lint/type-check workflows |
+| **Auth & Sharing** | Mentioned NextAuth generically | Privy/Twitter sign-in, share chat header, public share routes, middleware gating |
+| **Asset Footprint** | ~13k research paper PNGs shipped in repo | Legacy assets removed; thumbnail logic now fetches from YouTube or defaults |
 
-### Legacy Snapshot (Initial Commit `d9858e0`)
+### Highlights Since the First Commit
 
-| Area | Initial State |
-| --- | --- |
-| **Branding** | “MEV.fyi Chatbot” linking to `chat.mev.fyi`. |
-| **Features** | High-level bullet list (Next.js, Vercel AI SDK, gpt-3.5 support, shadcn UI, NextAuth, rate limiting). |
-| **Content claims** | Emphasised broad coverage (YouTube transcripts, research papers, podcasts, author index). |
-| **Docs & Tooling** | Only sections for default questions, deployment button, and local dev steps; no platform-specific workflows, scripts, or specs. |
-| **Assets** | Relied on static research paper thumbnails (`public/research_paper_thumbnails`) and `docs_mapping.json` to map document URLs. |
+- Streamlined metadata ingestion: `lib/utils.ts` normalises clip/video IDs, timestamps, scores, and derived thumbnails.
+- Comprehensive clip UX including playable timestamps, edit drawer with padding controls, bundle bar/drawer, and “add to bundle” selection persistence.
+- Formalised diagnostics contract (`docs/video-clip-url-spec.md`) so frontend and backend agree on `diagnostics.final_kept[]`.
+- Modernised README with user/dev workflows, architecture overview, troubleshooting, and deployment guidance.
+- Markdown rendering hardened (span sanitisation, removal of `remark-math` to stop dollar amounts from becoming math blocks).
+- Cleanup of obsolete research-paper thumbnail infrastructure (`public/research_paper_thumbnails`, `docs_mapping.json`) replaced with dynamic fallbacks.
+- Added regression coverage (clip selection hook, query progress normalisation, markdown sanitisation) and ensured `pnpm test:progress` stays green.
+- Utility scripts and docs to debug ingestion (`dev_with_rag.sh`, `debug_script.sh`) and plan future clip UX (`docs/clip-interaction-ux-refresh.md`, `docs/source-list-refresh-design.md`).
 
-Key differences compared to today:
-- No mention of clip bundles, clip editing, or shareable chats.
-- No explicit diagnostics guidance or metadata schema references.
-- Auth options, debug scripts, and component-level UX improvements were absent.
-- README was descriptive but not actionable for operators or contributors.
+### Troubleshooting
 
-This appendix should help new maintainers contextualise the current surface area against the original scope.
+- **Missing clip thumbnails:** confirm video IDs/URLs flow into `ParsedMetadataEntryV2`; fallback defaults to `/default-thumbnail.jpg`.
+- **Metadata excerpts showing bracketed speaker/time:** `sanitizeClipExcerpt` strips `[A | hh:mm:ss]` patterns—if they reappear, check backend formatting.
+- **Buttons unclickable:** ensure `components/source-list.tsx` `z-index` overrides remain; hover overlays can swallow pointer events if altered.
+- **Markdown rendering oddities:** run `pnpm test:progress`; the markdown sanitisation test matches runtime configuration.
+
+### Scripts & Utilities
+
+- `dev_with_rag.sh` – launch local dev server with environment setup for RAG testing.
+- `debug_script.sh` – helper script for debugging metadata ingestion.
+- `tests/clip-selection-hook.test.js` – verifies bundle selection persistence.
+- `tests/query-progress.test.js` – validates progress normalisation.
+- `tests/markdown-sanitize.test.mjs` – ensures Markdown sanitiser matches renderer.
+
+### Notes & Responsibilities
+
+- Respect content licensing when replaying or sharing YouTube clips; Privy/Twitter auth gates sharing features.
+- HQ clip generation (AssemblyAI) may incur cost; adjust concurrency and padding defaults accordingly.
+- Query diagnostics power UI; backend changes to `diagnostics.final_kept[]` must be mirrored in the spec and parser.
+
+### Acknowledgements
+
+- Vercel AI SDK for streaming chat.
+- shadcn/ui, Tailwind CSS, Radix UI for component primitives.
+- Pinecone & AssemblyAI for retrieval and media processing backends.

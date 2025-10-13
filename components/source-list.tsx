@@ -2,7 +2,12 @@
 
 import { useMemo, useCallback } from 'react'
 import Image from 'next/image'
-import { cn, formatDate, youtubeThumbFor } from '@/lib/utils'
+import {
+  cn,
+  formatDate,
+  youtubeThumbFor,
+  sanitizeClipExcerptText
+} from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
 import { buildClipPlayback } from '@/components/clip-drawer'
@@ -251,7 +256,7 @@ export function SourceList({
                           </div>
                           {clip.excerpt ? (
                             <p className="text-xs text-zinc-100">
-                              {clip.excerpt}
+                              {sanitizeClipExcerptText(clip.excerpt)}
                             </p>
                           ) : (
                             <p className="text-xs italic text-zinc-400">

@@ -4,7 +4,8 @@ import {
   type ParsedMetadataEntryV2,
   type ClipItemV2,
   youtubeThumbFor,
-  buildCanonicalClipLink
+  buildCanonicalClipLink,
+  sanitizeClipExcerptText
 } from '@/lib/utils'
 import styles from './MetadataList.module.css'
 import { toast } from 'react-hot-toast'
@@ -60,20 +61,6 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
     return ''
   }
 
-  const sanitizeClipExcerpt = (clip: ClipItemV2): string => {
-    const raw = typeof clip.excerpt === 'string' ? clip.excerpt.trim() : ''
-    if (!raw) return ''
-    const withoutSpeakerRange = raw.replace(
-      /^\[\s*[^|\]]+\|\s*[0-9:.]+(?:\s*[–-]\s*[0-9:.]+)?\]\s*/,
-      ''
-    )
-    const withoutSpeakerOnly = withoutSpeakerRange.replace(
-      /^\[\s*[A-Za-z]\s*\]\s*/,
-      ''
-    )
-    return withoutSpeakerOnly.trim()
-  }
-
   const parentHref = (e: ParsedMetadataEntryV2) =>
     e.url ||
     e.clips.find(c => c.clipUrl || c.url)?.clipUrl ||
@@ -123,7 +110,7 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
                 <ul style={{ marginTop: 6 }}>
                   {entry.clips.map((c, i) => {
                     const clipRange = formatClipRange(c)
-                    const clipExcerpt = sanitizeClipExcerpt(c)
+                    const clipExcerpt = sanitizeClipExcerptText(c.excerpt)
                     if (!clipRange && !clipExcerpt) return null
 
                     return (

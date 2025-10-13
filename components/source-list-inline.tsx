@@ -2,7 +2,12 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { cn, youtubeThumbFor, buildCanonicalClipLink } from '@/lib/utils'
+import {
+  cn,
+  youtubeThumbFor,
+  buildCanonicalClipLink,
+  sanitizeClipExcerptText
+} from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import Image from 'next/image'
 
@@ -111,7 +116,7 @@ function ClipRow({
           </div>
           {clip.excerpt ? (
             <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/70">
-              {clip.excerpt}
+              {sanitizeClipExcerptText(clip.excerpt)}
             </div>
           ) : null}
         </div>

@@ -213,6 +213,20 @@ export function resolveThumbnailUrl(
   return fallback
 }
 
+export function sanitizeClipExcerptText(
+  value?: string | null
+): string {
+  if (typeof value !== 'string') return ''
+  const raw = value.trim()
+  if (!raw) return ''
+  const withoutRange = raw.replace(
+    /^\s*\[\s*[^|\]]+\|\s*[0-9:.]+(?:\s*[–-]\s*[0-9:.]+)?\]\s*/,
+    ''
+  )
+  const withoutSpeaker = withoutRange.replace(/^\s*\[[A-Za-z]\s*\]\s*/, '')
+  return withoutSpeaker.trim()
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7

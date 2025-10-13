@@ -14,11 +14,9 @@
   display: flex;
   align-items: start; /* Align items to the start */
   color: #bbb;
-  word-wrap: break-word;
+  overflow-wrap: anywhere;
   margin-bottom: 30px;
   min-width: 400px;
-  max-height: 200px; /* Increase the maximum height */
-  overflow: hidden; /* Hide overflow */
 }
 
 .metadataListItem:hover {
@@ -34,10 +32,8 @@
   color: #ffffff;
   text-decoration: none;
   font-weight: bold;
-  /* Allow text to wrap if needed */
-  word-wrap: break-word;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .metadataListDetails {
@@ -99,8 +95,8 @@
   font-size: 1.05rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  height: 150px;
+  justify-content: flex-start;
+  gap: 0.5rem;
 }
 
 .metadataListLink {
@@ -111,12 +107,25 @@
 
 .metadataListSpan {
   color: #666;
+  display: inline-block;
 }
 
 .metadataTop,
 .metadataMiddle,
 .metadataBottom {
   display: block;
+}
+
+.metadataClipText {
+  display: block;
+  color: inherit;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+a.metadataClipText:hover {
+  text-decoration: underline;
 }
 
 .authorLink {

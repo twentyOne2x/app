@@ -209,6 +209,9 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
     return ''
   }
 
+  const sanitizeClipExcerpt = (value?: string | null): string =>
+    (typeof value === 'string' ? value.trim() : '') || ''
+
   const parentHref = (e: ParsedMetadataEntryV2) =>
     e.url ||
     e.clips.find(c => c.clipUrl || c.url)?.clipUrl ||
@@ -256,25 +259,42 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
               </span>
               {entry.clips?.length ? (
                 <ul style={{ marginTop: 6 }}>
-                  {entry.clips.map((c, i) => (
-                    <li key={i} style={{ marginBottom: 4 }}>
-                      {c.clipUrl || c.url ? (
-                        <a
-                          href={c.clipUrl ?? c.url ?? '#'}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {formatClipRange(c)}
-                          {c.excerpt ? ` — ${c.excerpt}` : ''}
-                        </a>
-                      ) : (
-                        <span>
-                          {formatClipRange(c)}
-                          {c.excerpt ? ` — ${c.excerpt}` : ''}
-                        </span>
-                      )}
-                    </li>
-                  ))}
+                  {entry.clips.map((c, i) => {
+                    const clipRange = formatClipRange(c)
+                    const clipExcerpt = sanitizeClipExcerpt(c.excerpt)
+                    if (!clipRange && !clipExcerpt) return null
+
+                    return (
+                      <li key={i} style={{ marginBottom: 4 }}>
+                        {c.clipUrl || c.url ? (
+                          <a
+                            href={c.clipUrl ?? c.url ?? '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.metadataClipText}
+                          >
+                            {clipRange}
+                            {clipExcerpt && (
+                              <>
+                                {clipRange ? ' — ' : ''}
+                                {clipExcerpt}
+                              </>
+                            )}
+                          </a>
+                        ) : (
+                          <span className={styles.metadataClipText}>
+                            {clipRange}
+                            {clipExcerpt && (
+                              <>
+                                {clipRange ? ' — ' : ''}
+                                {clipExcerpt}
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               ) : null}
             </div>

@@ -53,6 +53,7 @@
   /*left: 25px;*/
   right: 30px;
   padding-top: 30px; /* Aligns the top padding with the middle panel (has top-padding: 30px) */
+  padding-bottom: 180px;
 }
 
 .rightPanelNoPaddingTop {
@@ -68,7 +69,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between; /* This pushes the ChatPanel to the bottom */
-  padding-bottom: 60px; /* Bottom padding */
+  padding-bottom: 140px; /* Bottom padding */
   padding-top: 40px; /* Reduced top padding, adjust the value as needed */
   position: relative; /* Needed for absolute positioning within */
   box-sizing: border-box;
@@ -122,11 +123,9 @@
 /* CHAT PANEL SECTION */
 
 .chatPanelWrapper {
-  /* Removed the commented out properties and adjusted the width */
   margin: 0 auto;
-  max-width: 900px; /* Set a max width */
-  padding: 1rem; /* Padding inside the wrapper, if needed */
-  padding-right: 120px; /* To align with the chatlist for fully display the user and assistant icons */
+  max-width: 820px;
+  padding: 1rem 40px;
 }
 
 .chatPanel {
@@ -134,13 +133,10 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: min(100%, 960px);
+  width: min(100%, 800px);
   box-sizing: border-box;
   z-index: 10;
-  padding-top: 1rem;
-  padding-left: 1rem;
-  padding-right: 1rem;
-  padding-bottom: 1rem;
+  padding: 1rem 40px 1.5rem;
 }
 
 
@@ -195,7 +191,7 @@
   background-color: transparent;
   color: #ffffff;
   margin-right: 2.7rem; /* Adjust if needed to ensure text does not go under the send button */
-  margin-left: -9px; /* Extend by 5px to the left */
+  margin-left: 0;
   border: 1px solid rgba(255, 255, 255, 0.2); /* Thin, semi-transparent white border */
   border-radius: 8px; /* Rounded corners */
   padding-right: 55px; /* Adjust this padding to prevent text from going under the send button */

@@ -72,7 +72,7 @@ function ClipRow({
     clip.thumbnailUrl ??
     parent.thumbnailUrl ??
     youtubeThumbFor(clip.clipUrl ?? clip.url ?? parent.url, clip.videoId ?? parent.videoId) ??
-    '/default-video-thumbnail.jpg'
+    '/default-thumbnail.svg'
 
   const timestampLabel = formatClipRange(clip)
   return (

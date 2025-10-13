@@ -31,7 +31,7 @@ const MetadataList: React.FC<{ entries: ParsedMetadataEntryV2[] }> = ({
       primaryClip?.videoId ?? primaryClip?.parentId ?? entry.videoId ?? entry.parentId ?? null
     )
 
-    return thumbnail ?? '/default-thumbnail.jpg'
+    return thumbnail ?? '/default-thumbnail.svg'
   }
 
   const normalizeHmsLabel = (value?: string | null): string | null => {

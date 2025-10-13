@@ -151,7 +151,7 @@ export function SourceList({
         const parentThumbUrl =
           parent.thumbnailUrl ??
           youtubeThumbFor(primaryUrl, parent.videoId) ??
-          '/default-thumbnail.jpg'
+          '/default-thumbnail.svg'
 
         const rawPublished =
           parent.publishedAt ?? parent.publishedDate ?? parent.date
@@ -226,7 +226,7 @@ export function SourceList({
                       clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
                       clip.videoId ?? parent.videoId
                     ) ??
-                    '/default-youtube-thumbnail.jpg'
+                    '/default-thumbnail.svg'
 
                   return (
                     <li

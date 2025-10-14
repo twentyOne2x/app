@@ -291,8 +291,8 @@ export function SourceList({
             key={key}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
           >
-            <div className="flex flex-col gap-4">
-              <div className="rounded-xl bg-black/80 p-2">
+            <div className="space-y-4">
+              <div className="mx-auto w-full max-w-[320px] rounded-xl bg-black/80 p-2 sm:max-w-[360px]">
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black">
                   <div className="absolute inset-0">
                     <FallbackImage
@@ -306,26 +306,28 @@ export function SourceList({
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-col gap-3">
-                <h3 className="break-words text-base font-semibold text-zinc-100">
+              <div className="space-y-2 text-left">
+                <h3 className="break-words text-lg font-semibold text-zinc-100">
                   {parent.parentTitle}
                 </h3>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
-                  <span>{channelLabel}</span>
-                  {displayDate ? <span>· {displayDate}</span> : null}
-                  {parentScoreText ? (
-                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-emerald-200/80">
-                      {parentScoreText}
-                    </span>
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                {channelLabel || displayDate || parentScoreText ? (
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                    {channelLabel ? <span className="font-medium text-zinc-200">{channelLabel}</span> : null}
+                    {displayDate ? <span className="text-zinc-400">{displayDate}</span> : null}
+                    {parentScoreText ? (
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-200/80">
+                        {parentScoreText}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-200">
                   {clipCount > 0 ? (
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200">
                       {clipCount} clip{clipCount === 1 ? '' : 's'}
                     </span>
                   ) : (
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-500">
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-wide text-zinc-500">
                       No clips available
                     </span>
                   )}

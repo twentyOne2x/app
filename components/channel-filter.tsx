@@ -19,14 +19,22 @@ interface ChannelFilterPanelProps {
 }
 
 export function ChannelFilterPanel({ channels, excluded, onExcludedChange }: ChannelFilterPanelProps) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
 
   const sortedChannels = useMemo(() => {
     const unique = new Map<string, ChannelOption>()
     channels.forEach((option) => {
       if (!option?.name) return
-      const key = getChannelKey(option)
-      if (!unique.has(key)) unique.set(key, option)
+      const normalizedName = option.name.trim().toLowerCase()
+      if (!normalizedName) return
+      const existing = unique.get(normalizedName)
+      if (!existing) {
+        unique.set(normalizedName, option)
+        return
+      }
+      if (!existing.id && option.id) {
+        unique.set(normalizedName, option)
+      }
     })
     return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name))
   }, [channels])
@@ -75,7 +83,7 @@ export function ChannelFilterPanel({ channels, excluded, onExcludedChange }: Cha
           className="rounded-full border border-white/15 px-3 py-1 text-xs text-zinc-200 transition hover:bg-white/10"
           aria-expanded={!collapsed}
         >
-          {collapsed ? 'Show' : 'Hide'}
+          {collapsed ? 'Show channels' : 'Hide channels'}
         </button>
       </div>
 

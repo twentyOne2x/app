@@ -291,22 +291,25 @@ export function SourceList({
             key={key}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-              <div className="flex-none rounded-xl bg-black/80 px-3 py-1 sm:px-4 sm:py-2">
-                <div className="relative aspect-video w-full max-w-[420px] overflow-hidden rounded-lg border border-white/15 bg-black sm:w-[420px] sm:max-w-[420px]">
+            <div className="flex flex-col gap-4">
+              <div className="rounded-xl bg-black/80 p-2">
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black">
                   <div className="absolute inset-0">
                     <FallbackImage
                       sources={parentThumbSources}
                       alt={`Thumbnail for ${parent.parentTitle}`}
                       fill
-                      sizes="(max-width: 768px) 100vw, 720px"
+                      sizes="100vw"
                       className="object-cover"
                       priority={false}
                     />
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <div className="flex min-w-0 flex-col gap-3">
+                <h3 className="break-words text-base font-semibold text-zinc-100">
+                  {parent.parentTitle}
+                </h3>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-400">
                   <span>{channelLabel}</span>
                   {displayDate ? <span>· {displayDate}</span> : null}
@@ -316,10 +319,7 @@ export function SourceList({
                     </span>
                   ) : null}
                 </div>
-                <h3 className="break-words text-base font-semibold text-zinc-100">
-                  {parent.parentTitle}
-                </h3>
-                <div className="mt-auto flex flex-wrap items-center gap-2 text-xs text-zinc-300">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                   {clipCount > 0 ? (
                     <span className="rounded-full border border-white/10 px-3 py-1 text-xs text-zinc-300">
                       {clipCount} clip{clipCount === 1 ? '' : 's'}

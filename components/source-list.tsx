@@ -1,12 +1,19 @@
 'use client'
 
-import { useMemo, useCallback } from 'react'
+import {
+  useMemo,
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type SyntheticEvent
+} from 'react'
 import Image from 'next/image'
 import {
   cn,
   formatDate,
-  youtubeThumbFor,
-  sanitizeClipExcerptText
+  sanitizeClipExcerptText,
+  resolveVideoId
 } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
@@ -29,6 +36,135 @@ export interface SourceListProps {
   ) => void
   selectionScope?: string
   selection?: ClipSelectionHandle
+}
+
+const YOUTUBE_THUMB_VARIANTS = [
+  'maxresdefault.jpg',
+  'hq720.jpg',
+  'sddefault.jpg',
+  'hqdefault.jpg',
+  'mqdefault.jpg',
+  'default.jpg',
+  '0.jpg',
+  '1.jpg',
+  '2.jpg',
+  '3.jpg'
+] as const
+
+const YOUTUBE_THUMB_HOSTS: Array<(id: string, variant: string) => string> = [
+  (id, variant) => `https://i.ytimg.com/vi/${id}/${variant}`,
+  (id, variant) => `https://img.youtube.com/vi/${id}/${variant}`
+]
+
+function buildThumbnailCandidates(options: {
+  direct?: string | null
+  videoId?: string | null
+  fallback?: string
+}) {
+  const { direct, videoId, fallback } = options
+  const seen = new Set<string>()
+  const push = (value?: string | null) => {
+    if (typeof value !== 'string') return
+    const trimmed = value.trim()
+    if (!trimmed || seen.has(trimmed)) return
+    seen.add(trimmed)
+  }
+
+  push(direct)
+
+  const resolvedId = videoId?.trim()
+  if (resolvedId) {
+    for (const variant of YOUTUBE_THUMB_VARIANTS) {
+      for (const host of YOUTUBE_THUMB_HOSTS) {
+        push(host(resolvedId, variant))
+      }
+    }
+  }
+
+  push(fallback ?? '/default-thumbnail.svg')
+
+  return Array.from(seen)
+}
+
+interface FallbackImageProps
+  extends Omit<ComponentProps<typeof Image>, 'src'> {
+  sources: Array<string | null | undefined>
+}
+
+function FallbackImage({
+  sources,
+  alt,
+  onError,
+  ...rest
+}: FallbackImageProps) {
+  const serializedSources = useMemo(() => {
+    return JSON.stringify(
+      (sources ?? []).map((value) =>
+        typeof value === 'string' ? value.trim() : ''
+      )
+    )
+  }, [sources])
+
+  const normalizedSources = useMemo(() => {
+    const seen = new Set<string>()
+    const deduped: string[] = []
+
+    let parsed: string[] = []
+    try {
+      const raw = JSON.parse(serializedSources)
+      if (Array.isArray(raw)) {
+        parsed = raw.filter((value) => typeof value === 'string') as string[]
+      }
+    } catch {
+      parsed = []
+    }
+
+    for (const candidate of parsed) {
+      const trimmed = candidate.trim()
+      if (!trimmed || seen.has(trimmed)) continue
+      seen.add(trimmed)
+      deduped.push(trimmed)
+    }
+
+    if (!deduped.length) {
+      deduped.push('/default-thumbnail.svg')
+    }
+
+    return deduped
+  }, [serializedSources])
+
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    setIndex(0)
+  }, [serializedSources])
+
+  const handleError = useCallback(
+    (event: SyntheticEvent<HTMLImageElement, Event>) => {
+      onError?.(event)
+      setIndex((current) => {
+        const next = current + 1
+        return next < normalizedSources.length ? next : current
+      })
+    },
+    [normalizedSources, onError]
+  )
+
+  const activeSrc =
+    normalizedSources[Math.min(index, normalizedSources.length - 1)]
+
+  if (!activeSrc) {
+    return null
+  }
+
+  return (
+    <Image
+      {...rest}
+      alt={alt}
+      src={activeSrc}
+      onError={handleError}
+    />
+  )
 }
 
 function secondsToHms(seconds: number): string {
@@ -139,19 +275,11 @@ export function SourceList({
         const parentScoreText = parentScore(parent.scoreMax)
 
         const firstClip = parent.clips?.[0] ?? null
-        const playbackForParent = firstClip
-          ? buildClipPlayback(parent, firstClip)
-          : undefined
-        const primaryUrl =
-          playbackForParent?.watchUrl ??
-          parent.url ??
-          firstClip?.url ??
-          undefined
-
-        const parentThumbUrl =
-          parent.thumbnailUrl ??
-          youtubeThumbFor(primaryUrl, parent.videoId) ??
-          '/default-thumbnail.svg'
+        const parentThumbSources = buildThumbnailCandidates({
+          direct: parent.thumbnailUrl,
+          videoId: resolveVideoId(parent, firstClip ?? undefined),
+          fallback: '/default-thumbnail.svg'
+        })
 
         const rawPublished =
           parent.publishedAt ?? parent.publishedDate ?? parent.date
@@ -163,24 +291,18 @@ export function SourceList({
             key={key}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
           >
-            <div className="flex flex-col gap-4 sm:flex-row">
-              <div className="rounded-xl bg-black/80 px-3 py-1">
-                <div className="relative aspect-video w-full max-w-[360px] overflow-hidden rounded-lg border border-white/15 bg-black">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+              <div className="flex-none rounded-xl bg-black/80 px-3 py-1 sm:px-4 sm:py-2">
+                <div className="relative aspect-video w-full overflow-visible rounded-lg border border-white/15 bg-black sm:w-[720px] sm:min-w-[720px] sm:max-w-none">
                   <div className="absolute inset-0">
-                    {parentThumbUrl ? (
-                      <Image
-                        src={parentThumbUrl}
-                        alt={`Thumbnail for ${parent.parentTitle}`}
-                        fill
-                        sizes="(max-width: 768px) 90vw, 320px"
-                        className="object-cover"
-                        priority={false}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-xs text-zinc-500">
-                        No preview available
-                      </div>
-                    )}
+                    <FallbackImage
+                      sources={parentThumbSources}
+                      alt={`Thumbnail for ${parent.parentTitle}`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 720px"
+                      className="object-cover"
+                      priority={false}
+                    />
                   </div>
                 </div>
               </div>
@@ -220,13 +342,12 @@ export function SourceList({
                   const playback = buildClipPlayback(parent, clip)
                   const timestampLabel = formatClipRange(clip)
 
-                  const clipThumbUrl =
-                    clip.thumbnailUrl ??
-                    youtubeThumbFor(
-                      clip.clipUrl ?? playback.watchUrl ?? clip.url ?? primaryUrl,
-                      clip.videoId ?? parent.videoId
-                    ) ??
-                    '/default-thumbnail.svg'
+                  const clipThumbSources = buildThumbnailCandidates({
+                    direct: clip.thumbnailUrl,
+                    videoId: resolveVideoId(parent, clip),
+                    fallback: '/default-thumbnail.svg'
+                  })
+                  const clipThumbUrl = clipThumbSources[0]
 
                   return (
                     <li

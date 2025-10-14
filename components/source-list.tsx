@@ -310,18 +310,16 @@ export function SourceList({
                 <h3 className="break-words text-lg font-semibold text-zinc-100">
                   {parent.parentTitle}
                 </h3>
-                {channelLabel || displayDate || parentScoreText ? (
-                  <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
-                    {channelLabel ? <span className="font-medium text-zinc-200">{channelLabel}</span> : null}
-                    {displayDate ? <span className="text-zinc-400">{displayDate}</span> : null}
-                    {parentScoreText ? (
-                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-200/80">
-                        {parentScoreText}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-200">
+                <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
+                  {channelLabel ? (
+                    <span className="font-medium text-zinc-200">{channelLabel}</span>
+                  ) : null}
+                  {displayDate ? <span className="text-zinc-400">{displayDate}</span> : null}
+                  {parentScoreText ? (
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-200/80">
+                      {parentScoreText}
+                    </span>
+                  ) : null}
                   {clipCount > 0 ? (
                     <span className="rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-wide text-zinc-200">
                       {clipCount} clip{clipCount === 1 ? '' : 's'}

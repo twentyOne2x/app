@@ -13,7 +13,8 @@ import {
   cn,
   formatDate,
   sanitizeClipExcerptText,
-  resolveVideoId
+  resolveVideoId,
+  buildCanonicalClipLink
 } from '@/lib/utils'
 import type { ParsedMetadataEntryV2, ClipItemV2 } from '@/lib/utils'
 import type { ClipPlayback } from '@/components/clip-drawer'
@@ -275,6 +276,14 @@ export function SourceList({
         const parentScoreText = parentScore(parent.scoreMax)
 
         const firstClip = parent.clips?.[0] ?? null
+        const firstClipPlayback = firstClip ? buildClipPlayback(parent, firstClip) : null
+        const topClipHref =
+          (firstClip ? buildCanonicalClipLink(firstClip, parent) : undefined) ??
+          firstClipPlayback?.watchUrl ??
+          firstClip?.clipUrl ??
+          firstClip?.url ??
+          parent.url ??
+          (parent.videoId ? `https://www.youtube.com/watch?v=${parent.videoId}` : undefined)
         const parentThumbSources = buildThumbnailCandidates({
           direct: parent.thumbnailUrl,
           videoId: resolveVideoId(parent, firstClip ?? undefined),
@@ -293,18 +302,41 @@ export function SourceList({
           >
             <div className="space-y-4">
               <div className="mx-auto w-full max-w-[320px] rounded-xl bg-black/80 p-2 sm:max-w-[360px]">
-                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black">
-                  <div className="absolute inset-0">
-                    <FallbackImage
-                      sources={parentThumbSources}
-                      alt={`Thumbnail for ${parent.parentTitle}`}
-                      fill
-                      sizes="100vw"
-                      className="object-cover"
-                      priority={false}
-                    />
+                {topClipHref ? (
+                  <a
+                    href={topClipHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group block cursor-pointer"
+                    aria-label={`Open top clip for ${parent.parentTitle}`}
+                  >
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-emerald-300/20 bg-black transition-shadow group-hover:border-emerald-300/40 group-hover:shadow-[0_0_0_2px_rgba(16,185,129,0.25)]">
+                      <div className="absolute inset-0">
+                        <FallbackImage
+                          sources={parentThumbSources}
+                          alt={`Thumbnail for ${parent.parentTitle}`}
+                          fill
+                          sizes="100vw"
+                          className="object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                          priority={false}
+                        />
+                      </div>
+                    </div>
+                  </a>
+                ) : (
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black">
+                    <div className="absolute inset-0">
+                      <FallbackImage
+                        sources={parentThumbSources}
+                        alt={`Thumbnail for ${parent.parentTitle}`}
+                        fill
+                        sizes="100vw"
+                        className="object-cover"
+                        priority={false}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
               <div className="space-y-2 text-left">
                 <h3 className="break-words text-lg font-semibold text-zinc-100">

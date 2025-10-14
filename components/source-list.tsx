@@ -293,7 +293,7 @@ export function SourceList({
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
               <div className="flex-none rounded-xl bg-black/80 px-3 py-1 sm:px-4 sm:py-2">
-                <div className="relative aspect-video w-full overflow-visible rounded-lg border border-white/15 bg-black sm:w-[720px] sm:min-w-[720px] sm:max-w-none">
+                <div className="relative aspect-video w-full max-w-[420px] overflow-hidden rounded-lg border border-white/15 bg-black sm:w-[420px] sm:max-w-[420px]">
                   <div className="absolute inset-0">
                     <FallbackImage
                       sources={parentThumbSources}

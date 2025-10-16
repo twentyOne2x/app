@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">icm.fyi circular sync icon</title>
+  <desc id="desc">Two gradient circular arrows forming a loop.</desc>
+  <defs>
+    <linearGradient id="arrowGradient" x1="112" y1="416" x2="400" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7d3efd"/>
+      <stop offset="55%" stop-color="#2f9cf5"/>
+      <stop offset="100%" stop-color="#20e6a4"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#arrowGradient)" stroke-width="64" stroke-linecap="round">
+    <path d="M383.3 128.7A180 180 0 0 1 128.7 383.3" />
+    <path d="M128.7 383.3A180 180 0 0 1 383.3 128.7" />
+  </g>
+  <path d="M425 120c20 7 39 19 56 34l-72 9z" fill="url(#arrowGradient)" />
+  <path d="M87 392c-20-7-39-19-56-34l72-9z" fill="url(#arrowGradient)" />
+</svg>

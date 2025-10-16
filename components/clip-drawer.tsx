@@ -3,8 +3,9 @@
 import { ChangeEvent, useCallback, useEffect, useMemo } from 'react'
 import { useClipGeneration } from '@/lib/hooks/use-clip-generation'
 import { useClipPadding } from '@/lib/hooks/use-clip-padding'
-import { cn } from '@/lib/utils'
+import { cn, sanitizeClipExcerptText } from '@/lib/utils'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
+import { toast } from 'react-hot-toast'
 
 export interface ClipPlayback {
   embedUrl?: string
@@ -71,8 +72,10 @@ function appendGenericTimestamp(base: URL, start?: number): ClipPlayback {
 }
 
 export function buildClipPlayback(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipPlayback {
-  const start = clip.startS ?? hmsToSeconds(clip.startHMS)
-  const end = clip.endS ?? hmsToSeconds(clip.endHMS)
+  const rawStart = clip.startS ?? hmsToSeconds(clip.startHMS)
+  const start = rawStart != null ? Math.max(0, rawStart) : undefined
+  const endRaw = clip.endS ?? hmsToSeconds(clip.endHMS)
+  const end = endRaw != null ? Math.max(0, endRaw) : undefined
 
   const candidateUrl =
     ensureAbsoluteUrl(clip.clipUrl) ??
@@ -204,8 +207,10 @@ export function ClipDrawer({
   const handleGenerate = useCallback(async () => {
     try {
       await generate()
+      toast.success('High-quality clip requested. We will let you know when it is ready.')
     } catch (error) {
-      console.error(error)
+      console.error('clip-drawer: failed to queue HQ clip', error)
+      toast.error('Unable to queue a high-quality clip. Please adjust the timestamps or try another source.')
     }
   }, [generate])
 
@@ -216,8 +221,10 @@ export function ClipDrawer({
   const shouldAutoplay = clipIntent === 'play'
   const isSmart = settings.mode === 'smart'
   const smartPresets = [0, 5, 10, 15]
-  const startSeconds = clip.startS ?? hmsToSeconds(clip.startHMS)
-  const endSeconds = clip.endS ?? hmsToSeconds(clip.endHMS)
+  const startSecondsRaw = clip.startS ?? hmsToSeconds(clip.startHMS)
+  const endSecondsRaw = clip.endS ?? hmsToSeconds(clip.endHMS)
+  const startSeconds = startSecondsRaw != null ? Math.max(0, startSecondsRaw) : undefined
+  const endSeconds = endSecondsRaw != null ? Math.max(0, endSecondsRaw) : undefined
   const hasBoundaries = typeof startSeconds === 'number' && typeof endSeconds === 'number' && endSeconds > startSeconds
   const cannotGenerateReason = !hasBoundaries ? 'Clip timestamps are unavailable — generation disabled' : undefined
   const showHqVideo = isReady && Boolean(streamUrl)
@@ -227,8 +234,8 @@ export function ClipDrawer({
       ? 'Queued…'
       : 'Processing…'
     : isReady
-      ? 'Regenerate HQ'
-      : 'Generate HQ'
+      ? 'Regenerate high-quality clip'
+      : 'Generate high-quality clip'
 
   const embedSrc = (() => {
     if (!data.embedUrl) return undefined
@@ -249,22 +256,24 @@ export function ClipDrawer({
         aria-label="Close clip viewer"
         onClick={onClose}
       />
-      <div className="pointer-events-auto w-full border-t border-white/20 bg-white/15 text-zinc-100 shadow-[0_-24px_48px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-4 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Now playing</p>
-              <h2 className="text-base font-semibold text-zinc-900">{clip.parentTitle || parent.parentTitle}</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                {parent.channel}
-                {parent.date ? ` · ${parent.date}` : ''}
+      <div className="pointer-events-auto w-full border-t border-white/20 bg-zinc-950/90 text-zinc-100 shadow-[0_-24px_48px_rgba(15,23,42,0.4)] backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5 p-4 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300/80">Now playing</p>
+              <h2 className="text-lg font-semibold leading-tight text-white sm:text-xl">
+                {clip.parentTitle || parent.parentTitle}
+              </h2>
+              <p className="text-sm text-zinc-300">
+                <span className="font-medium text-emerald-200">{parent.channel}</span>
+                {parent.date ? <span className="text-zinc-500"> · {parent.date}</span> : null}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-zinc-200 px-3 py-1 text-xs text-zinc-600 hover:bg-zinc-100"
+                className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-medium text-white transition hover:bg-white/15"
               >
                 Close
               </button>
@@ -305,7 +314,7 @@ export function ClipDrawer({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm text-zinc-600">
+            <div className="text-sm text-zinc-300">
               {clip.startHMS ?? (clip.startS != null ? `Starts at ${Math.floor(clip.startS)}s` : 'Start unknown')}
               {clip.endHMS ? ` → ${clip.endHMS}` : clip.endS ? ` → ${Math.floor(clip.endS)}s` : ''}
             </div>
@@ -314,14 +323,15 @@ export function ClipDrawer({
                 href={data.watchUrl ?? clip.url ?? parent.url ?? '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-md border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                className="rounded-md border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white transition hover:bg-white/20"
+                data-testid="open-youtube"
               >
                 Open on YouTube
               </a>
               {downloadUrl ? (
                 <a
                   href={downloadUrl}
-                  className="rounded-md border border-emerald-400/30 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-400/10"
+                  className="rounded-md border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-100 transition hover:bg-emerald-400/30"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -333,15 +343,16 @@ export function ClipDrawer({
                 onClick={handleGenerate}
                 disabled={!hasBoundaries || isGenerating}
                 className={cn(
-                  'rounded-md border px-3 py-1 text-xs font-medium transition',
+                  'rounded-md border px-3 py-1 text-xs font-medium shadow-sm transition',
                   !hasBoundaries
-                    ? 'cursor-not-allowed border-zinc-200 text-zinc-400'
+                    ? 'cursor-not-allowed border-zinc-700 bg-zinc-800 text-zinc-500'
                     : isReady
-                      ? 'border-emerald-400/30 text-emerald-600 hover:bg-emerald-400/10'
-                      : 'border-zinc-200 text-zinc-700 hover:bg-zinc-100',
-                  isGenerating ? 'cursor-progress opacity-80' : ''
+                      ? 'border-emerald-400/50 bg-emerald-500/20 text-emerald-100 hover:bg-emerald-400/30'
+                      : 'border-white/20 bg-emerald-400/20 text-white hover:bg-emerald-400/30',
+                  isGenerating && 'cursor-progress opacity-70'
                 )}
                 title={cannotGenerateReason}
+                data-testid="generate-hq"
               >
                 {buttonLabel}
               </button>
@@ -531,10 +542,14 @@ export function ClipDrawer({
           </div>
 
           {clip.excerpt ? (
-            <blockquote className="rounded-lg border border-zinc-200 bg-white p-3 text-sm text-zinc-700">
-              {clip.excerpt}
+            <blockquote className="rounded-lg border border-zinc-200 bg-white/90 p-3 text-sm text-zinc-700 shadow-inner" data-testid="clip-excerpt">
+              {sanitizeClipExcerptText(clip.excerpt)}
             </blockquote>
-          ) : null}
+          ) : (
+            <blockquote className="rounded-lg border border-dashed border-zinc-300 bg-white/40 p-3 text-sm italic text-zinc-500" data-testid="clip-excerpt-empty">
+              No excerpt provided for this clip.
+            </blockquote>
+          )}
         </div>
       </div>
     </div>

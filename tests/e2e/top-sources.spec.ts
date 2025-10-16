@@ -23,6 +23,8 @@ test.describe('Top Sources interactions', () => {
     test.skip(count === 0, 'No Top Sources rendered')
 
     const firstCard = cards.first()
+    const channelLink = firstCard.getByTestId('channel-link')
+    await expect(channelLink).toHaveAttribute('href', /https:\/\/www\.youtube\.com\//)
     const thumbnailLink = firstCard.locator('a').first()
 
     const [newPage] = await Promise.all([
@@ -56,6 +58,13 @@ test.describe('Top Sources interactions', () => {
 
     const nowPlaying = page.getByText('Now playing')
     await expect(nowPlaying).toBeVisible({ timeout: 15_000 })
+    const generateButton = page.getByTestId('generate-hq')
+    await expect(generateButton).toHaveText(/Generate high-quality clip/i)
+    const clipExcerpt = page.locator('[data-testid="clip-excerpt"]')
+    if (await clipExcerpt.count()) {
+      await expect(clipExcerpt.first()).not.toContainText('[')
+    }
+    await generateButton.click()
     await page.keyboard.press('Escape')
     await expect(nowPlaying).toBeHidden({ timeout: 5_000 })
 

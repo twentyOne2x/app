@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button';
 import styles from './QuestionsOverlay.module.css';
-import { IconRecycle } from '@/components/ui/icons'
 import { useEntryProfile } from '@/components/entry-profile-context'
 import { getDefaultQuestions } from '@/lib/entry-profiles'
 
@@ -104,11 +103,12 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
 
   return (
     <div className={containerClass}>
-      <div className="flex w-full items-center justify-end px-2">
+      <div className="flex w-full items-center justify-center px-2">
         <Button
           variant="ghost"
           className="size-10 rounded-full border border-white/15 text-xs text-zinc-200 hover:bg-white/10"
           onClick={() => setSelectedQuestions(selectRandomQuestions())}
+          aria-label="Reload suggested questions"
         >
           ↻
         </Button>

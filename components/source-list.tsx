@@ -57,6 +57,52 @@ const YOUTUBE_THUMB_HOSTS: Array<(id: string, variant: string) => string> = [
   (id, variant) => `https://img.youtube.com/vi/${id}/${variant}`
 ]
 
+const normalizeChannelHref = (candidate?: string | null | undefined): string | undefined => {
+  if (!candidate) return undefined
+  const trimmed = candidate.trim()
+  if (!trimmed) return undefined
+  if (trimmed.startsWith('http')) return trimmed
+  return undefined
+}
+
+const deriveChannelHref = (
+  parent: ParsedMetadataEntryV2,
+  clip: ClipItemV2 | null,
+  label?: string | null
+): string | undefined => {
+  const candidates: Array<string | null | undefined> = [
+    (parent as any).channelUrl,
+    (parent as any).channel_url,
+    clip ? (clip as any).channelUrl : undefined,
+    clip ? (clip as any).channel_url : undefined
+  ]
+
+  const channelId =
+    parent.channelId ??
+    (parent as any).channel_id ??
+    clip?.channelId ??
+    (clip as any)?.channel_id ??
+    undefined
+
+  if (channelId) {
+    candidates.push(`https://www.youtube.com/channel/${channelId}`)
+  }
+
+  if (label) {
+    const trimmed = label.trim()
+    if (trimmed.startsWith('@')) {
+      candidates.push(`https://www.youtube.com/${trimmed}`)
+    }
+  }
+
+  for (const candidate of candidates) {
+    const href = normalizeChannelHref(candidate)
+    if (href) return href
+  }
+
+  return undefined
+}
+
 function buildThumbnailCandidates(options: {
   direct?: string | null
   videoId?: string | null
@@ -372,7 +418,22 @@ export function SourceList({
                 </h3>
                 <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-300">
                   {channelLabel ? (
-                    <span className="font-medium text-zinc-200">{channelLabel}</span>
+                    (() => {
+                      const href = deriveChannelHref(parent, firstClip, channelLabel)
+                      return href ? (
+                        <a
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-emerald-200 hover:underline"
+                          data-testid="channel-link"
+                        >
+                          {channelLabel}
+                        </a>
+                      ) : (
+                        <span className="font-medium text-zinc-200">{channelLabel}</span>
+                      )
+                    })()
                   ) : null}
                   {displayDate ? <span className="text-zinc-400">{displayDate}</span> : null}
                   {parentScoreText ? (

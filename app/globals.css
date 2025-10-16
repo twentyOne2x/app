@@ -55,7 +55,7 @@
 
 @layer components {
   .quote-chip {
-    @apply font-medium italic text-foreground/90;
+    @apply font-medium text-foreground/90;
     background-color: rgba(255, 255, 255, 0.08);
     padding: 0.1rem 0.45rem;
     white-space: normal;

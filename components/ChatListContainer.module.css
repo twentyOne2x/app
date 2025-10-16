@@ -54,7 +54,8 @@
   right: 30px;
   padding-top: 30px; /* Aligns the top padding with the middle panel (has top-padding: 30px) */
   padding-bottom: 40px;
-  z-index: 40;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 .rightPanelNoPaddingTop {
@@ -75,6 +76,7 @@
   position: relative; /* Needed for absolute positioning within */
   box-sizing: border-box;
   align-items: stretch; /* Ensure children stretch to fill the panel width */
+  z-index: 1;
 }
 
 .middlePanelNoPaddingTop {

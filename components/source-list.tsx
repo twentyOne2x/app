@@ -253,6 +253,13 @@ export function SourceList({
       intent: 'play' | 'edit' = 'play'
     ) => {
       if (!onSelectClip) return
+      console.debug('source-list: clip select requested', {
+        intent,
+        parentTitle: parent.parentTitle,
+        clipTitle: clip.parentTitle,
+        clipId: clip.segmentId ?? clip.videoId ?? clip.parentId,
+        parentId: parent.parentId ?? parent.id ?? parent.videoId
+      })
       const playback = buildClipPlayback(parent, clip)
       onSelectClip({ parent, clip, playback }, intent)
     },
@@ -261,6 +268,15 @@ export function SourceList({
 
   const handleCheckboxToggle = useCallback(
     (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
+      const wasSelected = selectionHandle.isSelected(parent, clip)
+      console.debug('source-list: bundle toggle', {
+        parentTitle: parent.parentTitle,
+        clipTitle: clip.parentTitle,
+        clipId: clip.segmentId ?? clip.videoId ?? clip.parentId,
+        parentId: parent.parentId ?? parent.id ?? parent.videoId,
+        wasSelected,
+        nextState: wasSelected ? 'removed' : 'added'
+      })
       selectionHandle.toggleClip(parent, clip)
     },
     [selectionHandle]
@@ -269,7 +285,10 @@ export function SourceList({
   if (!parents.length) return null
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div
+      className={cn('space-y-4', className)}
+      data-testid="top-sources-list"
+    >
       {parents.map((parent, idx) => {
         const key = `${parent.parentTitle ?? 'parent'}__${parent.channel ?? 'channel'}__${idx}`
         const clipCount = parent.clips?.length ?? 0
@@ -299,6 +318,7 @@ export function SourceList({
           <div
             key={key}
             className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition hover:border-emerald-300/40 hover:bg-white/[0.12] hover:shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+            data-testid="source-card"
           >
             <div className="space-y-4">
               <div className="mx-auto w-full max-w-[320px] rounded-xl bg-black/80 p-2 sm:max-w-[360px]">
@@ -309,6 +329,14 @@ export function SourceList({
                     rel="noopener noreferrer"
                     className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                     aria-label={`Open top clip for ${parent.parentTitle}`}
+                    onClick={() => {
+                      console.debug('source-list: thumbnail click', {
+                        parentTitle: parent.parentTitle,
+                        clipTitle: firstClip?.parentTitle,
+                        clipId: firstClip?.segmentId ?? firstClip?.videoId ?? parent.videoId,
+                        href: topClipHref
+                      })
+                    }}
                   >
                     <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black transition-all duration-200 group-hover:border-white/40 group-hover:shadow-[0_0_0_2px_rgba(255,255,255,0.12)]">
                       <div className="absolute inset-0">

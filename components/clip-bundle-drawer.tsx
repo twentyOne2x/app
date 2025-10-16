@@ -60,7 +60,12 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
       )}
       aria-hidden={!isOpen}
     >
-      <div className="pointer-events-auto size-full max-w-xl border-l border-white/10 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-out md:w-[480px] md:translate-x-0">
+      <div
+        className={cn(
+          'size-full max-w-xl border-l border-white/10 bg-zinc-950 shadow-2xl transition-transform duration-300 ease-out md:w-[480px]',
+          isOpen ? 'pointer-events-auto translate-x-0' : 'pointer-events-none translate-x-full'
+        )}
+      >
         <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
           <div>
             <div className="flex items-center gap-2">

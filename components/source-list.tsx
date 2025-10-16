@@ -307,10 +307,10 @@ export function SourceList({
                     href={topClipHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group block cursor-pointer"
+                    className="group block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                     aria-label={`Open top clip for ${parent.parentTitle}`}
                   >
-                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-emerald-300/20 bg-black transition-shadow group-hover:border-emerald-300/40 group-hover:shadow-[0_0_0_2px_rgba(16,185,129,0.25)]">
+                    <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-white/15 bg-black transition-all duration-200 group-hover:border-white/40 group-hover:shadow-[0_0_0_2px_rgba(255,255,255,0.12)]">
                       <div className="absolute inset-0">
                         <FallbackImage
                           sources={parentThumbSources}

@@ -54,6 +54,7 @@
   right: 30px;
   padding-top: 30px; /* Aligns the top padding with the middle panel (has top-padding: 30px) */
   padding-bottom: 40px;
+  z-index: 40;
 }
 
 .rightPanelNoPaddingTop {
@@ -297,7 +298,8 @@
   word-wrap: break-word; /* Allows long words to be broken and wrapped to the next line */
   white-space: normal; /* Normal text wrapping */
   transition: transform 0.3s; /* Smooth transition for sliding in/out */
-  z-index: 10; /* Ensure it's above other content */
+  z-index: 1; /* Stay within the right panel stacking context */
+  pointer-events: auto;
   padding-right: 10%;
   padding-left: 5%;
   padding-bottom: 7rem;

@@ -6,7 +6,8 @@
 - [x] ~~Rename “Generate HQ” to “Generate high-quality clip” and surface friendly toast feedback (success & failure).~~
 - [x] ~~Clamp negative clip timestamps before queueing HQ clips to avoid backend validation errors.~~
 - [x] ~~Sanitize clip excerpts in the drawer (remove `[X | …]` prefixes) and show a neutral placeholder when missing.~~
-- [x] ~~Make the Source List channel label clickable (links to Twitter handles when prefixed with `@`).~~
+- [x] ~~Make the Source List channel label clickable (links to the YouTube channel when available).~~
 - [x] ~~Update Playwright e2e coverage to exercise the new UX: channel link, generate button label, sanitized excerpt, and bundle flow.~~
+- [x] ~~Add “Copy clip timestamps” helper in the bundle drawer.~~
 
 Latest verification: `pnpm test:e2e`

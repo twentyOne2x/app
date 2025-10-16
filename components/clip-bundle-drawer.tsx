@@ -1,8 +1,10 @@
 'use client'
 
-import React from 'react'
+import React, { useCallback } from 'react'
 import { ClipBundleState, ClipBundleStatus } from '@/lib/hooks/use-clip-bundle'
-import { cn } from '@/lib/utils'
+import { cn, resolveClipStartSeconds, formatSecondsToHms } from '@/lib/utils'
+import { toast } from 'react-hot-toast'
+import { buildClipPlayback } from '@/components/clip-drawer'
 
 interface ClipBundleDrawerProps {
   isOpen: boolean
@@ -44,6 +46,32 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
   const isBundleReady = state.status === 'ready' && Boolean(state.bundleDownloadUrl)
   const bundleStatusLabel =
     state.bundleStatus === 'idle' && state.status !== 'idle' ? state.status : state.bundleStatus
+  const buildTimestampList = useCallback(() => {
+    if (!state.items.length) return ''
+    const lines = state.items.map((item) => {
+      const playback = buildClipPlayback(item.selection.parent, item.selection.clip)
+      const href = playback.watchUrl ?? item.selection.clip.url ?? item.selection.parent.url ?? ''
+      const startSeconds = resolveClipStartSeconds(item.selection.clip)
+      const label = startSeconds != null ? formatSecondsToHms(startSeconds) : 'unknown'
+      const title = item.selection.parent.parentTitle ?? item.selection.clip.parentTitle ?? 'Clip'
+      return `${title} — ${label} — ${href}`.trim()
+    })
+    return lines.filter(Boolean).join('\n')
+  }, [state.items])
+  const handleCopyTimestamps = useCallback(async () => {
+    const payload = buildTimestampList()
+    if (!payload) {
+      toast('No clip timestamps available yet.')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(payload)
+      toast.success('Copied clip timestamps to clipboard.')
+    } catch (error) {
+      console.error('clip-bundle: copy timestamps failed', error)
+      toast.error('Unable to copy timestamps. Please try again.')
+    }
+  }, [buildTimestampList])
 
   const handleDownload = () => {
     if (!state.bundleDownloadUrl) return
@@ -196,6 +224,13 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
                 )}
               >
                 Download ZIP
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyTimestamps}
+                className="rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-zinc-200 hover:bg-white/10"
+              >
+                Copy clip timestamps
               </button>
               <button
                 type="button"

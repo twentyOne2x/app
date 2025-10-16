@@ -9,6 +9,7 @@ import type {
   ClipGenerationStore
 } from '@/lib/types'
 import { buildClipPreferenceKey } from './use-clip-padding'
+import { resolveClipEndSeconds, resolveClipStartSeconds } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import type { ClipPaddingSettings } from './use-clip-padding'
 
@@ -27,16 +28,6 @@ function normalizeRecord(input?: ClipGenerationRecord): ClipGenerationRecord | u
     ...input,
     status
   }
-}
-
-function resolveSeconds(hms?: string, fallback?: number): number | undefined {
-  if (typeof fallback === 'number' && Number.isFinite(fallback)) {
-    return fallback
-  }
-  if (!hms) return undefined
-  const parts = hms.split(':').map((segment) => parseInt(segment, 10))
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return undefined
-  return parts[0] * 3600 + parts[1] * 60 + parts[2]
 }
 
 function buildGenerationKey(
@@ -142,8 +133,8 @@ export function useClipGeneration(
         return
       }
 
-      const start = resolveSeconds(clip.startHMS, clip.startS)
-      const end = resolveSeconds(clip.endHMS, clip.endS)
+      const start = resolveClipStartSeconds(clip)
+      const end = resolveClipEndSeconds(clip)
       if (typeof start !== 'number' || typeof end !== 'number' || end <= start) {
         throw new Error('Clip boundaries are unavailable. Unable to queue HQ clip.')
       }

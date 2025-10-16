@@ -3,7 +3,13 @@
 import { ChangeEvent, useCallback, useEffect, useMemo } from 'react'
 import { useClipGeneration } from '@/lib/hooks/use-clip-generation'
 import { useClipPadding } from '@/lib/hooks/use-clip-padding'
-import { cn, sanitizeClipExcerptText } from '@/lib/utils'
+import {
+  cn,
+  sanitizeClipExcerptText,
+  resolveClipStartSeconds,
+  resolveClipEndSeconds,
+  formatSecondsToHms
+} from '@/lib/utils'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 
@@ -13,13 +19,6 @@ export interface ClipPlayback {
   startSeconds?: number
   endSeconds?: number
   platform?: 'youtube' | 'generic'
-}
-
-function hmsToSeconds(hms?: string): number | undefined {
-  if (!hms) return undefined
-  const parts = hms.split(':').map((p) => parseInt(p, 10))
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return undefined
-  return parts[0] * 3600 + parts[1] * 60 + parts[2]
 }
 
 function ensureAbsoluteUrl(candidate?: string): string | undefined {
@@ -72,10 +71,8 @@ function appendGenericTimestamp(base: URL, start?: number): ClipPlayback {
 }
 
 export function buildClipPlayback(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipPlayback {
-  const rawStart = clip.startS ?? hmsToSeconds(clip.startHMS)
-  const start = rawStart != null ? Math.max(0, rawStart) : undefined
-  const endRaw = clip.endS ?? hmsToSeconds(clip.endHMS)
-  const end = endRaw != null ? Math.max(0, endRaw) : undefined
+  const start = resolveClipStartSeconds(clip)
+  const end = resolveClipEndSeconds(clip)
 
   const candidateUrl =
     ensureAbsoluteUrl(clip.clipUrl) ??
@@ -221,10 +218,8 @@ export function ClipDrawer({
   const shouldAutoplay = clipIntent === 'play'
   const isSmart = settings.mode === 'smart'
   const smartPresets = [0, 5, 10, 15]
-  const startSecondsRaw = clip.startS ?? hmsToSeconds(clip.startHMS)
-  const endSecondsRaw = clip.endS ?? hmsToSeconds(clip.endHMS)
-  const startSeconds = startSecondsRaw != null ? Math.max(0, startSecondsRaw) : undefined
-  const endSeconds = endSecondsRaw != null ? Math.max(0, endSecondsRaw) : undefined
+  const startSeconds = resolveClipStartSeconds(clip)
+  const endSeconds = resolveClipEndSeconds(clip)
   const hasBoundaries = typeof startSeconds === 'number' && typeof endSeconds === 'number' && endSeconds > startSeconds
   const cannotGenerateReason = !hasBoundaries ? 'Clip timestamps are unavailable — generation disabled' : undefined
   const showHqVideo = isReady && Boolean(streamUrl)
@@ -315,8 +310,10 @@ export function ClipDrawer({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-zinc-300">
-              {clip.startHMS ?? (clip.startS != null ? `Starts at ${Math.floor(clip.startS)}s` : 'Start unknown')}
-              {clip.endHMS ? ` → ${clip.endHMS}` : clip.endS ? ` → ${Math.floor(clip.endS)}s` : ''}
+              {startSeconds != null
+                ? formatSecondsToHms(startSeconds)
+                : 'Start unknown'}
+              {endSeconds != null ? ` → ${formatSecondsToHms(endSeconds)}` : ''}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <a

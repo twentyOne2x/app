@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast'
 import type { ClipSelectionEntry, ClipSelectionHandle } from './use-clip-selection'
+import { resolveClipStartSeconds, resolveClipEndSeconds } from '@/lib/utils'
 
 export type ClipBundleStatus = 'idle' | 'queued' | 'processing' | 'ready' | 'error'
 export interface ClipBundleItem {
@@ -77,11 +78,26 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       return
     }
 
-    const clipsPayload = selection.selectedEntries.map((entry) => ({
+    const sanitizedEntries = selection.selectedEntries.map((entry) => {
+      const start = resolveClipStartSeconds(entry.clip)
+      const end = resolveClipEndSeconds(entry.clip)
+      return { entry, start, end }
+    })
+
+    const invalid = sanitizedEntries.filter(
+      ({ start, end }) => typeof start !== 'number' || typeof end !== 'number' || end <= start
+    )
+
+    if (invalid.length) {
+      toast.error('One or more clips are missing valid timestamps. Please adjust them before bundling.')
+      return
+    }
+
+    const clipsPayload = sanitizedEntries.map(({ entry, start, end }) => ({
       key: entry.key,
       sourceUrl: entry.clip.url ?? entry.parent.url ?? undefined,
-      start: entry.clip.startS ?? undefined,
-      end: entry.clip.endS ?? undefined,
+      start,
+      end,
       startHMS: entry.clip.startHMS ?? undefined,
       endHMS: entry.clip.endHMS ?? undefined,
       contextMode: 'seconds',

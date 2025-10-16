@@ -227,6 +227,73 @@ export function sanitizeClipExcerptText(
   return withoutSpeaker.trim()
 }
 
+export function parseFlexibleHms(value?: string | null): number | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed || trimmed.includes('-1:-1:-1')) return undefined
+  const segments = trimmed.split(':')
+  if (segments.length !== 3) return undefined
+  const [rawH, rawM, rawS] = segments
+  const hours = Number(rawH)
+  const minutes = Number(rawM)
+  const seconds = Number(rawS)
+  if ([hours, minutes, seconds].some((n) => Number.isNaN(n) || !Number.isFinite(n) || n < 0)) {
+    return undefined
+  }
+  const total = hours * 3600 + minutes * 60 + seconds
+  return Number.isFinite(total) && total >= 0 ? total : undefined
+}
+
+export function formatSecondsToHms(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds))
+  const hours = String(Math.floor(safe / 3600)).padStart(2, '0')
+  const minutes = String(Math.floor((safe % 3600) / 60)).padStart(2, '0')
+  const secs = String(safe % 60).padStart(2, '0')
+  return `${hours}:${minutes}:${secs}`
+}
+
+const clipStartCandidates = (clip: ClipItemV2): Array<number | undefined> => {
+  const raw = clip.startS ?? (clip as any).start_seconds ?? (clip as any).start_s
+  const startFromHms =
+    parseFlexibleHms(clip.startHMS ?? (clip as any).start_hms ?? undefined) ??
+    parseFlexibleHms((clip as any).start) ??
+    undefined
+  return [
+    typeof raw === 'number' ? raw : undefined,
+    startFromHms
+  ]
+}
+
+const clipEndCandidates = (clip: ClipItemV2): Array<number | undefined> => {
+  const raw = clip.endS ?? (clip as any).end_seconds ?? (clip as any).end_s
+  const endFromHms =
+    parseFlexibleHms(clip.endHMS ?? (clip as any).end_hms ?? undefined) ??
+    parseFlexibleHms((clip as any).end) ??
+    undefined
+  return [
+    typeof raw === 'number' ? raw : undefined,
+    endFromHms
+  ]
+}
+
+export function resolveClipStartSeconds(clip: ClipItemV2): number | undefined {
+  for (const candidate of clipStartCandidates(clip)) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
+export function resolveClipEndSeconds(clip: ClipItemV2): number | undefined {
+  for (const candidate of clipEndCandidates(clip)) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0) {
+      return candidate
+    }
+  }
+  return undefined
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7

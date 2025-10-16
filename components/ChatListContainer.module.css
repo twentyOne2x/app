@@ -128,6 +128,7 @@
   max-width: 800px;
   padding: 1rem 40px 1.25rem;
   box-sizing: border-box;
+  pointer-events: auto;
 }
 
 .chatPanel {
@@ -139,6 +140,7 @@
   box-sizing: border-box;
   z-index: 10;
   padding: 0;
+  pointer-events: none;
 }
 
 

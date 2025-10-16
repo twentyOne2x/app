@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react'
 import { ClipBundleState, ClipBundleStatus } from '@/lib/hooks/use-clip-bundle'
-import { cn, resolveClipStartSeconds, formatSecondsToHms } from '@/lib/utils'
+import { cn, formatSecondsToHms, computeClipTiming } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
 
 interface ClipBundleDrawerProps {
@@ -50,23 +50,22 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
     const lines = state.items.map((item) => {
       const clip = item.selection.clip
       const parent = item.selection.parent
+      const { start, end } = computeClipTiming(clip as any)
       const baseHref =
         clip.clipUrl ??
         clip.url ??
         parent.url ??
         (clip.videoId ? `https://www.youtube.com/watch?v=${clip.videoId}` : '')
       let href = baseHref
-      const startSeconds = resolveClipStartSeconds(clip as any)
-      const label =
-        startSeconds != null ? formatSecondsToHms(startSeconds) : 'unknown start'
-      if (href && startSeconds != null) {
+      const label = formatSecondsToHms(start)
+      if (href) {
         try {
           const url = new URL(href)
-          url.searchParams.set('t', `${startSeconds}s`)
+          url.searchParams.set('t', `${Math.floor(start)}s`)
           href = url.toString()
         } catch {
           const sep = href.includes('?') ? '&' : '?'
-          href = `${href}${sep}t=${startSeconds}s`
+          href = `${href}${sep}t=${Math.floor(start)}s`
         }
       }
       const title = parent.parentTitle ?? clip.parentTitle ?? 'Clip'

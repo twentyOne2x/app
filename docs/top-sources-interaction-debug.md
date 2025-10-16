@@ -80,6 +80,7 @@ It also captures how to inspect stacking contexts and which logs are already wir
 | Selection handle not wired | If `selection` prop is missing, toggles no-op. | Check `selectionHandle` is defined; logs now include `wasSelected`. If logs never fire, issue is higher in the tree. |
 | Cursor style overridden | If a parent applies `cursor: default` or the button/anchor lacks `cursor: pointer`, users get no hover cue and some browsers suppress navigation on `default` cursor elements inside `<div role="button">`. | Inspect computed styles for the anchor and buttons; add explicit `cursor-pointer` class or CSS rule if missing. |
 | Bundle drawer intercepts | The clip bundle drawer previously left `pointer-events` enabled while hidden, blocking clicks (detected by Playwright). | Updated `components/clip-bundle-drawer.tsx` to disable pointer events and translate off screen when closed. |
+| Missing clip timestamps | Some clips arrive without `startS`/`startHMS` values, disabling HQ actions. | Default start to 30s and end to start + 30s (`computeClipTiming`), while surfacing a UI note so users know timestamps were inferred. |
 
 ## 5. Remaining Debug To-Dos
 

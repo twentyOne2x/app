@@ -6,9 +6,8 @@ import { useClipPadding } from '@/lib/hooks/use-clip-padding'
 import {
   cn,
   sanitizeClipExcerptText,
-  resolveClipStartSeconds,
-  resolveClipEndSeconds,
-  formatSecondsToHms
+  formatSecondsToHms,
+  computeClipTiming
 } from '@/lib/utils'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
@@ -71,8 +70,7 @@ function appendGenericTimestamp(base: URL, start?: number): ClipPlayback {
 }
 
 export function buildClipPlayback(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipPlayback {
-  const start = resolveClipStartSeconds(clip)
-  const end = resolveClipEndSeconds(clip)
+  const { start, end } = computeClipTiming(clip)
 
   const candidateUrl =
     ensureAbsoluteUrl(clip.clipUrl) ??
@@ -218,10 +216,11 @@ export function ClipDrawer({
   const shouldAutoplay = clipIntent === 'play'
   const isSmart = settings.mode === 'smart'
   const smartPresets = [0, 5, 10, 15]
-  const startSeconds = resolveClipStartSeconds(clip)
-  const endSeconds = resolveClipEndSeconds(clip)
+  const { start: startSeconds, end: endSeconds, derived: derivedTiming } = computeClipTiming(clip)
   const hasBoundaries = typeof startSeconds === 'number' && typeof endSeconds === 'number' && endSeconds > startSeconds
-  const cannotGenerateReason = !hasBoundaries ? 'Clip timestamps are unavailable — generation disabled' : undefined
+  const cannotGenerateReason = derivedTiming
+    ? 'Original metadata lacked timestamps. Using 30s defaults.'
+    : undefined
   const showHqVideo = isReady && Boolean(streamUrl)
   const showYouTubeEmbed = !showHqVideo && Boolean(data.embedUrl)
   const buttonLabel = isGenerating
@@ -310,10 +309,10 @@ export function ClipDrawer({
 
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm text-zinc-300">
-              {startSeconds != null
-                ? formatSecondsToHms(startSeconds)
-                : 'Start unknown'}
-              {endSeconds != null ? ` → ${formatSecondsToHms(endSeconds)}` : ''}
+              {formatSecondsToHms(startSeconds)} → {formatSecondsToHms(endSeconds)}
+              {derivedTiming ? (
+                <span className="ml-2 text-xs text-amber-300">(timestamps missing, using defaults)</span>
+              ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <a

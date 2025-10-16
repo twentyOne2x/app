@@ -294,6 +294,35 @@ export function resolveClipEndSeconds(clip: ClipItemV2): number | undefined {
   return undefined
 }
 
+export interface ResolvedClipTiming {
+  start: number
+  end: number
+  derived: boolean
+}
+
+export function computeClipTiming(clip: ClipItemV2, options?: { fallbackStart?: number; fallbackDuration?: number }): ResolvedClipTiming {
+  const fallbackStart = Math.max(0, options?.fallbackStart ?? 30)
+  const fallbackDuration = Math.max(5, options?.fallbackDuration ?? 30)
+
+  const resolvedStart = resolveClipStartSeconds(clip)
+  const resolvedEnd = resolveClipEndSeconds(clip)
+
+  let start = resolvedStart != null ? resolvedStart : fallbackStart
+  let end = resolvedEnd != null ? resolvedEnd : start + fallbackDuration
+  let derived = resolvedStart == null || resolvedEnd == null
+
+  if (end <= start) {
+    end = start + fallbackDuration
+    derived = true
+  }
+
+  return {
+    start,
+    end,
+    derived
+  }
+}
+
 export const nanoid = customAlphabet(
   '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
   7

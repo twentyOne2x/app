@@ -9,7 +9,7 @@ import type {
   ClipGenerationStore
 } from '@/lib/types'
 import { buildClipPreferenceKey } from './use-clip-padding'
-import { resolveClipEndSeconds, resolveClipStartSeconds } from '@/lib/utils'
+import { computeClipTiming } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import type { ClipPaddingSettings } from './use-clip-padding'
 
@@ -133,11 +133,7 @@ export function useClipGeneration(
         return
       }
 
-      const start = resolveClipStartSeconds(clip)
-      const end = resolveClipEndSeconds(clip)
-      if (typeof start !== 'number' || typeof end !== 'number' || end <= start) {
-        throw new Error('Clip boundaries are unavailable. Unable to queue HQ clip.')
-      }
+      const { start, end, derived } = computeClipTiming(clip)
 
       const payload: ClipGenerationRequestPayload = {
         sourceUrl: clip.url ?? parent.url,

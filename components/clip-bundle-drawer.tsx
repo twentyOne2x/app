@@ -4,7 +4,6 @@ import React, { useCallback } from 'react'
 import { ClipBundleState, ClipBundleStatus } from '@/lib/hooks/use-clip-bundle'
 import { cn, resolveClipStartSeconds, formatSecondsToHms } from '@/lib/utils'
 import { toast } from 'react-hot-toast'
-import { buildClipPlayback } from '@/components/clip-drawer'
 
 interface ClipBundleDrawerProps {
   isOpen: boolean
@@ -49,11 +48,28 @@ export function ClipBundleDrawer({ isOpen, onClose, state, onRetryClip }: ClipBu
   const buildTimestampList = useCallback(() => {
     if (!state.items.length) return ''
     const lines = state.items.map((item) => {
-      const playback = buildClipPlayback(item.selection.parent, item.selection.clip)
-      const href = playback.watchUrl ?? item.selection.clip.url ?? item.selection.parent.url ?? ''
-      const startSeconds = resolveClipStartSeconds(item.selection.clip)
-      const label = startSeconds != null ? formatSecondsToHms(startSeconds) : 'unknown'
-      const title = item.selection.parent.parentTitle ?? item.selection.clip.parentTitle ?? 'Clip'
+      const clip = item.selection.clip
+      const parent = item.selection.parent
+      const baseHref =
+        clip.clipUrl ??
+        clip.url ??
+        parent.url ??
+        (clip.videoId ? `https://www.youtube.com/watch?v=${clip.videoId}` : '')
+      let href = baseHref
+      const startSeconds = resolveClipStartSeconds(clip as any)
+      const label =
+        startSeconds != null ? formatSecondsToHms(startSeconds) : 'unknown start'
+      if (href && startSeconds != null) {
+        try {
+          const url = new URL(href)
+          url.searchParams.set('t', `${startSeconds}s`)
+          href = url.toString()
+        } catch {
+          const sep = href.includes('?') ? '&' : '?'
+          href = `${href}${sep}t=${startSeconds}s`
+        }
+      }
+      const title = parent.parentTitle ?? clip.parentTitle ?? 'Clip'
       return `${title} — ${label} — ${href}`.trim()
     })
     return lines.filter(Boolean).join('\n')

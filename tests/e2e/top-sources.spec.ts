@@ -53,7 +53,7 @@ test.describe('Top Sources interactions', () => {
       )
       .toBeTruthy()
 
-    const editButton = firstCard.getByRole('button', { name: 'Edit clip' })
+    const editButton = firstCard.getByRole('button', { name: 'Edit clip' }).first()
     await editButton.click()
 
     await expect
@@ -81,10 +81,14 @@ test.describe('Top Sources interactions', () => {
     await page.keyboard.press('Escape')
     await expect(nowPlaying).toBeHidden({ timeout: 5_000 })
 
-    const bundleButton = firstCard.getByRole('button', { name: /Add(ed)? to bundle/i })
+    const bundleButton = firstCard
+      .getByRole('button', { name: /Add(ed)? to bundle/i })
+      .first()
     await bundleButton.click()
 
-    await expect(firstCard.getByRole('button', { name: 'Added to bundle' })).toBeVisible({
+    await expect(
+      firstCard.getByRole('button', { name: 'Added to bundle' }).first()
+    ).toBeVisible({
       timeout: 5_000
     })
 

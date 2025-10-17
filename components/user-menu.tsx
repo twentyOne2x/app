@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { IconSpinner } from '@/components/ui/icons'
 import { e2eSignOut } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 
 export interface UserMenuProps {
   user: Session['user']
@@ -31,6 +32,7 @@ function getUserInitials(name?: string | null) {
 }
 
 export function UserMenu({ user }: UserMenuProps) {
+  const router = useRouter()
   const walletAddress = (user as any)?.walletAddress as string | undefined
   const displayName =
     user?.name ??
@@ -64,12 +66,18 @@ export function UserMenu({ user }: UserMenuProps) {
   const handleSignOut = React.useCallback(() => {
     if (IS_E2E) {
       startSignOut(async () => {
-        await e2eSignOut()
+        try {
+          await e2eSignOut()
+        } catch (error) {
+          console.error('user-menu: e2e sign-out failed', error)
+        } finally {
+          router.replace('/sign-in')
+        }
       })
       return
     }
     void signOut({ callbackUrl: '/sign-in' })
-  }, [startSignOut])
+  }, [router, startSignOut])
 
   return (
     <div className="flex items-center justify-between">

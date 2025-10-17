@@ -47,21 +47,25 @@
   *Success:* `structured_metadata` excludes filtered channels, UI badges reflect new selection.
 
 ### Clip exploration & editing
-- [ ] **Open clip drawer + queue HQ**  
+- [x] **Open clip drawer + queue HQ**  
   *Test:* Click `Edit clip`, inspect timing display, press `Generate high-quality clip`.  
   *Success:* Toast success message, console log from `computeClipTiming` absent (meaning no fallback).  
-- [ ] **Missing timestamps fallback**  
+- [x] **Missing timestamps fallback**  
   *Test:* Inject clip with only end time, open drawer.  
   *Success:* Banner `(timestamps missing, using defaults)` appears, button enabled, HQ request accepted.  
-- [ ] **Copy timestamps to clipboard**  
+- [x] **Copy timestamps to clipboard**  
   *Test:* Bundle two clips, click `Copy clip timestamps`.  
   *Success:* `navigator.clipboard.readText()` contains newline list with `→` label + timestamped URLs.  
-- [ ] **Bundle ZIP flow**  
+- [x] **Bundle ZIP flow**  
   *Test:* Mock `/api/clips/batch` to resolve `ready`, ensure `Download ZIP` link works (stub network).  
   *Success:* Button transitions to enabled state, link contains HTTPS URL.  
 - [ ] **Batch error path**  
   *Test:* Return 501 from batch endpoint.  
   *Success:* UI surfaces “not yet available” message, log entry recorded.
+
+#### Priority focus — clip reliability
+- Local stub service now exercises HQ request + bundle + clipboard flows (see `tests/e2e/clip-flows.spec.ts`). When the production batch API ships, mirror its contract so these tests continue to pass.
+- Instrument additional logging during these tests so we can capture residual timestamp fallbacks or batch failures in Vercel.
 
 ### Sharing & persistence
 - [ ] **Create share link**  
@@ -75,16 +79,16 @@
   *Success:* Avatar dropdown appears, chat history tied to user ID.
 
 ### Session, navigation & account surface
-- [ ] **Sidebar conversation list**  
+- [x] **Sidebar conversation list**  
   *Test:* Signed-in load should show ≥1 conversation with preview.  
   *Success:* Items link to `/chat/[id]`, active item highlighted.  
-- [ ] **Header dropdown actions**  
+- [x] **Header dropdown actions**  
   *Test:* Click avatar, exercise copy/settings/sign-out.  
   *Success:* Clipboard receives profile URL, settings placeholder modal toggles, sign-out returns to anonymous state.  
-- [ ] **Empty state onboarding**  
+- [x] **Empty state onboarding**  
   *Test:* User with zero chats sees onboarding card, clicking “Fetch sample conversations” populates list.  
   *Success:* Toast confirmation + new list items.  
-- [ ] **Playwright session flow**  
+- [x] **Playwright session flow**  
   *Test:* Automate sign-in → open second conversation → sign-out.  
   *Success:* Each step validated via UI assertions and console logs.
 

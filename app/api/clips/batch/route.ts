@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createLocalBatch } from './local-service'
 
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
@@ -9,19 +10,25 @@ function serviceUrl(path: string) {
 }
 
 export async function POST(request: Request) {
-  const url = serviceUrl('/clips/batch')
-  if (!url) {
-    return NextResponse.json(
-      { error: 'not_implemented', message: 'Clip service URL not configured.' },
-      { status: 501 }
-    )
-  }
-
   let body: unknown
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 })
+  }
+
+  const url = serviceUrl('/clips/batch')
+  if (!url) {
+    try {
+      const response = createLocalBatch(body as any)
+      return NextResponse.json(response, { status: 200 })
+    } catch (error) {
+      console.error('clips-batch: local error', error)
+      return NextResponse.json(
+        { error: 'local_batch_error', message: error instanceof Error ? error.message : 'Failed to create local batch.' },
+        { status: 400 }
+      )
+    }
   }
 
   let response: Response

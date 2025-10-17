@@ -99,6 +99,7 @@ export function enqueueLocalClipJob(payload: ClipGenerationRequestPayload): { id
 
 export function getLocalClipJob(id: string): ClipGenerationRecord | undefined {
   const job = jobs.get(id)
+  console.log('clips:local:get', { id, found: Boolean(job) })
   if (!job) return undefined
   return jobToRecord(job)
 }

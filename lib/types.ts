@@ -83,6 +83,7 @@ export interface ClipGenerationRequestPayload {
   contextMode: 'seconds' | 'sentence'
   padBefore: number
   padAfter: number
+  derived?: boolean
 }
 
 export interface ClipGenerationRecord {

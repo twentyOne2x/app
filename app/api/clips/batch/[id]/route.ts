@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getLocalBatch, retryLocalBatchClip } from '../local-service'
 
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
@@ -14,10 +15,11 @@ export async function GET(
 ) {
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
-    return NextResponse.json(
-      { error: 'not_implemented', message: 'Clip service URL not configured.' },
-      { status: 501 }
-    )
+    const batch = getLocalBatch(params.id)
+    if (!batch) {
+      return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    }
+    return NextResponse.json(batch)
   }
 
   let response: Response
@@ -62,10 +64,22 @@ export async function PATCH(
 ) {
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
-    return NextResponse.json(
-      { error: 'not_implemented', message: 'Clip service URL not configured.' },
-      { status: 501 }
-    )
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'bad_request' }, { status: 400 })
+    }
+
+    const clipKey = typeof (body as any)?.clipKey === 'string' ? (body as any).clipKey : undefined
+    if (!clipKey) {
+      return NextResponse.json({ error: 'bad_request', message: 'clipKey is required.' }, { status: 400 })
+    }
+    const success = retryLocalBatchClip(params.id, clipKey)
+    if (!success) {
+      return NextResponse.json({ error: 'not_found' }, { status: 404 })
+    }
+    return NextResponse.json({ ok: true })
   }
 
   let body: unknown

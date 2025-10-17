@@ -16,7 +16,8 @@ const requestSchema = z
     end: z.number().positive(),
     contextMode: z.enum(['seconds', 'sentence']),
     padBefore: z.number().min(0),
-    padAfter: z.number().min(0)
+    padAfter: z.number().min(0),
+    derived: z.boolean().optional()
   })
   .refine((payload) => payload.end > payload.start, {
     message: 'Clip end must be greater than clip start'
@@ -55,9 +56,14 @@ async function forwardClipPost(payload: ClipGenerationRequestPayload) {
 }
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now()
   const raw = await request.json().catch(() => null)
   const parsed = requestSchema.safeParse(raw)
   if (!parsed.success) {
+    console.error('clips:request:invalid', {
+      durationMs: Date.now() - startedAt,
+      error: parsed.error.flatten()
+    })
     return NextResponse.json(
       {
         error: 'Invalid clip payload',
@@ -68,6 +74,15 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data
+  console.log('clips:request', {
+    start: payload.start,
+    end: payload.end,
+    duration: payload.end - payload.start,
+    derived: payload.derived ?? false,
+    contextMode: payload.contextMode,
+    padBefore: payload.padBefore,
+    padAfter: payload.padAfter
+  })
 
   if (CLIP_SERVICE_URL) {
     try {
@@ -76,17 +91,31 @@ export async function POST(request: NextRequest) {
       if (!clipId) {
         throw new Error('Clip service response missing clipId')
       }
+      console.log('clips:response', {
+        clipId,
+        status: sanitizeStatus(result.status),
+        durationMs: Date.now() - startedAt
+      })
       return NextResponse.json({
         id: clipId,
         status: sanitizeStatus(result.status)
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to reach clip service'
+      console.error('clips:response:error', {
+        message,
+        durationMs: Date.now() - startedAt
+      })
       return NextResponse.json({ error: message }, { status: 502 })
     }
   }
 
   const result = enqueueLocalClipJob(payload)
+  console.log('clips:response:local', {
+    clipId: result.id,
+    status: result.status,
+    durationMs: Date.now() - startedAt
+  })
   return NextResponse.json(result)
 }
 

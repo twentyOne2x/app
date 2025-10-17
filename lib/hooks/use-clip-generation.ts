@@ -146,7 +146,8 @@ export function useClipGeneration(
         padBefore:
           padding.mode === 'smart' ? padding.smartPadSeconds : padding.padBeforeSeconds,
         padAfter:
-          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padAfterSeconds
+          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padAfterSeconds,
+        derived
       }
 
       queueStatusUpdate({

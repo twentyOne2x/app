@@ -102,7 +102,8 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       endHMS: entry.clip.endHMS ?? undefined,
       contextMode: 'seconds',
       padBefore: 5,
-      padAfter: 5
+      padAfter: 5,
+      derived: entry.timingFallback ?? false
     }))
 
     const initialItems: ClipBundleItem[] = selection.selectedEntries.map((entry) => ({

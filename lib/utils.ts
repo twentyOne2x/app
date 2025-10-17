@@ -301,19 +301,51 @@ export interface ResolvedClipTiming {
 }
 
 export function computeClipTiming(clip: ClipItemV2, options?: { fallbackStart?: number; fallbackDuration?: number }): ResolvedClipTiming {
-  const fallbackStart = Math.max(0, options?.fallbackStart ?? 30)
-  const fallbackDuration = Math.max(5, options?.fallbackDuration ?? 30)
+  const fallbackWindow = Math.max(5, options?.fallbackDuration ?? 30)
 
   const resolvedStart = resolveClipStartSeconds(clip)
   const resolvedEnd = resolveClipEndSeconds(clip)
 
-  let start = resolvedStart != null ? resolvedStart : fallbackStart
-  let end = resolvedEnd != null ? resolvedEnd : start + fallbackDuration
-  let derived = resolvedStart == null || resolvedEnd == null
+  let start = resolvedStart ?? undefined
+  let end = resolvedEnd ?? undefined
+  let derived = false
 
-  if (end <= start) {
-    end = start + fallbackDuration
+  if (start == null && end != null) {
+    start = Math.max(0, end - fallbackWindow)
     derived = true
+  }
+
+  if (start != null && end == null) {
+    end = start + fallbackWindow
+    derived = true
+  }
+
+  if (start == null && end == null) {
+    end = fallbackWindow
+    start = Math.max(0, end - fallbackWindow)
+    derived = true
+  }
+
+  if (end != null && start != null && end <= start) {
+    end = start + fallbackWindow
+    derived = true
+  }
+
+  if (start == null || end == null) {
+    start = Math.max(0, start ?? 0)
+    end = Math.max(start + fallbackWindow, end ?? start + fallbackWindow)
+    derived = true
+  }
+
+  if (derived) {
+    console.warn('utils: computeClipTiming used fallback values', {
+      segmentId: clip.segmentId,
+      videoId: clip.videoId,
+      resolvedStart,
+      resolvedEnd,
+      finalStart: start,
+      finalEnd: end
+    })
   }
 
   return {

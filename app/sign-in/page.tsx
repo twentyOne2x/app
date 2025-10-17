@@ -1,6 +1,7 @@
-import { auth } from '@/auth'
+import auth, { IS_E2E_MODE } from '@/auth'
 import { LoginButton } from '@/components/login-button'
 import { redirect } from 'next/navigation'
+import { e2eSignIn } from '@/app/actions'
 
 export default async function SignInPage() {
   const session = await auth()
@@ -42,6 +43,16 @@ export default async function SignInPage() {
         <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon className="w-full sm:w-auto" />
         <LoginButton loginType="privy" text="Connect wallet with Privy" showIcon className="w-full sm:w-auto" />
       </div>
+      {IS_E2E_MODE ? (
+        <form action={e2eSignIn} className="mt-6">
+          <button
+            type="submit"
+            className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition hover:text-foreground"
+          >
+            Continue as E2E tester
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

@@ -1,9 +1,15 @@
+import { cookies } from 'next/headers'
 import { getServerSession, type NextAuthOptions } from 'next-auth'
 import TwitterProvider from 'next-auth/providers/twitter'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import type { Session, DefaultSession } from 'next-auth'
 import type { JWT } from 'next-auth/jwt'
 import { PrivyClient } from '@privy-io/server-auth'
+import {
+  E2E_USER_EMAIL,
+  E2E_USER_ID,
+  E2E_USER_NAME
+} from '@/lib/sample-chats'
 
 declare module 'next-auth' {
   interface Session {
@@ -28,6 +34,10 @@ const hasPrivyConfig = Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP
 const privyClient = hasPrivyConfig
   ? new PrivyClient(process.env.PRIVY_APP_ID as string, process.env.PRIVY_APP_SECRET as string)
   : null
+
+export const IS_E2E_MODE =
+  process.env.E2E_MODE === '1' || process.env.NEXT_PUBLIC_E2E_MODE === '1'
+export const E2E_AUTH_COOKIE = 'e2e-auth-state'
 
 const twitterProvider = TwitterProvider({
   clientId: process.env.TWITTER_CLIENT_ID ?? '',
@@ -132,6 +142,24 @@ export const authOptions: NextAuthOptions = {
 }
 
 export async function auth() {
+  if (IS_E2E_MODE) {
+    const cookieStore = cookies()
+    const state = cookieStore.get(E2E_AUTH_COOKIE)?.value ?? 'active'
+    if (state === 'signed-out') {
+      return null
+    }
+    const session: Session = {
+      user: {
+        id: E2E_USER_ID,
+        name: E2E_USER_NAME,
+        email: E2E_USER_EMAIL,
+        image: null
+      },
+      expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      provider: 'e2e'
+    }
+    return session
+  }
   return getServerSession(authOptions)
 }
 

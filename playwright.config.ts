@@ -33,6 +33,11 @@ export default defineConfig({
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',
-        timeout: 120_000
+        timeout: 120_000,
+        env: {
+          ...process.env,
+          E2E_MODE: '1',
+          NEXT_PUBLIC_E2E_MODE: '1'
+        }
       }
 })

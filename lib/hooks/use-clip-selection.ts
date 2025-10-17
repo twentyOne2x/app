@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from 'react'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
+import { computeClipTiming, formatSecondsToHms, sanitizeClipExcerptText } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import { toast } from 'react-hot-toast'
 
@@ -23,6 +24,7 @@ export interface ClipSelectionEntry {
     | 'segmentId'
     | 'videoId'
   >
+  timingFallback?: boolean
 }
 
 export interface ClipSelectionHandle {
@@ -53,6 +55,8 @@ export function buildClipSelectionKey(parent: ParsedMetadataEntryV2, clip: ClipI
 }
 
 function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipSelectionEntry {
+  const timing = computeClipTiming(clip)
+  const sanitizedExcerpt = sanitizeClipExcerptText(clip.excerpt)
   return {
     key: buildClipSelectionKey(parent, clip),
     parent: {
@@ -64,17 +68,18 @@ function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): Clip
     clip: {
       parentTitle: clip.parentTitle,
       channel: clip.channel,
-      startHMS: clip.startHMS,
-      endHMS: clip.endHMS,
-      startS: clip.startS,
-      endS: clip.endS,
+      startHMS: formatSecondsToHms(timing.start),
+      endHMS: formatSecondsToHms(timing.end),
+      startS: timing.start,
+      endS: timing.end,
       speaker: clip.speaker,
-      excerpt: clip.excerpt,
+      excerpt: sanitizedExcerpt,
       url: clip.url,
       clipUrl: clip.clipUrl,
       segmentId: clip.segmentId,
       videoId: clip.videoId
-    }
+    },
+    timingFallback: timing.derived
   }
 }
 

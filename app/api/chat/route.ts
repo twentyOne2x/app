@@ -291,6 +291,33 @@ export async function POST(req: Request) {
     requestId
   })
 
+  structuredMetadata.forEach((entry, entryIndex) => {
+    const clips = entry.clips ?? []
+    clips.forEach((clip, clipIndex) => {
+      const hasStart =
+        (typeof clip.startS === 'number' && Number.isFinite(clip.startS)) ||
+        (typeof clip.startHMS === 'string' && clip.startHMS.trim().length > 0)
+      const hasEnd =
+        (typeof clip.endS === 'number' && Number.isFinite(clip.endS)) ||
+        (typeof clip.endHMS === 'string' && clip.endHMS.trim().length > 0)
+      if (!hasStart || !hasEnd) {
+        console.warn('chat-route: clip missing timestamp metadata', {
+          traceId,
+          entryIndex,
+          clipIndex,
+          parentTitle: entry.parentTitle,
+          clipTitle: clip.parentTitle,
+          startS: clip.startS ?? null,
+          startHMS: clip.startHMS ?? null,
+          endS: clip.endS ?? null,
+          endHMS: clip.endHMS ?? null,
+          segmentId: clip.segmentId ?? null,
+          videoId: clip.videoId ?? null
+        })
+      }
+    })
+  })
+
   console.debug('chat-route: final assistant answer', {
     traceId,
     requestId,

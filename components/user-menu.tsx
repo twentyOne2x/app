@@ -1,22 +1,28 @@
 'use client'
 
+import * as React from 'react'
 import Image from 'next/image'
 import { type Session } from 'next-auth'
 import { signOut } from 'next-auth/react'
+import { toast } from 'react-hot-toast'
 
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { IconExternalLink } from '@/components/ui/icons'
+import { IconSpinner } from '@/components/ui/icons'
+import { e2eSignOut } from '@/app/actions'
 
 export interface UserMenuProps {
   user: Session['user']
 }
+
+const IS_E2E = process.env.NEXT_PUBLIC_E2E_MODE === '1'
 
 function getUserInitials(name?: string | null) {
   if (!name) return 'U'
@@ -26,7 +32,45 @@ function getUserInitials(name?: string | null) {
 
 export function UserMenu({ user }: UserMenuProps) {
   const walletAddress = (user as any)?.walletAddress as string | undefined
-  const displayName = user?.name ?? (walletAddress ? `Wallet ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : 'User')
+  const displayName =
+    user?.name ??
+    (walletAddress
+      ? `Wallet ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
+      : 'User')
+
+  const [isSigningOut, startSignOut] = React.useTransition()
+
+  const handleCopyProfile = React.useCallback(async () => {
+    try {
+      const origin =
+        typeof window !== 'undefined'
+          ? window.location.origin
+          : 'https://icm.fyi'
+      const profileUrl = `${origin}/profile/${user?.id ?? 'me'}`
+      await navigator.clipboard.writeText(profileUrl)
+      toast.success('Profile link copied to clipboard.')
+    } catch (error) {
+      console.error('Copy profile link failed', error)
+      toast.error('Unable to copy profile link.')
+    }
+  }, [user?.id])
+
+  const handleSettings = React.useCallback(() => {
+    toast('Settings are coming soon.', {
+      icon: '🛠️'
+    })
+  }, [])
+
+  const handleSignOut = React.useCallback(() => {
+    if (IS_E2E) {
+      startSignOut(async () => {
+        await e2eSignOut()
+      })
+      return
+    }
+    void signOut({ callbackUrl: '/sign-in' })
+  }, [startSignOut])
+
   return (
     <div className="flex items-center justify-between">
       <DropdownMenu>
@@ -34,49 +78,68 @@ export function UserMenu({ user }: UserMenuProps) {
           <Button variant="ghost" className="pl-0">
             {user?.image ? (
               <Image
-                className="size-6 select-none rounded-full ring-1 ring-zinc-100/10 transition-opacity duration-300 hover:opacity-80"
-                src={user?.image ? `${user.image}&s=60` : ''}
+                className="size-7 select-none rounded-full ring-1 ring-zinc-100/10 transition-opacity duration-300 hover:opacity-80"
+                src={
+                  user.image
+                    ? `${user.image}${user.image.includes('?') ? '&' : '?'}s=60`
+                    : ''
+                }
                 alt={displayName}
-                height={48} width={48}
+                height={48}
+                width={48}
               />
             ) : (
-              <div className="flex size-7 shrink-0 select-none items-center justify-center rounded-full bg-muted/50 text-xs font-medium uppercase text-muted-foreground">
+              <div className="flex size-8 shrink-0 select-none items-center justify-center rounded-full bg-muted/60 text-xs font-medium uppercase text-muted-foreground">
                 {getUserInitials(displayName)}
               </div>
             )}
-            <span className="ml-2">{displayName}</span>
+            <span className="ml-2 text-sm font-medium">{displayName}</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent sideOffset={8} align="start" className="w-[180px]">
-          <DropdownMenuItem className="flex-col items-start">
-            <div className="text-xs font-medium">{displayName}</div>
+        <DropdownMenuContent sideOffset={8} align="end" className="w-52">
+          <DropdownMenuLabel className="flex flex-col items-start">
+            <span className="text-xs font-semibold text-foreground">
+              {displayName}
+            </span>
             {walletAddress ? (
-              <div className="text-xs text-zinc-500">{walletAddress}</div>
+              <span className="text-[11px] text-muted-foreground">
+                {walletAddress}
+              </span>
             ) : user?.email ? (
-              <div className="text-xs text-zinc-500">{user.email}</div>
+              <span className="text-[11px] text-muted-foreground">
+                {user.email}
+              </span>
             ) : null}
-          </DropdownMenuItem>
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <a
-              href="https://vercel.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex w-full items-center justify-between text-xs"
-            >
-              Vercel Homepage
-              <IconExternalLink className="ml-auto size-3" />
-            </a>
+          <DropdownMenuItem
+            className="text-xs"
+            onSelect={() => {
+              void handleCopyProfile()
+            }}
+          >
+            Copy profile link
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() =>
-              signOut({
-                callbackUrl: '/'
-              })
-            }
             className="text-xs"
+            onSelect={() => {
+              handleSettings()
+            }}
           >
-            Log Out
+            Settings (soon)
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-xs text-red-500 focus:text-red-500"
+            disabled={isSigningOut}
+            onSelect={() => {
+              handleSignOut()
+            }}
+          >
+            {isSigningOut && (
+              <IconSpinner className="mr-2 size-3 animate-spin text-red-500" />
+            )}
+            Sign out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

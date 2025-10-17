@@ -1,4 +1,5 @@
 // app/layout.tsx
+import { Suspense } from 'react'
 import { Metadata } from 'next'
 import Image from 'next/image'
 import { Toaster } from 'react-hot-toast'
@@ -7,9 +8,12 @@ import { fontSans } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics } from '@vercel/analytics/react'
 import { cookies } from 'next/headers'
 import { ENTRY_PROFILE_COOKIE, getEntryProfileByCode } from '@/lib/entry-profiles'
+import auth from '@/auth'
+import { Header } from '@/components/header'
+import { SidebarList } from '@/components/sidebar-list'
 
 const UI_ICONS: string[] = [
   '/ui_icons/chatbot_1_32px.png',
@@ -106,10 +110,12 @@ function PreloadAvatarImages() {
 
 interface RootLayoutProps { children: React.ReactNode }
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default async function RootLayout({ children }: RootLayoutProps) {
   const cookieStore = cookies()
   const entryCode = cookieStore.get(ENTRY_PROFILE_COOKIE)?.value
   const entryProfile = getEntryProfileByCode(entryCode)
+  const session = await auth()
+  const userId = session?.user?.id ?? null
 
   return (
     <html lang="en">
@@ -118,8 +124,19 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <PreloadAvatarImages />
         <Toaster />
         <Providers attribute="class" defaultTheme="dark" enableSystem={false} entryProfile={entryProfile}>
-          <div className="flex min-h-screen flex-col">
-            <main className="flex flex-1 flex-col bg-muted/50">{children}</main>
+          <div className="flex min-h-screen flex-col bg-background">
+            <Header session={session} />
+            <div className="flex flex-1">
+              {userId ? (
+                <aside className="hidden w-80 shrink-0 border-r border-border/60 bg-background/60 md:flex md:flex-col">
+                  <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground">Loading conversations…</div>}>
+                    {/* @ts-expect-error Server Component */}
+                    <SidebarList userId={userId} variant="desktop" />
+                  </Suspense>
+                </aside>
+              ) : null}
+              <main className="flex-1 overflow-y-auto bg-muted/40">{children}</main>
+            </div>
           </div>
           <TailwindIndicator />
         </Providers>

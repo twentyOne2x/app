@@ -130,8 +130,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
               {userId ? (
                 <aside className="hidden w-80 shrink-0 border-r border-border/60 bg-background/60 md:flex md:flex-col">
                   <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground">Loading conversations…</div>}>
-                    {/* @ts-expect-error Server Component */}
-                    <SidebarList userId={userId} variant="desktop" />
+                  <SidebarList userId={userId} variant="desktop" />
                   </Suspense>
                 </aside>
               ) : null}

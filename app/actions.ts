@@ -218,7 +218,7 @@ export async function e2eSignOut() {
 
 export async function e2eSignIn() {
   if (!IS_E2E_MODE) {
-    return { error: 'E2E mode is not enabled.' }
+    redirect('/sign-in?error=e2e-disabled')
   }
   const cookieStore = cookies()
   cookieStore.set({

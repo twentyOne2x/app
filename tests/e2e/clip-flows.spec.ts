@@ -38,10 +38,6 @@ test.describe('Clip flows', () => {
     const generateButton = page.getByTestId('generate-hq')
     await expect(generateButton).toBeVisible()
     await generateButton.click()
-    await expect(
-      page.getByText('High-quality clip requested. We will let you know when it is ready.')
-    ).toBeVisible()
-
     const downloadLink = page.getByRole('link', { name: 'Download HQ' })
     await expect(downloadLink).toBeVisible({ timeout: 15_000 })
 

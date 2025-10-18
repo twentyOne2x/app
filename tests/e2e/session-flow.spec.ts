@@ -6,6 +6,12 @@ test.describe('Session navigation surface', () => {
   test('loads conversations, copies profile link, and signs out', async ({ page }) => {
     await page.goto('/')
 
+    const testerButtonAtLanding = page.getByRole('button', { name: 'Continue as E2E tester' })
+    if ((await testerButtonAtLanding.count()) > 0) {
+      await testerButtonAtLanding.first().click()
+      await expect(page).toHaveURL(/\/$/)
+    }
+
     const nav = page.getByRole('navigation', { name: 'Conversation history' })
     await expect(page).toHaveURL(/\/$/)
     await expect(nav).toBeVisible({ timeout: 60_000 })
@@ -33,6 +39,7 @@ test.describe('Session navigation surface', () => {
 
     await avatarButton.click()
     await page.getByRole('menuitem', { name: 'Sign out' }).click()
+    await page.waitForURL(/\/sign-in/, { timeout: 15_000 })
     await expect(page).toHaveURL(/\/sign-in/)
     const testerButton = page.getByRole('button', { name: 'Continue as E2E tester' })
     await expect(testerButton).toBeVisible()

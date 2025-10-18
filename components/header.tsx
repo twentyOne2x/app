@@ -26,7 +26,6 @@ export function Header({ session }: HeaderProps) {
           {userId ? (
             <Sidebar>
               <React.Suspense fallback={<div className="flex-1 overflow-auto" />}>
-                {/* @ts-expect-error Server Component */}
                 <SidebarList userId={userId} variant="mobile" />
               </React.Suspense>
               <SidebarFooter className="border-t border-border/80 px-4 py-3">
@@ -55,7 +54,7 @@ export function Header({ session }: HeaderProps) {
               >
                 <Link href="/">New chat</Link>
               </Button>
-              <UserMenu user={session.user} />
+              <UserMenu user={session!.user} />
             </>
           ) : (
             <Button asChild size="sm" variant="outline">

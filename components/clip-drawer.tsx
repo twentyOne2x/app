@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, useCallback, useEffect, useMemo } from 'react'
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useClipGeneration } from '@/lib/hooks/use-clip-generation'
 import { useClipPadding } from '@/lib/hooks/use-clip-padding'
 import {
@@ -208,6 +208,38 @@ export function ClipDrawer({
       toast.error('Unable to queue a high-quality clip. Please adjust the timestamps or try another source.')
     }
   }, [generate])
+
+  const autoDownloadTriggered = useRef(false)
+
+  useEffect(() => {
+    if (!isReady) {
+      autoDownloadTriggered.current = false
+      return
+    }
+    if (!downloadUrl || autoDownloadTriggered.current) {
+      return
+    }
+    let resolved: string | undefined
+    const absolute = ensureAbsoluteUrl(downloadUrl)
+    if (absolute) {
+      resolved = absolute
+    } else if (typeof window !== 'undefined') {
+      try {
+        resolved = new URL(downloadUrl, window.location.origin).toString()
+      } catch (error) {
+        console.error('clip-drawer: failed to resolve download URL', error)
+      }
+    }
+    if (!resolved) {
+      return
+    }
+    autoDownloadTriggered.current = true
+    try {
+      window.open(resolved, '_blank', 'noopener,noreferrer')
+    } catch (error) {
+      console.error('clip-drawer: auto-download failed', error)
+    }
+  }, [isReady, downloadUrl])
 
   if (!isOpen || !clip || !parent) return null
 

@@ -127,7 +127,7 @@ export function ChatPanel({
           </Tooltip>
   
           {/* Prompt Form */}
-          <div className={styles.promptFormContainer}>
+          <div className={styles.promptFormContainer} data-testid="prompt-container">
           <PromptForm
               onSubmit={async value => {
                 setResponseReceived(false);

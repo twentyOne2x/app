@@ -95,10 +95,7 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
   } as any; // Type assertion to bypass TypeScript checks
 
   return (
-    <div
-      className={cn('group relative mb-4 flex items-start md:-ml-12')}
-      {...props}
-    >
+    <div className={cn('group relative mb-4 flex items-start md:-ml-12')} {...props}>
       <div
         className={cn(
           'flex size-8 shrink-0 select-none items-center justify-center rounded-md border bg-background shadow',
@@ -123,7 +120,10 @@ export function ChatMessage({ message, ...props }: ChatMessageProps) {
           />
         )}
       </div>
-      <div className={cn("ml-4 flex-1 space-y-2 overflow-hidden px-1", styles.chatMessageContent)}>
+      <div
+        className={cn("ml-4 flex-1 space-y-2 overflow-hidden px-1", styles.chatMessageContent)}
+        data-testid="chat-message-content"
+      >
         {(() => {
           try {
             return (

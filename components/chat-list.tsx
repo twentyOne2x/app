@@ -41,14 +41,18 @@ const ChatListComponent = ({ messages, lastMessageRole, onViewSources, isMobile 
   })
 
   return (
-    <div className={`${styles.chatListMaxWidth} ${styles.chatListPadding}`}>
+    <div className={`${styles.chatListMaxWidth} ${styles.chatListPadding}`} data-testid="chat-list">
       {safeMessages.map((message, index) => {
         const isLastMessage = index === safeMessages.length - 1;
         const attachRef = isLastMessage && lastMessageRole === 'assistant';
         const isAssistant = message.role === 'assistant';
         return (
           <React.Fragment key={index}>
-            <div ref={attachRef ? ref : null} className={styles.chatMessageContainer}>
+            <div
+              ref={attachRef ? ref : null}
+              className={styles.chatMessageContainer}
+              data-testid="chat-message"
+            >
               <ChatMessage message={message} />
             </div>
             {/* Insert "View Sources" button after assistant messages on mobile */}

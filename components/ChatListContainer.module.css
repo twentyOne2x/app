@@ -2,10 +2,16 @@
 
 /* Main container for the entire layout */
 .layoutContainer {
+  --chat-max-width: 820px;
+  --chat-horizontal-padding: clamp(20px, 3vw, 40px);
+  --chat-panel-offset: clamp(20px, 4vw, 56px);
   display: flex;
-  height: 100vh; /* Full height of the viewport */
-  justify-content: space-between; /* Space between ensures elements are pushed to the edges */
-  align-items: flex-start; /* Aligns items to the top */
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: clamp(24px, 4vw, 48px);
 }
 
 .layoutContainerWithPadding {
@@ -70,12 +76,10 @@
   max-width: 62%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* This pushes the ChatPanel to the bottom */
-  padding-bottom: 80px; /* Bottom padding */
-  padding-top: 40px; /* Reduced top padding, adjust the value as needed */
+  align-items: center;
+  padding: 40px 0 32px; /* Matches chat panel gutters */
   position: relative; /* Needed for absolute positioning within */
   box-sizing: border-box;
-  align-items: stretch; /* Ensure children stretch to fill the panel width */
   z-index: 1;
 }
 
@@ -83,18 +87,24 @@
   padding-top: 0;
 }
 
+.middlePanelContent {
+  width: min(100%, var(--chat-max-width));
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: clamp(28px, 5vh, 48px);
+}
+
 .scrollableContainer {
-  max-height: calc(100vh - 205px);
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(100vh - 260px);
   overflow-y: auto;
-  flex-grow: 1; /* Allows the container to grow and take available space */
-  overflow-x: hidden; /* Hides horizontal scroll */
-  padding-left: 40px; /* To fully display the user and assistant icons */
-  padding-right: 40px; /* Add right padding to balance the left padding */
-  width: 100%; /* Full width to contain the chat list */
-  max-width: 800px; /* Set a max width */
-  margin-left: auto; /* Centers the container horizontally */
-  margin-right: auto; /* Centers the container horizontally */
-  display: block; /* Use block instead of flex to avoid horizontal centering */
+  overflow-x: hidden;
+  padding: 0 var(--chat-horizontal-padding) 12px;
+  width: 100%;
+  scrollbar-gutter: stable both-edge;
 }
 
 /* ChatList container with scrollable content */
@@ -115,35 +125,38 @@
 
 /* Adjust chatListPadding to allow more message width */
 .chatListPadding {
-  padding: 0.5rem; /* Reduced padding */
+  padding: clamp(0.75rem, 2vh, 1.25rem) 0; /* Vertical breathing room, align width with prompt */
 }
 
 .chatListMaxWidth {
   max-width: 100%; /* Allow full width on mobile */
-  padding: 0 10px; /* Optional: Add slight padding for better readability */
+  padding: 0;
 }
 
 /* CHAT PANEL SECTION */
 
 .chatPanelWrapper {
+  position: relative;
   margin: 0 auto;
   width: 100%;
-  max-width: 800px;
-  padding: 1rem 40px 1.25rem;
+  max-width: var(--chat-max-width);
+  padding: 1.25rem var(--chat-horizontal-padding) 1.5rem;
   box-sizing: border-box;
-  pointer-events: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 9, 16, 0.92);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 34px -24px rgba(12, 12, 20, 0.6);
 }
 
 .chatPanel {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(100%, 880px);
-  box-sizing: border-box;
-  z-index: 10;
+  position: sticky;
+  bottom: var(--chat-panel-offset);
+  width: 100%;
+  display: flex;
+  justify-content: center;
   padding: 0;
-  pointer-events: none;
+  z-index: 5;
 }
 
 
@@ -188,6 +201,7 @@
   align-items: center;
   background-color: transparent;
   position: relative;
+  margin-left: 0;
 }
 
 .promptTextarea {
@@ -201,6 +215,7 @@
   margin-left: 0;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
+  padding-left: 0.7rem;
   padding-right: 4rem;
   width: 100%;
   box-sizing: border-box;
@@ -231,8 +246,12 @@
 
 @media (max-width: 640px) {
   .chatPanel {
-    width: min(100%, 95vw);
-    padding: 0.75rem 20px 1rem;
+    bottom: 16px;
+  }
+
+  .chatPanelWrapper {
+    padding: 1rem 16px 1.25rem;
+    border-radius: 16px;
   }
 
   .promptTextarea {
@@ -346,84 +365,71 @@
 
 /* Mobile-specific styles */
 @media (max-width: 767px) {
-  /* Hide the left and right panels on mobile */
-  .leftPanel, .rightPanel {
+  .leftPanel,
+  .rightPanel {
     display: none;
   }
 
-  /* Ensure the middle panel takes the full viewport width */
   .middlePanel {
     flex: 1;
     width: 100%;
-    min-width: 320px;
+    min-width: 0;
     max-width: none;
-    padding-top: 30px;
+    padding: 30px 0 20px;
     box-sizing: border-box;
-    position: relative; /* Allows positioning of ChatPanel */
+    position: relative;
   }
 
-  /* Adjust the scrollableContainer for mobile */
+  .middlePanelContent {
+    width: 100%;
+    gap: 20px;
+  }
+
   .scrollableContainer {
-    overflow-y: auto;
-    max-height: calc(100vh - 140px); /* Adjust height for ChatPanel */
-    padding: 0 10px; /* Reduced horizontal padding */
+    max-height: calc(100vh - 210px);
+    padding: 0 16px 12px;
   }
 
-  /* Reduce padding in chatListPadding to allow more message width */
   .chatListPadding {
-    padding: 0.5rem; /* Reduced padding */
+    padding: 0.75rem 0;
   }
 
-  /* Adjust chatListMaxWidth to occupy more screen space */
   .chatListMaxWidth {
-    max-width: 100%; /* Allow full width on mobile */
-    padding: 0 10px; /* Optional: Add slight padding for better readability */
+    padding: 0;
   }
 
-  /* Adjust ChatMessage container to have minimal horizontal padding */
   .chatMessageContainer {
-    padding-left: 5px; /* Push icons closer to the edge */
+    padding-left: 5px;
     padding-right: 5px;
   }
 
-  /* Ensure ChatMessage icons are closer to screen edges */
   .chatMessageIcon {
-    width: 35px; /* Slightly larger icons for better touch targets */
+    width: 35px;
     height: 35px;
-    margin-left: 5px; /* Further reduce left margin */
-    margin-right: 5px; /* Further reduce right margin */
+    margin-left: 5px;
+    margin-right: 5px;
   }
-  
-  /* Adjust the main chat message content area */
+
   .chatMessageContent {
-    padding-left: 8px; /* Reduce padding */
+    padding-left: 8px;
     padding-right: 8px;
   }
-  
-  /* Ensure metadataContainer uses full width on mobile */
+
   .metadataContainer {
     max-width: 100%;
     margin-left: 0;
     margin-right: 0;
-    padding: 1rem 5px; /* Reduced horizontal padding */
+    padding: 1rem 12px 5rem;
   }
 
-  /* Chat Panel */
   .chatPanel {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    /*box-shadow: 0 -2px 5px rgba(0,0,0,0.2);*/
-    padding-top: 5px;
-    padding-left: 10px;
-    padding-right: 10px;
-    padding-bottom: 10px;
-    z-index: 10;
+    bottom: 14px;
   }
 
   .chatPanelWrapper {
     max-width: 100%;
-    padding: 0;
+    padding: 1rem 16px 1.2rem;
+    border-radius: 16px;
   }
 
   .promptFormContainer {
@@ -431,40 +437,42 @@
     padding: 0;
   }
 
+  .promptFormInner {
+    margin-left: 0;
+    width: 100%;
+  }
+
   .promptTextarea {
     flex-grow: 1;
     padding: 8px;
-    border-radius: 4px;
+    border-radius: 6px;
+    margin-left: 0;
+    width: 100%;
+    padding-left: 8px;
   }
 
   .sendButtonContainer {
-    position: absolute;
     right: 15px;
     top: 50%;
     transform: translateY(-50%);
   }
 
-  /* Loader adjustment */
   .loadingContainer {
-    position: absolute;
-    top: -40px;
+    top: -32px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 11;
   }
 
-  /* Make the "View Sources" button smaller on mobile */
   .viewSourcesButton {
-    padding: 0.3rem 0.6rem; /* Smaller padding */
-    font-size: 0.8rem; /* Smaller font size */
-    margin: 0.5rem auto; /* Less margin */
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    margin: 0.5rem auto;
   }
 
-  /* Make the "Top Sources" title bigger and bolder on mobile */
   .metadataTitle {
-    font-size: 2rem; /* Larger font size on mobile */
-    font-weight: 800; /* Heavier boldness on mobile */
-    text-align: center; /* Center the title */
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: center;
   }
 }
 

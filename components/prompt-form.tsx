@@ -89,6 +89,7 @@ export function PromptForm({
           placeholder="Send a message."
           spellCheck={false}
           className={styles.promptTextarea}
+          data-testid="prompt-textarea"
         />
         <div className={styles.sendButtonContainer}>
           <Tooltip>

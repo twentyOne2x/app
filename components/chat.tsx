@@ -1979,6 +1979,12 @@ export function Chat({
     // Show the overlay only if there are messages and the last message is from the assistant
     setShowLeftPanelOverlay(newMessages.length > 0 && lastMessageRole === 'assistant');
   }, [newMessages, lastMessageRole]);
+
+  useEffect(() => {
+    if (newMessages.length > 0) {
+      setShowChatList(true);
+    }
+  }, [newMessages.length, setShowChatList]);
   
   // Create a ref for the end of the chat list
   const chatListEndRef = useRef<HTMLDivElement>(null);
@@ -2128,65 +2134,74 @@ export function Chat({
         </div>
 
         <div className={middlePanelClass}>
-          <div className={styles.scrollableContainer}>
-            {showChatList && (
-              <div className={QuestionsOverlayStyles.fadeIn}>
-                <ChatList 
-                  ref={chatListEndRef} 
-                  messages={displayMessages} 
-                  lastMessageRole={lastMessageRole}
-                  onViewSources={() => setIsModalOpen(true)}
-                  isMobile={isMobile}
-                />
-              </div>
-            )}
-
-            {/* Conditional rendering for EmptyScreen */}
-            {!shared_chat && !showChatList && showEmptyScreen && (
-              <div className={QuestionsOverlayStyles.fadeIn}>
-                <EmptyScreen onSubmit={handleSuggestionSubmit} showOverlay={showMiddlePanelOverlay} isVisible={showEmptyScreen} />
-              </div>
-            )}
-
-            {newMessages.length === 0 && !isMobile && showQuestionsOverlay && (
-              <div className={`${overlayClass} ${showMiddlePanelOverlay ? QuestionsOverlayStyles.fadeIn : QuestionsOverlayStyles.fadeOut}`}>
-                <QuestionsOverlay onSubmit={handleSuggestionSubmit} showOverlay={showMiddlePanelOverlay} />
-              </div>
-            )}
-          </div>
-          
-
-          {!shared_chat && (
-            <div className={styles.chatPanel}>
-              {isMobile && (
-                <div className="mb-4">
-                  <ChannelFilterPanel
-                    channels={availableChannels}
-                    excluded={excludedChannelKeys}
-                    onExcludedChange={handleExcludedChannelsChange}
+          <div className={styles.middlePanelContent}>
+            <div className={styles.scrollableContainer}>
+              {showChatList && (
+                <div className={QuestionsOverlayStyles.fadeIn}>
+                  <ChatList
+                    ref={chatListEndRef}
+                    messages={displayMessages}
+                    lastMessageRole={lastMessageRole}
+                    onViewSources={() => setIsModalOpen(true)}
+                    isMobile={isMobile}
                   />
                 </div>
               )}
-              <ChatPanel
-                id={id}
-                isLoading={isProcessingQuery}
-                input={input}
-                setInput={setInput}
-                onSubmit={handleUserInputSubmit}
-                setMessages={setMessages}
-                setStructuredMetadataEntries={setStructuredMetadataEntries}
-                setLastMessageRole={setLastMessageRole}
-                setShowTopSources={setShowTopSources}
-                setFadeOutCompleted={setFadeOutCompleted}
-                setMetadataContainerVisible={setMetadataContainerVisible}
-                setShowLeftPanelOverlay={setShowLeftPanelOverlay}
-                setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
-                setShowEmptyScreen={setShowEmptyScreen}
-                setShowChatList={setShowChatList}
-                onClearChat={handleClearChat}
-              />
+
+              {/* Conditional rendering for EmptyScreen */}
+              {!shared_chat && !showChatList && showEmptyScreen && (
+                <div className={QuestionsOverlayStyles.fadeIn}>
+                  <EmptyScreen
+                    onSubmit={handleSuggestionSubmit}
+                    showOverlay={showMiddlePanelOverlay}
+                    isVisible={showEmptyScreen}
+                  />
+                </div>
+              )}
+
+              {newMessages.length === 0 && !isMobile && showQuestionsOverlay && (
+                <div
+                  className={`${overlayClass} ${
+                    showMiddlePanelOverlay ? QuestionsOverlayStyles.fadeIn : QuestionsOverlayStyles.fadeOut
+                  }`}
+                >
+                  <QuestionsOverlay onSubmit={handleSuggestionSubmit} showOverlay={showMiddlePanelOverlay} />
+                </div>
+              )}
             </div>
-          )}
+
+            {!shared_chat && (
+              <div className={styles.chatPanel}>
+                {isMobile && (
+                  <div className="mb-4">
+                    <ChannelFilterPanel
+                      channels={availableChannels}
+                      excluded={excludedChannelKeys}
+                      onExcludedChange={handleExcludedChannelsChange}
+                    />
+                  </div>
+                )}
+                <ChatPanel
+                  id={id}
+                  isLoading={isProcessingQuery}
+                  input={input}
+                  setInput={setInput}
+                  onSubmit={handleUserInputSubmit}
+                  setMessages={setMessages}
+                  setStructuredMetadataEntries={setStructuredMetadataEntries}
+                  setLastMessageRole={setLastMessageRole}
+                  setShowTopSources={setShowTopSources}
+                  setFadeOutCompleted={setFadeOutCompleted}
+                  setMetadataContainerVisible={setMetadataContainerVisible}
+                  setShowLeftPanelOverlay={setShowLeftPanelOverlay}
+                  setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
+                  setShowEmptyScreen={setShowEmptyScreen}
+                  setShowChatList={setShowChatList}
+                  onClearChat={handleClearChat}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div className={rightPanelClass}>

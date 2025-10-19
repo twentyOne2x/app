@@ -21,6 +21,7 @@ import {
 } from '@/lib/sample-chats'
 
 const API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
+const E2E_SAMPLE_CHATS_COOKIE = 'e2e-sample-chats'
 
 /** Helper: make a shallow Record copy suitable for hmset */
 const toKV = (obj: unknown): Record<string, unknown> => ({ ...(obj as any) })
@@ -28,10 +29,12 @@ const toKV = (obj: unknown): Record<string, unknown> => ({ ...(obj as any) })
 export async function getChats(userId?: string | null) {
   if (!userId) return []
   if (IS_E2E_MODE) {
-    if (userId === E2E_USER_ID) {
+    const cookieStore = cookies()
+    const enabled = cookieStore.get(E2E_SAMPLE_CHATS_COOKIE)?.value === '1'
+    if (enabled && userId === E2E_USER_ID) {
       return E2E_SAMPLE_CHATS
     }
-    return buildSampleChatsForUser(userId)
+    return []
   }
   try {
     const chatKeys = (await kv.zrange(`user:chat:${userId}`, 0, -1, {
@@ -90,6 +93,8 @@ export async function clearChats() {
   if (!session?.user?.id) return { error: 'Unauthorized' }
 
   if (IS_E2E_MODE) {
+    const cookieStore = cookies()
+    cookieStore.delete(E2E_SAMPLE_CHATS_COOKIE)
     revalidatePath('/')
     return redirect('/')
   }
@@ -175,6 +180,16 @@ export async function seedSampleChats(path = '/') {
   }
 
   if (IS_E2E_MODE) {
+    const cookieStore = cookies()
+    cookieStore.set({
+      name: E2E_SAMPLE_CHATS_COOKIE,
+      value: '1',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60
+    })
     revalidatePath(path)
     return { ok: true, seeded: E2E_SAMPLE_CHATS.length }
   }

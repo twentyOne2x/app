@@ -17,6 +17,12 @@ test.describe('Session navigation surface', () => {
     await expect(nav).toBeVisible({ timeout: 60_000 })
     await expect(nav.getByText('Recent conversations')).toBeVisible()
 
+    const fetchSamplesButton = nav.getByRole('button', { name: 'Fetch sample conversations' })
+    if ((await fetchSamplesButton.count()) > 0) {
+      await fetchSamplesButton.first().click()
+      await expect(nav.getByRole('link', { name: WEEKLY_PROMPT })).toBeVisible({ timeout: 60_000 })
+    }
+
     const firstConversation = nav.getByRole('link', { name: WEEKLY_PROMPT })
     await expect(firstConversation).toBeVisible()
     const conversationHref = await firstConversation.getAttribute('href')

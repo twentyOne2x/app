@@ -16,6 +16,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { ClearHistory } from '@/components/clear-history'
 import { SampleConversationsButton } from '@/components/sample-conversations-button'
 import { cn } from '@/lib/utils'
+import { IS_E2E_MODE } from '@/auth'
 
 export interface SidebarListProps {
   userId?: string | null
@@ -40,10 +41,14 @@ function SidebarEmptyState({
       <div className="text-sm font-medium text-muted-foreground">
         No conversations yet.
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground/80">
-        Kickstart your workspace with a curated bundle of sample conversations so you can explore the layout without waiting on the backend.
-      </p>
-      <SampleConversationsButton action={seedSampleChats} />
+      {IS_E2E_MODE ? (
+        <>
+          <p className="text-xs leading-relaxed text-muted-foreground/80">
+            Kickstart your workspace with a curated bundle of sample conversations so you can explore the layout without waiting on the backend.
+          </p>
+          <SampleConversationsButton action={seedSampleChats} />
+        </>
+      ) : null}
     </div>
   )
 }
@@ -83,9 +88,9 @@ export async function SidebarList({ userId, variant = 'desktop' }: SidebarListPr
   const listPadding = variant === 'mobile' ? 'px-4 pb-6' : 'px-2 pb-4'
 
   return (
-    <nav className="flex h-full flex-col" aria-label="Conversation history">
+    <nav className="flex h-full min-h-0 flex-col" aria-label="Conversation history">
       <SidebarHeader userId={userId ?? undefined} className={headerPadding} />
-      <div className={cn('mt-4 flex-1 overflow-y-auto', listPadding)}>
+      <div className={cn('mt-4 flex-1 overflow-y-auto', listPadding, 'min-h-0')}>
         {chats?.length ? (
           <div className="space-y-1.5">
             {chats.map(

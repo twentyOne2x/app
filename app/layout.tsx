@@ -126,15 +126,15 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <Providers attribute="class" defaultTheme="dark" enableSystem={false} entryProfile={entryProfile}>
           <div className="flex min-h-screen flex-col bg-background">
             <Header session={session} />
-            <div className="flex flex-1">
+            <div className="flex min-h-0 flex-1">
               {userId ? (
-                <aside className="hidden w-80 shrink-0 border-r border-border/60 bg-background/60 md:flex md:flex-col">
+                <aside className="hidden w-80 shrink-0 border-r border-border/60 bg-background/60 md:flex md:min-h-0 md:flex-col">
                   <Suspense fallback={<div className="px-4 py-6 text-sm text-muted-foreground">Loading conversations…</div>}>
-                  <SidebarList userId={userId} variant="desktop" />
+                    <SidebarList userId={userId} variant="desktop" />
                   </Suspense>
                 </aside>
               ) : null}
-              <main className="flex-1 overflow-y-auto bg-muted/40">{children}</main>
+              <main className="min-h-0 flex-1 overflow-y-auto bg-muted/40">{children}</main>
             </div>
           </div>
           <TailwindIndicator />

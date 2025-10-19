@@ -1,5 +1,7 @@
 'use client'
 
+/* eslint-disable tailwindcss/classnames-order */
+
 import * as React from 'react'
 import Image from 'next/image'
 import { type Session } from 'next-auth'
@@ -18,18 +20,13 @@ import {
 import { IconSpinner } from '@/components/ui/icons'
 import { e2eSignOut } from '@/app/actions'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 export interface UserMenuProps {
   user: Session['user']
 }
 
 const IS_E2E = process.env.NEXT_PUBLIC_E2E_MODE === '1'
-
-function getUserInitials(name?: string | null) {
-  if (!name) return 'U'
-  const [firstName, lastName] = name.split(' ')
-  return lastName ? `${firstName[0]}${lastName[0]}` : firstName.slice(0, 2)
-}
 
 export function UserMenu({ user }: UserMenuProps) {
   const router = useRouter()
@@ -39,8 +36,25 @@ export function UserMenu({ user }: UserMenuProps) {
     (walletAddress
       ? `Wallet ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}`
       : 'User')
-
   const [isSigningOut, startSignOut] = React.useTransition()
+
+  const fallbackAvatar = (
+    <span
+      className={cn(
+        'relative flex shrink-0 items-center justify-center size-8 overflow-hidden select-none rounded-full',
+        'border border-white/12 bg-gradient-to-br from-[#151524] via-[#101022] to-[#070712]',
+        'ring-1 ring-white/5 shadow-lg shadow-emerald-500/5 transition-transform duration-200'
+      )}
+    >
+      <Image
+        src="/ui_icons/user_1.svg"
+        alt="Default avatar"
+        width={28}
+        height={28}
+        className="size-7 opacity-90"
+      />
+    </span>
+  )
 
   const handleCopyProfile = React.useCallback(async () => {
     try {
@@ -97,9 +111,7 @@ export function UserMenu({ user }: UserMenuProps) {
                 width={48}
               />
             ) : (
-              <div className="flex size-8 shrink-0 select-none items-center justify-center rounded-full bg-muted/60 text-xs font-medium uppercase text-muted-foreground">
-                {getUserInitials(displayName)}
-              </div>
+              fallbackAvatar
             )}
             <span className="ml-2 text-sm font-medium">{displayName}</span>
           </Button>

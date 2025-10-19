@@ -19,9 +19,19 @@ import {
   E2E_USER_ID,
   buildSampleChatsForUser
 } from '@/lib/sample-chats'
+import {
+  listLocalChats,
+  getLocalChat,
+  deleteLocalChat,
+  clearLocalChats,
+  putLocalChat,
+  putLocalSharedChat,
+  getLocalSharedChat
+} from '@/lib/local-chat-store'
 
 const API_URL = process.env.NEXT_PUBLIC_RAG_API_URL || "http://localhost:8000";
 const E2E_SAMPLE_CHATS_COOKIE = 'e2e-sample-chats'
+const isKvConfigured = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
 
 /** Helper: make a shallow Record copy suitable for hmset */
 const toKV = (obj: unknown): Record<string, unknown> => ({ ...(obj as any) })
@@ -35,6 +45,9 @@ export async function getChats(userId?: string | null) {
       return E2E_SAMPLE_CHATS
     }
     return []
+  }
+  if (!isKvConfigured) {
+    return listLocalChats(userId)
   }
   try {
     const chatKeys = (await kv.zrange(`user:chat:${userId}`, 0, -1, {
@@ -54,7 +67,7 @@ export async function getChats(userId?: string | null) {
 
     return chats
   } catch {
-    return []
+    return listLocalChats(userId)
   }
 }
 
@@ -64,10 +77,21 @@ export async function getChat(id: string, userId: string) {
       userId === E2E_USER_ID ? E2E_SAMPLE_CHATS : buildSampleChatsForUser(userId)
     return sampleChats.find((chat) => chat.id === id) ?? null
   }
-  const raw = await kv.hgetall(`chat:${id}`)
-  const chat = (raw || null) as Chat | null
-  if (!chat || (userId && chat.userId !== userId)) return null
-  return chat
+  if (!isKvConfigured) {
+    const local = getLocalChat(id)
+    if (!local || (userId && local.userId !== userId)) return null
+    return local
+  }
+  try {
+    const raw = await kv.hgetall(`chat:${id}`)
+    const chat = (raw || null) as Chat | null
+    if (!chat || (userId && chat.userId !== userId)) return getLocalChat(id)
+    return chat
+  } catch {
+    const local = getLocalChat(id)
+    if (!local || (userId && local.userId !== userId)) return null
+    return local
+  }
 }
 
 export async function removeChat({ id, path }: { id: string; path: string }) {
@@ -75,6 +99,12 @@ export async function removeChat({ id, path }: { id: string; path: string }) {
   if (!session?.user?.id) return { error: 'Unauthorized' }
 
   if (IS_E2E_MODE) {
+    revalidatePath('/')
+    return
+  }
+
+  if (!isKvConfigured) {
+    deleteLocalChat(session.user.id, id)
     revalidatePath('/')
     return
   }
@@ -95,6 +125,12 @@ export async function clearChats() {
   if (IS_E2E_MODE) {
     const cookieStore = cookies()
     cookieStore.delete(E2E_SAMPLE_CHATS_COOKIE)
+    revalidatePath('/')
+    return redirect('/')
+  }
+
+  if (!isKvConfigured) {
+    clearLocalChats(session.user.id)
     revalidatePath('/')
     return redirect('/')
   }
@@ -131,10 +167,22 @@ export async function getSharedChat(id: string) {
       originalChatId: base.id
     }
   }
-  const raw = await kv.hgetall(`chat:${id}`)
-  const chat = (raw || null) as Chat | null
-  if (!chat || !chat.sharePath) return null
-  return chat
+  if (!isKvConfigured) {
+    const localShared = getLocalSharedChat(id)
+    return localShared?.sharePath ? localShared : null
+  }
+  try {
+    const raw = await kv.hgetall(`chat:${id}`)
+    const chat = (raw || null) as Chat | null
+    if (!chat || !chat.sharePath) {
+      const fallback = getLocalSharedChat(id)
+      return fallback?.sharePath ? fallback : null
+    }
+    return chat
+  } catch {
+    const localShared = getLocalSharedChat(id)
+    return localShared?.sharePath ? localShared : null
+  }
 }
 
 export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
@@ -151,13 +199,15 @@ export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
 
   if (IS_E2E_MODE) {
     const sharedChatId = `${chat.id}-shared`
-    return {
+    const shared = {
       ...chat,
       id: sharedChatId,
       sharePath: `/share/${sharedChatId}`,
       readOnly: true,
       originalChatId: chat.id
     }
+    putLocalSharedChat(shared)
+    return shared
   }
 
   const sharedChatId = nanoid()
@@ -169,8 +219,38 @@ export async function shareChat(chat: Chat, useApiKeyAuth: boolean = false) {
     sharePath: `/share/${sharedChatId}`,
   }
 
-  await kv.hmset(`chat:${sharedChatId}`, toKV(sharedPayload))
+  if (!isKvConfigured) {
+    putLocalSharedChat(sharedPayload)
+    return sharedPayload
+  }
+
+  try {
+    await kv.hmset(`chat:${sharedChatId}`, toKV(sharedPayload))
+  } catch (error) {
+    console.error('shareChat: failed to persist shared chat', error)
+    putLocalSharedChat(sharedPayload)
+  }
   return sharedPayload
+}
+
+export async function createShareLink(chatId: string): Promise<{ sharePath: string } | { error: string }> {
+  const session = await auth()
+  if (!session?.user?.id) return { error: 'Unauthorized' }
+
+  const chat = await getChat(chatId, session.user.id)
+  if (!chat) return { error: 'Chat not found' }
+
+  const shared = await shareChat(chat)
+  if (!shared || typeof shared !== 'object') {
+    return { error: 'Unable to create share link.' }
+  }
+  if ('error' in shared) {
+    return shared
+  }
+  if (!shared.sharePath) {
+    return { error: 'Share link unavailable.' }
+  }
+  return { sharePath: shared.sharePath }
 }
 
 export async function seedSampleChats(path = '/') {
@@ -190,6 +270,9 @@ export async function seedSampleChats(path = '/') {
       path: '/',
       maxAge: 60 * 60
     })
+    if (session.user?.id === E2E_USER_ID) {
+      E2E_SAMPLE_CHATS.forEach((chat) => putLocalChat(chat))
+    }
     revalidatePath(path)
     return { ok: true, seeded: E2E_SAMPLE_CHATS.length }
   }

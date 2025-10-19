@@ -7,6 +7,7 @@ import {
   parseMetadata,
   type ParsedMetadataEntryV2
 } from '@/lib/utils'
+import { putLocalChat } from '@/lib/local-chat-store'
 import type { DiagnosticsPayload } from '@/lib/types'
 
 export const maxDuration = 300
@@ -93,7 +94,8 @@ export async function POST(req: Request) {
         return new Response('Failed to persist chat', { status: 500 })
       }
     } else if (userId && !isKvConfigured) {
-      console.warn('chat-route: KV not configured, skipping chat persistence', { traceId: trace })
+      console.warn('chat-route: KV not configured, caching chat in memory', { traceId: trace })
+      putLocalChat(payload as any)
     }
 
     console.debug('chat-route: building response payload', {

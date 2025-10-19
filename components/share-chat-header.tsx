@@ -2,19 +2,20 @@
 'use client'
 
 import React from 'react';
-import { shareChat, getChat, getChats } from '@/app/actions';
+import { createShareLink } from '@/app/actions';
 import { toast } from 'react-hot-toast';
 import { Chat } from '@/lib/types';
 import Image from 'next/image';
 
 interface ShareChatHeaderProps {
-  userId: string; // Ensure this is always a string, either authenticated ID or anonymousId
   chatId?: string;
   chat?: Chat | null;
 }
 
-const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ userId, chatId, chat }) => {
-  const copyToClipboard = async (text: string) => {
+const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat }) => {
+  const [isSharing, startSharing] = React.useTransition();
+
+  const copyToClipboard = React.useCallback(async (text: string) => {
     let successful = false;
     try {
       if ('clipboard' in navigator && navigator.clipboard) {
@@ -46,58 +47,74 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ userId, chatId, chat 
     } else {
       toast.error('Failed to copy link. Please copy and paste the link manually:\n' + text, { duration: 10000 }); // Adjust duration as needed
     }
-  };
+  }, []);
 
-  const handleShareClick = async () => {
-    try {
-      let chatToShare = chat;
-      if (!chatToShare && chatId) {
-        chatToShare = await getChat(chatId, userId);
-      } else if (!chatToShare) {
-        const chats = await getChats(userId);
-        chatToShare = chats[chats.length - 1];
-      }
+  const resolveOrigin = React.useCallback(() => {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return window.location.origin;
+    }
+    return process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_NEXTAUTH_URL || 'https://icm.fyi';
+  }, []);
 
-      if (!chatToShare) {
-        toast.error("Chat not found");
+  const copySharePath = React.useCallback(
+    async (sharePath: string) => {
+      if (!sharePath) {
+        toast.error('Share link unavailable.');
         return;
       }
+      const origin = resolveOrigin();
+      const normalized = sharePath.startsWith('http')
+        ? sharePath
+        : `${origin}${sharePath.startsWith('/') ? '' : '/'}${sharePath}`;
+      await copyToClipboard(normalized);
+    },
+    [copyToClipboard, resolveOrigin]
+  );
 
-      const result = await shareChat(chatToShare);
-      if (result && 'error' in result) {
-        toast.error(result.error);
-      } else {
-        const shareUrl = `${process.env.NEXT_PUBLIC_NEXTAUTH_URL || 'https://icm.fyi'}${result.sharePath}`;
-        copyToClipboard(shareUrl);
-      }
-    } catch (error) {
-      toast.error("Error sharing chat");
+  const handleShareClick = React.useCallback(() => {
+    const targetId = chat?.id ?? chatId;
+    if (!targetId) {
+      toast.error('Chat not found');
+      return;
     }
-  };
+
+    if (chat?.sharePath) {
+      void copySharePath(chat.sharePath);
+      return;
+    }
+
+    startSharing(async () => {
+      try {
+        const result = await createShareLink(targetId);
+        if ('error' in result) {
+          toast.error(result.error);
+          return;
+        }
+        await copySharePath(result.sharePath);
+      } catch (error) {
+        console.error('share-chat-header: share action failed', error);
+        toast.error('Error sharing chat.');
+      }
+    });
+  }, [chat?.id, chat?.sharePath, chatId, copySharePath]);
 
   return (
-    <header style={{ 
-      position: 'absolute', 
-      top: '15px', 
-      left: '67%', // Adjust this value to move the button more to the left
-      zIndex: 1000 
-    }}>
-      <button onClick={handleShareClick} style={{ 
-        background: 'none', 
-        border: 'none', 
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
+    <header className="pointer-events-auto fixed right-6 top-6 z-50">
+      <button
+        type="button"
+        onClick={handleShareClick}
+        disabled={isSharing}
+        className="group inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-white transition-all duration-200 hover:bg-white/10 hover:text-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+        aria-label="Share chat"
+      >
         <Image
           src="/ui_icons/share_chat_2.svg"
           alt="Share"
           width={20}
           height={20}
+          className="transition-transform duration-200 group-hover:scale-110"
           priority
         />
-        <span className="sr-only">Share Chat</span>
       </button>
     </header>
   );

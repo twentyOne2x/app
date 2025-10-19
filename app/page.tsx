@@ -30,7 +30,7 @@ export default async function IndexPage() {
   return (
     <>
       <Chat id={id} currentUser={session?.user ?? null} />
-      {session?.user?.id && <ShareChatHeader chatId={id} userId={session.user.id} />}
+      {session?.user?.id && <ShareChatHeader chatId={id} />}
     </>
   );
 }

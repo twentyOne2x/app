@@ -58,7 +58,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
         <SourceListInline entries={chat.structured_metadata as any} className="mt-6" />
       </div>
       {userId && chat.userId === userId && (
-        <ShareChatHeader chatId={chat.id} userId={userId} chat={chat} />
+        <ShareChatHeader chatId={chat.id} chat={chat} />
       )}
     </>
   )

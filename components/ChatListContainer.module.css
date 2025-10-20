@@ -100,18 +100,11 @@
   padding-bottom: calc(var(--chat-panel-offset) + 180px);
 }
 
-.middlePanelHeader {
-  position: sticky;
+.shareButtonAnchor {
+  position: absolute;
   top: clamp(16px, 3vh, 32px);
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 var(--chat-horizontal-padding);
+  right: var(--chat-horizontal-padding);
   z-index: 6;
-  pointer-events: none;
-}
-
-.middlePanelHeader > * {
-  pointer-events: auto;
 }
 
 .scrollableContainer {

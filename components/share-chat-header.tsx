@@ -101,7 +101,7 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat, classNa
   }, [chat?.id, chat?.sharePath, chatId, copySharePath]);
 
   return (
-    <header className={cn('pointer-events-auto inline-flex', className)}>
+    <div className={cn('pointer-events-auto inline-flex', className)}>
       <button
         type="button"
         onClick={handleShareClick}
@@ -118,7 +118,7 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat, classNa
           priority
         />
       </button>
-    </header>
+    </div>
   );
 };
 

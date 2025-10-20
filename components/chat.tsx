@@ -2136,12 +2136,10 @@ export function Chat({
         </div>
 
         <div className={middlePanelClass}>
+          {shareHeader && !shared_chat ? (
+            <div className={styles.shareButtonAnchor}>{shareHeader}</div>
+          ) : null}
           <div className={styles.middlePanelContent}>
-            {shareHeader && !shared_chat ? (
-              <div className={styles.middlePanelHeader}>
-                {shareHeader}
-              </div>
-            ) : null}
             <div className={styles.scrollableContainer}>
               {showChatList && (
                 <div className={QuestionsOverlayStyles.fadeIn}>

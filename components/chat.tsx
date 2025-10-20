@@ -2187,15 +2187,6 @@ export function Chat({
 
             {!shared_chat && (
               <div className={styles.chatPanel}>
-                {isMobile && (
-                  <div className="mb-4">
-                    <ChannelFilterPanel
-                      channels={availableChannels}
-                      excluded={excludedChannelKeys}
-                      onExcludedChange={handleExcludedChannelsChange}
-                    />
-                  </div>
-                )}
                 <ChatPanel
                   id={id}
                   isLoading={isProcessingQuery}

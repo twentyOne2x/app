@@ -97,13 +97,12 @@
   flex: 1 1 auto;
   min-height: 0;
   gap: clamp(28px, 5vh, 48px);
-  padding-bottom: calc(var(--chat-panel-offset) + 180px);
+  padding-bottom: clamp(160px, 22vh, 220px);
 }
 
 .scrollableContainer {
   flex: 1 1 auto;
   min-height: 0;
-  max-height: calc(100vh - 260px);
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0 var(--chat-horizontal-padding) 12px;
@@ -182,84 +181,6 @@
   padding: 0.5rem; /* Adjust padding to ensure it fits within the chatPanel */
 }
 
-.promptFormContainer {
-  flex-grow: 1;
-  padding: 1rem 0;
-  position: relative;
-  max-width: 100%
-}
-
-.promptForm {
-  width: 100%;
-}
-
-.promptFormInner {
-  display: flex;
-  flex-grow: 1;
-  width: 100%;
-  align-items: center;
-  background-color: transparent;
-  position: relative;
-  margin-left: 0;
-}
-
-.promptTextarea {
-  flex-grow: 1;
-  padding: 0.7rem;
-  outline: none;
-  font-size: 1rem;
-  background-color: transparent;
-  color: #ffffff;
-  margin-right: 0;
-  margin-left: 0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding-left: 0.7rem;
-  padding-right: 4rem;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 48px;
-}
-
-.sendButtonContainer {
-  position: absolute;
-  margin-top: 0.3rem;
-  right: 32px;
-  top: 50%; /* Adjust this value as needed to center the button vertically within the form */
-  transform: translateY(-50%); /* This will center the button vertically relative to its container */
-}
-
-.sendButtonContainer button {
-  background-color: transparent; /* Ensures the button has no background */
-  border: none;  /* Removes any border */
-  outline: none;  /* Removes focus outline */
-  cursor: pointer; /* Changes the cursor to a hand icon on hover */
-}
-
-.sendButtonContainer button img {
-  width: 90%; /* Resize SVG to 90% of the button's width */
-  height: 90%; /* Resize SVG to 90% of the button's height */
-  display: block; /* This ensures that the img tag does not have any extra space around it */
-  margin: auto; /* This will center the image within the button */
-}
-
-@media (max-width: 640px) {
-  .chatPanel {
-    bottom: 16px;
-  }
-
-  .chatPanelWrapper {
-    padding: 1rem 16px 1.25rem;
-    border-radius: 16px;
-  }
-
-  .promptTextarea {
-    font-size: 0.95rem;
-    padding: 0.6rem;
-    margin-right: 0;
-    padding-right: 3.25rem;
-  }
-}
 
 .loadingContainer {
   position: absolute;

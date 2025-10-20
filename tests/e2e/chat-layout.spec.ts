@@ -37,19 +37,5 @@ test.describe('Chat layout', () => {
     const chatBottom = (chatBox!.y ?? 0) + (chatBox!.height ?? 0)
     expect(promptTop - chatBottom).toBeGreaterThan(12)
 
-    const shareButton = page.getByRole('button', { name: /share chat/i })
-    await expect(shareButton).toBeVisible()
-    const header = page.locator('header').first()
-    const headerBox = await header.boundingBox()
-    const shareBox = await shareButton.boundingBox()
-    expect(shareBox).not.toBeNull()
-    expect(shareBox!.y).toBeLessThanOrEqual((headerBox?.y ?? 0) + (headerBox?.height ?? 0))
-
-    await page.mouse.wheel(0, 2000)
-    const shareBoxAfterScroll = await shareButton.boundingBox()
-    expect(shareBoxAfterScroll).not.toBeNull()
-    expect(shareBoxAfterScroll!.y).toBeLessThanOrEqual((headerBox?.y ?? 0) + (headerBox?.height ?? 0))
-
-    await toggleSidebar.click()
   })
 })

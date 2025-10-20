@@ -430,6 +430,7 @@ export interface ChatProps extends React.ComponentProps<'div'> {
     name?: string | null
     email?: string | null
   } | null
+  shareHeader?: React.ReactNode
 }
 
 export function Chat({
@@ -440,7 +441,8 @@ export function Chat({
   shared_chat = false,
   structured_metadata = [], // Initialize structured_metadata with an empty array
   noPaddingTop = false, // New boolean prop for bottom padding
-  currentUser = null
+  currentUser = null,
+  shareHeader
 }: ChatProps) {
   const [previewToken, setPreviewToken] = useLocalStorage<string | null>(
     'ai-token',
@@ -2135,6 +2137,11 @@ export function Chat({
 
         <div className={middlePanelClass}>
           <div className={styles.middlePanelContent}>
+            {shareHeader && !shared_chat ? (
+              <div className={styles.middlePanelHeader}>
+                {shareHeader}
+              </div>
+            ) : null}
             <div className={styles.scrollableContainer}>
               {showChatList && (
                 <div className={QuestionsOverlayStyles.fadeIn}>

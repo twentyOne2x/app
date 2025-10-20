@@ -45,7 +45,10 @@
 .leftPanelFilter {
   width: 100%;
   margin-top: auto;
+  padding-top: 24px;
   padding-bottom: 32px;
+  position: sticky;
+  bottom: var(--chat-panel-offset);
 }
 
 .rightPanel {
@@ -94,6 +97,21 @@
   flex: 1 1 auto;
   min-height: 0;
   gap: clamp(28px, 5vh, 48px);
+  padding-bottom: calc(var(--chat-panel-offset) + 180px);
+}
+
+.middlePanelHeader {
+  position: sticky;
+  top: clamp(16px, 3vh, 32px);
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--chat-horizontal-padding);
+  z-index: 6;
+  pointer-events: none;
+}
+
+.middlePanelHeader > * {
+  pointer-events: auto;
 }
 
 .scrollableContainer {
@@ -105,6 +123,12 @@
   padding: 0 var(--chat-horizontal-padding) 12px;
   width: 100%;
   scrollbar-gutter: stable both-edge;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollableContainer::-webkit-scrollbar {
+  display: none;
 }
 
 /* ChatList container with scrollable content */
@@ -135,6 +159,7 @@
 
 /* CHAT PANEL SECTION */
 
+
 .chatPanelWrapper {
   position: relative;
   margin: 0 auto;
@@ -142,21 +167,11 @@
   max-width: var(--chat-max-width);
   padding: 1.25rem var(--chat-horizontal-padding) 1.5rem;
   box-sizing: border-box;
-  border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(9, 9, 16, 0.92);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 18px 34px -24px rgba(12, 12, 20, 0.6);
 }
 
 .chatPanel {
-  position: sticky;
-  bottom: var(--chat-panel-offset);
-  width: 100%;
-  display: flex;
-  justify-content: center;
+  margin-top: auto;
   padding: 0;
-  z-index: 5;
 }
 
 
@@ -183,9 +198,7 @@
 
 .promptFormContainer {
   flex-grow: 1;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
-  background: transparent;
+  padding: 1rem 0;
   position: relative;
   max-width: 100%
 }

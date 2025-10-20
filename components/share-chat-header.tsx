@@ -6,13 +6,15 @@ import { createShareLink } from '@/app/actions';
 import { toast } from 'react-hot-toast';
 import { Chat } from '@/lib/types';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface ShareChatHeaderProps {
   chatId?: string;
   chat?: Chat | null;
+  className?: string;
 }
 
-const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat }) => {
+const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat, className }) => {
   const [isSharing, startSharing] = React.useTransition();
 
   const copyToClipboard = React.useCallback(async (text: string) => {
@@ -99,7 +101,7 @@ const ShareChatHeader: React.FC<ShareChatHeaderProps> = ({ chatId, chat }) => {
   }, [chat?.id, chat?.sharePath, chatId, copySharePath]);
 
   return (
-    <header className="pointer-events-auto fixed right-6 top-6 z-50">
+    <header className={cn('pointer-events-auto inline-flex', className)}>
       <button
         type="button"
         onClick={handleShareClick}

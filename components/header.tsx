@@ -43,7 +43,15 @@ export function Header({ session }: HeaderProps) {
             icm.fyi
           </Link>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <a
+            href="https://twitter.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            twitter.com
+          </a>
           {userId ? (
             <>
               <Button

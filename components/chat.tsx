@@ -38,6 +38,7 @@ import { useClipSelection } from '@/lib/hooks/use-clip-selection'
 import { useRouter } from 'next/navigation'
 import { DEFAULT_PIPELINE, formatDuration, normalizeProgress } from '@/lib/progress-display'
 import type { DisplayStage } from '@/lib/progress-display'
+import { useHeaderExtras } from '@/components/header-extras-context'
 
 type ChannelOption = {
   id?: string | null
@@ -458,6 +459,7 @@ export function Chat({
     [structured_metadata]
   )
   const router = useRouter();
+  const { setShareControl } = useHeaderExtras()
 
   // State to hold structured metadata entries
   const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(sanitizedStructuredMetadata);
@@ -2112,6 +2114,17 @@ export function Chat({
     return [...newMessages, progressMessage]
   }, [newMessages, progressSummary, progressDiagnostics])
 
+  React.useEffect(() => {
+    if (shared_chat || !shareHeader) {
+      setShareControl(null)
+      return
+    }
+    setShareControl(shareHeader)
+    return () => {
+      setShareControl(null)
+    }
+  }, [setShareControl, shareHeader, shared_chat])
+
   return (
     <>
       <div className={styles.layoutContainer}>
@@ -2136,9 +2149,6 @@ export function Chat({
         </div>
 
         <div className={middlePanelClass}>
-          {shareHeader && !shared_chat ? (
-            <div className={styles.shareButtonAnchor}>{shareHeader}</div>
-          ) : null}
           <div className={styles.middlePanelContent}>
             <div className={styles.scrollableContainer}>
               {showChatList && (

@@ -5,8 +5,9 @@ import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { ThemeProviderProps } from 'next-themes/dist/types'
 import { PrivyProvider } from '@privy-io/react-auth'
 
-import { TooltipProvider } from '@/components/ui/tooltip'
 import { EntryProfileProvider } from '@/components/entry-profile-context'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { HeaderExtrasProvider } from '@/components/header-extras-context'
 import type { EntryProfile } from '@/lib/entry-profiles'
 
 interface ProvidersProps extends ThemeProviderProps {
@@ -19,7 +20,9 @@ export function Providers({ children, entryProfile, ...props }: ProvidersProps) 
   const content = (
     <NextThemesProvider {...props}>
       <EntryProfileProvider profile={entryProfile}>
-        <TooltipProvider>{children}</TooltipProvider>
+        <HeaderExtrasProvider>
+          <TooltipProvider>{children}</TooltipProvider>
+        </HeaderExtrasProvider>
       </EntryProfileProvider>
     </NextThemesProvider>
   )

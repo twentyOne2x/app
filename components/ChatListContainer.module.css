@@ -100,13 +100,6 @@
   padding-bottom: calc(var(--chat-panel-offset) + 180px);
 }
 
-.shareButtonAnchor {
-  position: absolute;
-  top: clamp(16px, 3vh, 32px);
-  right: var(--chat-horizontal-padding);
-  z-index: 6;
-}
-
 .scrollableContainer {
   flex: 1 1 auto;
   min-height: 0;

@@ -41,10 +41,13 @@
   * {
     @apply border-border;
   }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     @apply bg-background text-foreground;
-    overflow-x: hidden; /* Should not exist */
-    /* overflow-y: hidden; */ /* Remove this line */
     font-family: var(--font-sans), sans-serif;
   }
 

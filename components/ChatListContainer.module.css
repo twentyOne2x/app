@@ -45,10 +45,10 @@
 .leftPanelFilter {
   width: 100%;
   margin-top: auto;
-  padding-top: 24px;
-  padding-bottom: 32px;
+  padding: 24px var(--chat-horizontal-padding) 0;
   position: sticky;
   bottom: var(--chat-panel-offset);
+  box-sizing: border-box;
 }
 
 .rightPanel {

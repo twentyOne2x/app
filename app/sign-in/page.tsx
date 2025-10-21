@@ -24,12 +24,8 @@ export default async function SignInPage() {
         <p className="my-4"></p>
         
         <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          To keep access invitational and prevent spoofing, please authenticate with Twitter or connect a verified wallet.
+          To keep access invitational and prevent spoofing, please authenticate with Twitter.
           We only use this to understand who&apos;s testing the product—nothing more.
-        </p>
-
-        <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          Wallet logins are powered by Privy, so both Solana and EVM users can come straight in.
         </p>
 
         <p className="text-base leading-normal text-muted-foreground sm:text-lg">
@@ -41,7 +37,6 @@ export default async function SignInPage() {
       
       <div className="mx-auto flex w-full flex-col gap-3 px-3 sm:flex-row sm:justify-center">
         <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon className="w-full sm:w-auto" />
-        <LoginButton loginType="privy" text="Connect wallet with Privy" showIcon className="w-full sm:w-auto" />
       </div>
       {IS_E2E_MODE ? (
         <form action={e2eSignIn} className="mt-6">

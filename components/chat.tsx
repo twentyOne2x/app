@@ -384,27 +384,18 @@ async function extractErrorMessage(response: Response): Promise<string | null> {
 function AuthButtonsCallout({ className }: { className?: string }) {
   return (
     <div className={cn('flex flex-col items-center gap-2 text-center text-zinc-300', className)}>
-      <div className="flex items-center justify-center gap-2">
-        <LoginButton
-          loginType="twitter"
-          text="Twitter"
-          showIcon
-          size="sm"
-          className="min-w-[112px] justify-center px-4"
-        />
-        <LoginButton
-          loginType="privy"
-          text="Privy"
-          showIcon
-          size="sm"
-          className="min-w-[112px] justify-center px-4"
-        />
-      </div>
+      <LoginButton
+        loginType="twitter"
+        text="Twitter"
+        showIcon
+        size="sm"
+        className="min-w-[112px] justify-center px-4"
+      />
       <p className="max-w-[260px] text-xs text-zinc-400">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
           Quick sign-in
         </span>
-        Connect Twitter or Privy to save chats and unlock sharing.
+        Connect Twitter to save chats and unlock sharing.
       </p>
     </div>
   )

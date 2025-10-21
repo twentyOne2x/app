@@ -37,6 +37,7 @@ export interface ChatPanelProps {
   setShowEmptyScreen: (value: boolean) => void;
   setShowChatList: (value: boolean) => void;
   onClearChat?: () => void;
+  showFooter?: boolean;
 }
 
 export function ChatPanel({
@@ -55,7 +56,8 @@ export function ChatPanel({
   setShowMiddlePanelOverlay,
   setShowEmptyScreen,
   setShowChatList,
-  onClearChat
+  onClearChat,
+  showFooter = true
 }: ChatPanelProps) {
   // Step 1: Create a state variable to track whether the backend response has been received
   const [responseReceived, setResponseReceived] = useState(false);
@@ -153,7 +155,7 @@ export function ChatPanel({
           </div>
         </div>
   
-        <FooterText className="hidden sm:block" />
+        {showFooter ? <FooterText className="hidden sm:block" /> : null}
       </div>
     </div>
   );

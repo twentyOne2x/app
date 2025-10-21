@@ -2136,21 +2136,13 @@ export function Chat({
                 <QuestionsOverlayLeftPanel onSubmit={handleSuggestionSubmit} showOverlay={showLeftPanelOverlay} />
               ) : null}
             </div>
-            {!shared_chat && !isMobile ? (
-              <div className={styles.leftPanelFilter}>
-                <ChannelFilterPanel
-                  channels={availableChannels}
-                  excluded={excludedChannelKeys}
-                  onExcludedChange={handleExcludedChannelsChange}
-                />
-              </div>
-            ) : null}
+            {null}
           </div>
         </div>
 
         <div className={middlePanelClass}>
           <div className={styles.middlePanelContent}>
-            <div className={styles.scrollableContainer}>
+            <div className={styles.scrollableContainer} data-testid="chat-scroll-region">
               {showChatList && (
                 <div className={QuestionsOverlayStyles.fadeIn}>
                   <ChatList
@@ -2185,28 +2177,7 @@ export function Chat({
               )}
             </div>
 
-            {!shared_chat && (
-              <div className={styles.chatPanel}>
-                <ChatPanel
-                  id={id}
-                  isLoading={isProcessingQuery}
-                  input={input}
-                  setInput={setInput}
-                  onSubmit={handleUserInputSubmit}
-                  setMessages={setMessages}
-                  setStructuredMetadataEntries={setStructuredMetadataEntries}
-                  setLastMessageRole={setLastMessageRole}
-                  setShowTopSources={setShowTopSources}
-                  setFadeOutCompleted={setFadeOutCompleted}
-                  setMetadataContainerVisible={setMetadataContainerVisible}
-                  setShowLeftPanelOverlay={setShowLeftPanelOverlay}
-                  setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
-                  setShowEmptyScreen={setShowEmptyScreen}
-                  setShowChatList={setShowChatList}
-                  onClearChat={handleClearChat}
-                />
-              </div>
-            )}
+            {null}
           </div>
         </div>
 
@@ -2225,6 +2196,43 @@ export function Chat({
           </div>
         </div>
       </div>
+
+      {!shared_chat && (
+        <div className={styles.bottomBar} data-testid="chat-bottom-bar">
+          <div className={styles.bottomBarInner}>
+            {!isMobile ? (
+              <div className={styles.bottomBarFilter} data-testid="channel-filter-bottom">
+                <ChannelFilterPanel
+                  channels={availableChannels}
+                  excluded={excludedChannelKeys}
+                  onExcludedChange={handleExcludedChannelsChange}
+                />
+              </div>
+            ) : null}
+            <div className={styles.bottomBarPrompt}>
+              <ChatPanel
+                id={id}
+                isLoading={isProcessingQuery}
+                input={input}
+                setInput={setInput}
+                onSubmit={handleUserInputSubmit}
+                setMessages={setMessages}
+                setStructuredMetadataEntries={setStructuredMetadataEntries}
+                setLastMessageRole={setLastMessageRole}
+                setShowTopSources={setShowTopSources}
+                setFadeOutCompleted={setFadeOutCompleted}
+                setMetadataContainerVisible={setMetadataContainerVisible}
+                setShowLeftPanelOverlay={setShowLeftPanelOverlay}
+                setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
+                setShowEmptyScreen={setShowEmptyScreen}
+                setShowChatList={setShowChatList}
+                onClearChat={handleClearChat}
+                showFooter={false}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal to display MetadataList on mobile */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>

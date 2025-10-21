@@ -8,7 +8,6 @@ import { SidebarList } from '@/components/sidebar-list'
 import { SidebarFooter } from '@/components/sidebar-footer'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { ClearHistory } from '@/components/clear-history'
-import { IconNextChat } from '@/components/ui/icons'
 import { HeaderRightControls } from '@/components/header-right-controls'
 
 interface HeaderProps {
@@ -33,13 +32,8 @@ export function Header({ session }: HeaderProps) {
               </SidebarFooter>
             </Sidebar>
           ) : null}
-          <Link
-            href="/"
-            className="flex items-center font-semibold text-foreground transition-colors hover:text-foreground/80"
-            aria-label="Return to home"
-          >
-            <IconNextChat className="mr-2 size-6" />
-            icm.fyi
+          <Link href="/" className="flex size-8 items-center justify-center rounded-md border border-border/60 bg-background/80 p-0 text-foreground transition-colors hover:text-foreground/80" aria-label="Return to home">
+            <span className="text-sm font-semibold uppercase tracking-wide">ICM</span>
           </Link>
         </div>
         <HeaderRightControls session={session} />

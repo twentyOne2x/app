@@ -2128,7 +2128,7 @@ export function Chat({
   return (
     <>
       <div className={styles.layoutContainer}>
-        <div className={styles.leftPanel}>
+        <div className={styles.leftPanel} data-testid="chat-left-rail">
           <div className={styles.leftPanelContent}>
             <div className={leftPanelOverlayClass} onAnimationEnd={onAnimationEnd}>
               {/* Render conditionally based on fadeOutCompleted and shared_chat */}
@@ -2140,7 +2140,7 @@ export function Chat({
           </div>
         </div>
 
-        <div className={middlePanelClass}>
+        <div className={middlePanelClass} data-testid="chat-middle-rail">
           <div className={styles.middlePanelContent}>
             <div className={styles.scrollableContainer} data-testid="chat-scroll-region">
               {showChatList && (
@@ -2181,7 +2181,7 @@ export function Chat({
           </div>
         </div>
 
-        <div className={rightPanelClass}>
+        <div className={rightPanelClass} data-testid="chat-right-rail">
           <div className={metadataContainerClass}>
             <RightPanelAuthCta isAuthenticated={Boolean(currentUser)} />
             {newMessages.length > 0 && (
@@ -2200,36 +2200,43 @@ export function Chat({
       {!shared_chat && (
         <div className={styles.bottomBar} data-testid="chat-bottom-bar">
           <div className={styles.bottomBarInner}>
-            {!isMobile ? (
-              <div className={styles.bottomBarFilter} data-testid="channel-filter-bottom">
-                <ChannelFilterPanel
-                  channels={availableChannels}
-                  excluded={excludedChannelKeys}
-                  onExcludedChange={handleExcludedChannelsChange}
-                />
-              </div>
-            ) : null}
-            <div className={styles.bottomBarPrompt}>
-              <ChatPanel
-                id={id}
-                isLoading={isProcessingQuery}
-                input={input}
-                setInput={setInput}
-                onSubmit={handleUserInputSubmit}
-                setMessages={setMessages}
-                setStructuredMetadataEntries={setStructuredMetadataEntries}
-                setLastMessageRole={setLastMessageRole}
-                setShowTopSources={setShowTopSources}
-                setFadeOutCompleted={setFadeOutCompleted}
-                setMetadataContainerVisible={setMetadataContainerVisible}
-                setShowLeftPanelOverlay={setShowLeftPanelOverlay}
-                setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
-                setShowEmptyScreen={setShowEmptyScreen}
-                setShowChatList={setShowChatList}
-                onClearChat={handleClearChat}
-                showFooter={false}
-              />
+            <div className={styles.bottomBarLeft} data-testid="chat-bottom-left">
+              {!isMobile ? (
+                <div className={styles.bottomBarFilter} data-testid="channel-filter-bottom">
+                  <ChannelFilterPanel
+                    channels={availableChannels}
+                    excluded={excludedChannelKeys}
+                    onExcludedChange={handleExcludedChannelsChange}
+                  />
+                </div>
+              ) : null}
             </div>
+            <div className={styles.bottomBarMiddle} data-testid="chat-bottom-middle">
+              <div className={styles.bottomBarPrompt}>
+                <div className={styles.bottomBarPromptInner}>
+                  <ChatPanel
+                    id={id}
+                    isLoading={isProcessingQuery}
+                    input={input}
+                    setInput={setInput}
+                    onSubmit={handleUserInputSubmit}
+                    setMessages={setMessages}
+                    setStructuredMetadataEntries={setStructuredMetadataEntries}
+                    setLastMessageRole={setLastMessageRole}
+                    setShowTopSources={setShowTopSources}
+                    setFadeOutCompleted={setFadeOutCompleted}
+                    setMetadataContainerVisible={setMetadataContainerVisible}
+                    setShowLeftPanelOverlay={setShowLeftPanelOverlay}
+                    setShowMiddlePanelOverlay={setShowMiddlePanelOverlay}
+                    setShowEmptyScreen={setShowEmptyScreen}
+                    setShowChatList={setShowChatList}
+                    onClearChat={handleClearChat}
+                    showFooter={false}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className={styles.bottomBarRight} data-testid="chat-bottom-right" />
           </div>
         </div>
       )}

@@ -133,10 +133,141 @@ export function youtubeThumbFor(
   return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : undefined
 }
 
+function normalizeUrlCandidate(value?: string | null): URL | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  try {
+    const hasScheme = /^[a-z]+:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+    return new URL(hasScheme)
+  } catch {
+    return undefined
+  }
+}
+
+function extractPumpfunTokenFromString(value?: string | null): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const url = normalizeUrlCandidate(trimmed)
+  if (url) {
+    const host = url.hostname.toLowerCase()
+    const segments = url.pathname.split('/').filter(Boolean)
+    if (host === 'pump.fun') {
+      const coinIndex = segments.indexOf('coin')
+      if (coinIndex >= 0 && segments.length > coinIndex + 1) {
+        return segments[coinIndex + 1]
+      }
+    }
+    if (host === 'clips.pump.fun' && segments.length) {
+      return segments[0]
+    }
+  }
+
+  const idMatch = trimmed.match(/pumpfun_([A-Za-z0-9]+pump)/i)
+  if (idMatch?.[1]) {
+    return idMatch[1]
+  }
+
+  return undefined
+}
+
+function extractPumpfunClipSlug(value?: string | null): string | undefined {
+  if (!value) return undefined
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const url = normalizeUrlCandidate(trimmed)
+  if (url) {
+    const segments = url.pathname.split('/').filter(Boolean)
+    const clipsIndex = segments.indexOf('clips')
+    if (clipsIndex >= 0 && segments.length > clipsIndex + 1) {
+      return segments[clipsIndex + 1]
+    }
+  }
+
+  const idMatch = trimmed.match(/pumpfun_[A-Za-z0-9]+pump_([0-9]{8}_[0-9]{6})[-:]([0-9]+)_([0-9]{8}_[0-9]{6})/)
+  if (idMatch) {
+    const [, start, fractional, end] = idMatch
+    if (start && fractional && end) {
+      return `${start}:${fractional}_${end}`
+    }
+  }
+
+  const slugMatch = trimmed.match(/clips\/([^/?#]+)/)
+  if (slugMatch?.[1]) {
+    return slugMatch[1]
+  }
+
+  return undefined
+}
+
+function derivePumpfunLink(
+  clip: ClipItemV2,
+  parent?: ParsedMetadataEntryV2
+): string | undefined {
+  const stringCandidates: Array<string | undefined> = [
+    clip.clipUrl,
+    clip.url,
+    parent?.url,
+    clip.parentId,
+    clip.parent_id,
+    clip.segmentId,
+    clip.segment_id,
+    parent?.parentId,
+    parent?.parent_id,
+    parent?.id
+  ]
+
+  const tokenFromStrings = stringCandidates
+    .map(extractPumpfunTokenFromString)
+    .find(Boolean)
+
+  const tagsCandidates = [
+    (clip as any)?.routerTags,
+    (clip as any)?.router_tags,
+    (parent as any)?.routerTags,
+    (parent as any)?.router_tags
+  ].flatMap((value) => (Array.isArray(value) ? value : [])).filter(Boolean) as string[]
+
+  const tokenFromTags = tagsCandidates
+    .map((tag) => {
+      if (typeof tag !== 'string') return undefined
+      const trimmed = tag.trim()
+      if (!trimmed) return undefined
+      const urlCandidate = trimmed.split(':').slice(-1)[0]
+      return extractPumpfunTokenFromString(urlCandidate)
+    })
+    .find(Boolean)
+
+  const token = tokenFromStrings ?? tokenFromTags
+  if (!token) return undefined
+
+  const clipSlugCandidates = [
+    clip.clipUrl,
+    clip.url,
+    clip.segmentId,
+    clip.segment_id,
+    parent?.url,
+    parent?.id,
+    parent?.parentId,
+    parent?.parent_id
+  ]
+
+  const clipSlug = clipSlugCandidates.map(extractPumpfunClipSlug).find(Boolean)
+
+  const base = `https://pump.fun/coin/${token}`
+  return clipSlug ? `${base}?clip=${encodeURIComponent(clipSlug)}` : base
+}
+
 export function buildCanonicalClipLink(
   clip: ClipItemV2,
   parent?: ParsedMetadataEntryV2
 ): string | undefined {
+  const pumpfunLink = derivePumpfunLink(clip, parent)
+  if (pumpfunLink) return pumpfunLink
+
   const base =
     clip.clipUrl ??
     clip.url ??
@@ -408,6 +539,7 @@ export interface ClipItemV2 {
   segmentId?: string
   parentId?: string
   videoId?: string
+  id?: string
   documentType?: string
   nodeType?: string
   clipUrl?: string
@@ -424,6 +556,9 @@ export interface ClipItemV2 {
   video_id?: string
   parent_id?: string
   thumbnail_url?: string
+  segment_id?: string
+  routerTags?: string[]
+  router_tags?: string[]
 }
 
 export interface ParsedMetadataEntryV2 {
@@ -448,6 +583,8 @@ export interface ParsedMetadataEntryV2 {
   video_id?: string
   thumbnail_url?: string
   parent_id?: string
+  routerTags?: string[]
+  router_tags?: string[]
 }
 
 export interface BackendFinalClip {

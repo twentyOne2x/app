@@ -96,8 +96,9 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  gap: clamp(28px, 5vh, 48px);
-  padding-bottom: clamp(160px, 22vh, 220px);
+  gap: clamp(24px, 4vh, 36px);
+  padding: clamp(20px, 4vh, 40px) var(--chat-horizontal-padding) calc(var(--chat-panel-offset) + 140px);
+  box-sizing: border-box;
 }
 
 .scrollableContainer {
@@ -146,17 +147,27 @@
 
 
 .chatPanelWrapper {
-  position: relative;
+  pointer-events: auto;
   margin: 0 auto;
   width: 100%;
   max-width: var(--chat-max-width);
-  padding: 1.25rem var(--chat-horizontal-padding) 1.5rem;
+  padding: 1.25rem calc(var(--chat-horizontal-padding) + 40px) 1.5rem var(--chat-horizontal-padding);
   box-sizing: border-box;
+  background: rgba(10, 10, 15, 0.88);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 22px 50px -28px rgba(0, 0, 0, 0.65);
 }
 
 .chatPanel {
-  margin-top: auto;
+  position: sticky;
+  bottom: var(--chat-panel-offset);
+  display: flex;
+  justify-content: center;
+  width: 100%;
   padding: 0;
+  pointer-events: none;
+  z-index: 8;
 }
 
 
@@ -179,6 +190,67 @@
   cursor: pointer; /* Change cursor to pointer to indicate it's clickable */
   margin-bottom: 0.3rem; /* Reduced bottom margin */
   padding: 0.5rem; /* Adjust padding to ensure it fits within the chatPanel */
+}
+
+.promptFormContainer {
+  flex-grow: 1;
+  padding: 1rem 0;
+  position: relative;
+  max-width: 100%;
+}
+
+.promptForm {
+  width: 100%;
+}
+
+.promptFormInner {
+  display: flex;
+  flex-grow: 1;
+  width: 100%;
+  align-items: center;
+  background-color: transparent;
+  position: relative;
+  margin-left: 0;
+}
+
+.promptTextarea {
+  flex-grow: 1;
+  padding: 0.7rem;
+  outline: none;
+  font-size: 1rem;
+  background-color: transparent;
+  color: #ffffff;
+  margin-right: 0;
+  margin-left: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding-left: 0.7rem;
+  padding-right: 4rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 48px;
+}
+
+.sendButtonContainer {
+  position: absolute;
+  margin-top: 0.3rem;
+  right: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.sendButtonContainer button {
+  background-color: transparent;
+  border: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.sendButtonContainer button img {
+  width: 90%;
+  height: 90%;
+  display: block;
+  margin: auto;
 }
 
 
@@ -303,6 +375,7 @@
   .middlePanelContent {
     width: 100%;
     gap: 20px;
+    padding: 20px 16px calc(var(--chat-panel-offset) + 120px);
   }
 
   .scrollableContainer {

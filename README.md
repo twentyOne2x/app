@@ -169,3 +169,4 @@ pnpm start
 - Vercel AI SDK for streaming chat.
 - shadcn/ui, Tailwind CSS, Radix UI for component primitives.
 - Pinecone & AssemblyAI for retrieval and media processing backends.
+  

@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import {
   cn,
+  formatDate,
   youtubeThumbFor,
   buildCanonicalClipLink,
   sanitizeClipExcerptText
@@ -28,6 +29,16 @@ function secondsToHms(seconds: number): string {
     secs.toString().padStart(2, '0')
   ].join(':')
   return millis ? `${base}.${millis.toString().padStart(3, '0')}` : base
+}
+
+function formatDuration(seconds?: number | null): string | null {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null
+  const total = Math.round(seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  return `${minutes}:${String(secs).padStart(2, '0')}`
 }
 
 const normalizeHmsLabel = (value?: string | null): string | null => {
@@ -61,6 +72,8 @@ function ClipRow({
   parent: ParsedMetadataEntryV2
   clip: ClipItemV2
 }) {
+  const [excerptExpanded, setExcerptExpanded] = React.useState(false)
+
   const href =
     buildCanonicalClipLink(clip, parent) ??
     clip.clipUrl ??
@@ -75,6 +88,11 @@ function ClipRow({
     '/default-thumbnail.svg'
 
   const timestampLabel = formatClipRange(clip)
+  const excerpt = clip.excerpt ? sanitizeClipExcerptText(clip.excerpt) : ''
+  const showExcerptToggle = Boolean(excerpt && excerpt.length > 140)
+  const durationLabel = formatDuration(parent.durationS ?? clip.durationS)
+  const publishedRaw = parent.publishedAt ?? parent.publishedDate ?? parent.date
+  const publishedLabel = publishedRaw ? formatDate(publishedRaw) : null
   return (
     <Link
       href={href}
@@ -110,13 +128,32 @@ function ClipRow({
           </div>
           <div className="mt-0.5 text-xs text-white/60">
             {parent.channelName ?? parent.channel}
-            {(parent.publishedAt ?? parent.publishedDate ?? parent.date)
-              ? ` · ${parent.publishedAt ?? parent.publishedDate ?? parent.date}`
-              : ''}
+            {publishedLabel ? ` · ${publishedLabel}` : ''}
+            {durationLabel ? ` · ${durationLabel}` : ''}
           </div>
-          {clip.excerpt ? (
-            <div className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-white/70">
-              {sanitizeClipExcerptText(clip.excerpt)}
+          {excerpt ? (
+            <div className="mt-1">
+              <div
+                className={cn(
+                  'text-[11px] leading-relaxed text-white/70',
+                  excerptExpanded ? '' : 'line-clamp-2'
+                )}
+              >
+                {excerpt}
+              </div>
+              {showExcerptToggle ? (
+                <button
+                  type="button"
+                  className="mt-1 text-[11px] font-semibold text-emerald-200/80 underline decoration-white/20 underline-offset-4 hover:text-emerald-100"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    setExcerptExpanded((prev) => !prev)
+                  }}
+                >
+                  {excerptExpanded ? 'Show less' : 'Show more'}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -142,9 +179,11 @@ export function SourceListInline({ entries, className }: Props) {
             </div>
             <div className="text-xs text-white/60">
               {p.channelName ?? p.channel}
-              {(p.publishedAt ?? p.publishedDate ?? p.date)
-                ? ` · ${p.publishedAt ?? p.publishedDate ?? p.date}`
-                : ''}
+              {(() => {
+                const raw = p.publishedAt ?? p.publishedDate ?? p.date
+                const label = raw ? formatDate(raw) : null
+                return label ? ` · ${label}` : ''
+              })()}
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

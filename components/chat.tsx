@@ -11,6 +11,7 @@ import { EmptyScreen } from '@/components/empty-screen'
 import { useLocalStorage } from '@/lib/hooks/use-local-storage'
 import { toast } from 'react-hot-toast'
 import SourceList from '@/components/source-list';
+import MetadataCatalog from '@/components/metadata-catalog'
 import ClipDrawer, { type ClipPlayback } from '@/components/clip-drawer';
 import ChannelFilterPanel from '@/components/channel-filter';
 import { LoginButton } from '@/components/login-button';
@@ -25,6 +26,7 @@ import {
   parseMetadata,
   normalizeMetadataEntries,
   normalizeAliasesInText,
+  parseYouTubeIdFromString,
   parseMetadataEntriesV2FromFinalKept,
   type BackendFinalClip,
   type ParsedMetadataEntryV2,
@@ -35,10 +37,15 @@ import Modal from '@/components/Modal'; // Import the Modal component
 import { useEntryProfile } from '@/components/entry-profile-context';
 import type { DiagnosticsPayload, ChannelFilterPayload, ProgressStageStatus } from '@/lib/types';
 import { useClipSelection } from '@/lib/hooks/use-clip-selection'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { DEFAULT_PIPELINE, formatDuration, normalizeProgress } from '@/lib/progress-display'
 import type { DisplayStage } from '@/lib/progress-display'
 import { useHeaderExtras } from '@/components/header-extras-context'
+import {
+  CHAT_ACCESS_HEADER,
+  buildDefaultChatAccessState,
+  type ChatAccessState
+} from '@/lib/chat-access-shared'
 
 type ChannelOption = {
   id?: string | null
@@ -82,6 +89,50 @@ function extractReason(meta: StageMeta | undefined): string | null {
   if (typeof meta.reason === 'string' && meta.reason.trim()) return meta.reason.trim()
   if (typeof meta.skip_reason === 'string' && meta.skip_reason.trim()) return meta.skip_reason.trim()
   return null
+}
+
+type YoutubeIndexTarget = {
+  videoUrls: string[]
+  channel: string | null
+  label: string
+}
+
+function extractYoutubeIndexTarget(text: string | null | undefined): YoutubeIndexTarget | null {
+  const raw = typeof text === 'string' ? text : ''
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  const urls = Array.from(trimmed.matchAll(/https?:\/\/[^\s)\]]+/g)).map((m) => m[0])
+  const ytUrls = urls.filter((u) => /youtube\.com|youtu\.be/i.test(u))
+
+  const videoUrls: string[] = []
+  let channel: string | null = null
+
+  for (const u of ytUrls) {
+    const lower = u.toLowerCase()
+    if (lower.includes('youtube.com/watch') || lower.includes('youtu.be/')) {
+      const id = parseYouTubeIdFromString(u)
+      videoUrls.push(id ? `https://www.youtube.com/watch?v=${id}` : u)
+      continue
+    }
+    if (lower.includes('youtube.com/@') || lower.includes('youtube.com/channel/')) {
+      channel = u
+    }
+  }
+
+  if (!channel) {
+    const tokens = trimmed.split(/\s+/).map((t) => t.trim()).filter(Boolean)
+    const handle = tokens.find((t) => /^@[A-Za-z0-9_.-]{3,}$/.test(t)) ?? null
+    if (handle) channel = handle
+  }
+
+  if (!videoUrls.length && !channel) return null
+
+  if (videoUrls.length) {
+    const label = videoUrls.length === 1 ? 'Index YouTube video' : `Index ${videoUrls.length} YouTube videos`
+    return { videoUrls, channel: null, label }
+  }
+  return { videoUrls: [], channel, label: 'Index YouTube channel' }
 }
 
 function describeStageStatus(stage: DisplayStage): string {
@@ -349,20 +400,70 @@ export interface MetadataMessage extends Message {
 
 const IS_PREVIEW = process.env.VERCEL_ENV === 'preview'
 
-async function extractErrorMessage(response: Response): Promise<string | null> {
+type ErrorPayload = {
+  code: string | null
+  message: string | null
+}
+
+class ChatRequestError extends Error {
+  status: number
+  code: string | null
+
+  constructor(message: string, status: number, code: string | null = null) {
+    super(message)
+    this.name = 'ChatRequestError'
+    this.status = status
+    this.code = code
+  }
+}
+
+function parseAccessStateHeader(response: Response): ChatAccessState | null {
+  const raw = response.headers.get(CHAT_ACCESS_HEADER)
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw)) as Partial<ChatAccessState>
+    if (!parsed || typeof parsed !== 'object') return null
+    return buildDefaultChatAccessState({
+      isAuthenticated: Boolean(parsed.isAuthenticated),
+      previewMessagesUsed:
+        typeof parsed.previewMessagesUsed === 'number' ? parsed.previewMessagesUsed : 0,
+      previewMessagesLimit:
+        typeof parsed.previewMessagesLimit === 'number'
+          ? parsed.previewMessagesLimit
+          : undefined,
+      previewMessagesRemaining:
+        typeof parsed.previewMessagesRemaining === 'number'
+          ? parsed.previewMessagesRemaining
+          : undefined,
+      requiresAuth: Boolean(parsed.requiresAuth)
+    })
+  } catch (error) {
+    console.warn('chat: failed to parse access-state response header', error)
+    return null
+  }
+}
+
+async function extractErrorPayload(response: Response): Promise<ErrorPayload> {
   try {
     const cloned = response.clone()
     const data = await cloned.json()
-    if (typeof data === 'string' && data.trim()) return data.trim()
+    if (typeof data === 'string' && data.trim()) {
+      return { code: null, message: data.trim() }
+    }
     if (data && typeof data === 'object') {
+      const code =
+        typeof (data as { error?: unknown }).error === 'string'
+          ? (data as { error: string }).error
+          : null
       const maybeMessage =
         (typeof (data as { message?: unknown }).message === 'string'
           ? (data as { message?: string }).message
           : null) ??
-        (typeof (data as { error?: unknown }).error === 'string'
-          ? (data as { error?: string }).error
-          : null)
-      if (maybeMessage && maybeMessage.trim()) return maybeMessage.trim()
+        code
+      if (maybeMessage && maybeMessage.trim()) {
+        return { code, message: maybeMessage.trim() }
+      }
     }
   } catch {
     // fall through to text handling
@@ -371,42 +472,65 @@ async function extractErrorMessage(response: Response): Promise<string | null> {
   try {
     const text = await response.text()
     const trimmed = text.trim()
-    if (trimmed) return trimmed
+    if (trimmed) return { code: null, message: trimmed }
   } catch {
     // ignore
   }
 
-  if (response.statusText) return response.statusText
-  if (response.status) return `Request failed with status ${response.status}`
-  return null
+  if (response.statusText) return { code: null, message: response.statusText }
+  if (response.status) return { code: null, message: `Request failed with status ${response.status}` }
+  return { code: null, message: null }
 }
 
-function AuthButtonsCallout({ className }: { className?: string }) {
+function AuthButtonsCallout({
+  className,
+  callbackUrl
+}: {
+  className?: string
+  callbackUrl: string
+}) {
   return (
-    <div className={cn('flex flex-col items-center gap-2 text-center text-zinc-300', className)}>
-      <LoginButton
-        loginType="twitter"
-        text="Twitter"
-        showIcon
-        size="sm"
-        className="min-w-[112px] justify-center px-4"
-      />
-      <p className="max-w-[260px] text-xs text-zinc-400">
+    <div className={cn('flex flex-col items-center gap-3 text-center text-zinc-300', className)}>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <LoginButton
+          loginType="twitter"
+          text="Twitter"
+          callbackUrl={callbackUrl}
+          showIcon
+          size="sm"
+          className="min-w-[112px] justify-center px-4"
+        />
+        <LoginButton
+          loginType="google"
+          text="Google"
+          callbackUrl={callbackUrl}
+          showIcon
+          size="sm"
+          className="min-w-[112px] justify-center px-4"
+        />
+      </div>
+      <p className="max-w-[320px] text-xs text-zinc-400">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
-          Quick sign-in
+          Connect to continue
         </span>
-        Connect Twitter to save chats and unlock sharing.
+        Sign in with Twitter or Google to keep chatting, save history, and unlock sharing.
       </p>
     </div>
   )
 }
 
-function RightPanelAuthCta({ isAuthenticated }: { isAuthenticated: boolean }) {
+function RightPanelAuthCta({
+  isAuthenticated,
+  callbackUrl
+}: {
+  isAuthenticated: boolean
+  callbackUrl: string
+}) {
   if (isAuthenticated) return null
 
   return (
     <div className="mb-4 flex flex-col items-center rounded-xl border border-white/10 bg-black/40 p-4 text-center shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
-      <AuthButtonsCallout />
+      <AuthButtonsCallout callbackUrl={callbackUrl} />
     </div>
   )
 }
@@ -423,6 +547,7 @@ export interface ChatProps extends React.ComponentProps<'div'> {
     email?: string | null
   } | null
   shareHeader?: React.ReactNode
+  accessState?: ChatAccessState
 }
 
 export function Chat({
@@ -434,7 +559,8 @@ export function Chat({
   structured_metadata = [], // Initialize structured_metadata with an empty array
   noPaddingTop = false, // New boolean prop for bottom padding
   currentUser = null,
-  shareHeader
+  shareHeader,
+  accessState
 }: ChatProps) {
   const [previewToken, setPreviewToken] = useLocalStorage<string | null>(
     'ai-token',
@@ -450,7 +576,13 @@ export function Chat({
     [structured_metadata]
   )
   const router = useRouter();
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { setShareControl } = useHeaderExtras()
+  const callbackUrl = useMemo(() => {
+    const query = searchParams?.toString()
+    return `${pathname || '/'}${query ? `?${query}` : ''}`
+  }, [pathname, searchParams])
 
   // State to hold structured metadata entries
   const [structuredMetadataEntries, setStructuredMetadataEntries] = useState<ParsedMetadataEntryV2[]>(sanitizedStructuredMetadata);
@@ -492,6 +624,10 @@ export function Chat({
 
   // State for Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sourcesCollapsed, setSourcesCollapsed] = useState(false);
+  const [ytIndexStatus, setYtIndexStatus] = useState<
+    { state: 'idle' | 'running' | 'done' | 'error'; message?: string }
+  >({ state: 'idle' });
   const [selectedClip, setSelectedClip] = useState<{
     parent: ParsedMetadataEntryV2
     clip: ClipItemV2
@@ -502,6 +638,12 @@ export function Chat({
   const [currentDiagnostics, setCurrentDiagnostics] = useState<DiagnosticsPayload | null>(null);
   const [liveProgress, setLiveProgress] = useState<Array<Record<string, unknown>>>([]);
   const [input, setInput] = useState('');
+  const [chatAccessState, setChatAccessState] = useState<ChatAccessState>(() => {
+    if (accessState) return accessState
+    return buildDefaultChatAccessState({
+      isAuthenticated: Boolean(currentUser?.id)
+    })
+  })
   const [availableChannels, setAvailableChannels] = useState<ChannelOption[]>(channelCatalogCache);
   const [isBundleDrawerOpen, setBundleDrawerOpen] = useState(false)
   const channelDefaultsAppliedRef = useRef<string | null>(null)
@@ -519,6 +661,7 @@ export function Chat({
   const metadataChannelSignatureRef = useRef<string | null>(null)
   const currentStreamAbortRef = useRef<AbortController | null>(null)
   const currentTraceIdRef = useRef<string | null>(null)
+  const requiresAuthToContinue = !chatAccessState.isAuthenticated && chatAccessState.requiresAuth
 
   const channelFilterStorageKey = useMemo(
     () => `channel-filter:${entryProfile.code}`,
@@ -556,6 +699,15 @@ export function Chat({
     // Set initialLoad to false after the component has mounted
     setInitialLoad(false);
   }, []);
+
+  useEffect(() => {
+    setChatAccessState(
+      accessState ??
+        buildDefaultChatAccessState({
+          isAuthenticated: Boolean(currentUser?.id)
+        })
+    )
+  }, [accessState, currentUser?.id])
 
   useEffect(() => {
     const lastMessage = newMessages.length ? newMessages[newMessages.length - 1] : null
@@ -913,6 +1065,7 @@ export function Chat({
       setLiveProgress([])
       setSelectedClip(null)
       setIsModalOpen(false)
+      setSourcesCollapsed(false)
       setStructuredMetadataEntries([])
       setShowTopSources(false)
       setMessages([])
@@ -1117,15 +1270,15 @@ export function Chat({
     if (selectedChannelOptions.length === 0) {
       return { include_names: [] }
     }
-    if (selectedChannelOptions.length === availableChannels.length) {
-      return undefined
-    }
     const includeIds = selectedChannelOptions
       .map((option) => option.id)
       .filter((id): id is string => Boolean(id))
+    // Always include names as well as ids so we still match older/partial payloads
+    // where `channel_id` was not populated consistently.
     const includeNames = selectedChannelOptions
-      .filter((option) => !option.id)
       .map((option) => option.name)
+      .map((name) => name.trim())
+      .filter(Boolean)
     const payload: ChannelFilterPayload = {}
     if (includeIds.length) payload.include_ids = includeIds
     if (includeNames.length) payload.include_names = includeNames
@@ -1223,14 +1376,63 @@ export function Chat({
         }
       }
 
+      if (metadata.length && diagnosticsRaw) {
+        const finalKept = (diagnosticsRaw as { final_kept?: unknown }).final_kept
+        if (Array.isArray(finalKept) && finalKept.length) {
+          const parsed = parseMetadataEntriesV2FromFinalKept(finalKept as BackendFinalClip[])
+          if (parsed.length) {
+            const byParent = new Map<string, ParsedMetadataEntryV2>()
+            parsed.forEach(entry => {
+              const key = entry.parentId ?? entry.videoId ?? `${entry.parentTitle}|||${entry.channel}`
+              if (key) byParent.set(key, entry)
+            })
+
+            metadata = metadata.map(entry => {
+              const key = entry.parentId ?? entry.videoId ?? `${entry.parentTitle}|||${entry.channel}`
+              const enrich = key ? byParent.get(key) : undefined
+              if (!enrich) return entry
+              return {
+                ...entry,
+                videoId: entry.videoId ?? enrich.videoId,
+                parentId: entry.parentId ?? enrich.parentId,
+                channelName: entry.channelName ?? enrich.channelName,
+                channelId: entry.channelId ?? enrich.channelId,
+                publishedAt: entry.publishedAt ?? enrich.publishedAt,
+                publishedDate: entry.publishedDate ?? enrich.publishedDate,
+                thumbnailUrl: entry.thumbnailUrl ?? enrich.thumbnailUrl,
+                durationS: entry.durationS ?? enrich.durationS,
+                clips: entry.clips.map(clip => {
+                  const clipKey = clip.segmentId ?? clip.id ?? clip.parentId ?? clip.videoId
+                  const enrichClip = enrich.clips.find(c => (c.segmentId ?? c.id ?? c.parentId ?? c.videoId) === clipKey)
+                  if (!enrichClip) return clip
+                  return {
+                    ...clip,
+                    videoId: clip.videoId ?? enrichClip.videoId,
+                    parentId: clip.parentId ?? enrichClip.parentId,
+                    channelName: clip.channelName ?? enrichClip.channelName,
+                    channelId: clip.channelId ?? enrichClip.channelId,
+                    publishedAt: clip.publishedAt ?? enrichClip.publishedAt,
+                    publishedDate: clip.publishedDate ?? enrichClip.publishedDate,
+                    thumbnailUrl: clip.thumbnailUrl ?? enrichClip.thumbnailUrl,
+                    durationS: clip.durationS ?? enrichClip.durationS
+                  }
+                })
+              }
+            })
+          }
+        }
+      }
+
       const normalizedMetadata = metadata?.length ? normalizeMetadataEntries(metadata) : []
 
+      // Always update the right rail state so we never render stale sources from the
+      // previous request (ex: metadata-only queries that return catalog results).
+      setStructuredMetadataEntries(normalizedMetadata)
       if (normalizedMetadata.length) {
         console.debug('chat: structured metadata received', {
           traceId,
           count: normalizedMetadata.length
         })
-        setStructuredMetadataEntries(normalizedMetadata)
       } else {
         console.debug('chat: no structured metadata present', {
           traceId
@@ -1271,6 +1473,29 @@ export function Chat({
         structured_metadata: normalizedMetadata,
         diagnostics: normalizedDiagnostics
       }
+
+      // If the model is explicitly declining due to lack of context, default to hiding sources.
+      // Users can still expand sources manually.
+      const noContextPattern =
+        /(context provided does not contain any information|not possible to provide|cannot provide.*citations|i don['’]t have enough high-quality clips)/i
+      const retrieveStage = normalizedDiagnostics?.progress?.find((entry) => {
+        const candidate = entry as Record<string, unknown>
+        const name = candidate?.name ?? candidate?.stage
+        return name === 'retrieve'
+      }) as Record<string, unknown> | undefined
+      const retrieveMeta = ((retrieveStage as any)?.meta ?? (retrieveStage as any)?.metadata ?? {}) as Record<string, unknown>
+      const initialCandidates =
+        typeof retrieveMeta.initial_candidates === 'number'
+          ? retrieveMeta.initial_candidates
+          : typeof retrieveMeta.initialCandidates === 'number'
+            ? retrieveMeta.initialCandidates
+            : null
+      const shouldCollapseSources =
+        normalizedMetadata.length > 0 &&
+        (Boolean((normalizedDiagnostics as any)?.early_abort) ||
+          initialCandidates === 0 ||
+          noContextPattern.test(String(sanitizedContent)))
+      setSourcesCollapsed(shouldCollapseSources)
 
       console.debug('chat: assistant content prepared', {
         traceId,
@@ -1349,10 +1574,19 @@ export function Chat({
         throw error instanceof Error ? error : new Error('Streaming request failed.')
       }
 
+      const nextAccessState = parseAccessStateHeader(response)
+      if (nextAccessState) {
+        setChatAccessState(nextAccessState)
+      }
+
       if (!response.ok || !response.body) {
-        const message = await extractErrorMessage(response)
+        const errorPayload = await extractErrorPayload(response)
         currentStreamAbortRef.current = null
-        throw new Error(message ?? 'Streaming request failed.')
+        throw new ChatRequestError(
+          errorPayload.message ?? 'Streaming request failed.',
+          response.status,
+          errorPayload.code
+        )
       }
 
       const reader = response.body.getReader()
@@ -1553,6 +1787,11 @@ export function Chat({
         throw error instanceof Error ? error : new Error('Failed to reach the chat service.')
       }
 
+      const nextAccessState = parseAccessStateHeader(response)
+      if (nextAccessState) {
+        setChatAccessState(nextAccessState)
+      }
+
       const durationMs = Date.now() - requestStartedAt
       console.debug('chat: backend responded', {
         traceId,
@@ -1561,14 +1800,16 @@ export function Chat({
       })
 
       if (!response.ok) {
-        const message = await extractErrorMessage(response)
+        const errorPayload = await extractErrorPayload(response)
         console.error('chat: backend returned error status', {
           traceId,
           status: response.status,
-          message
+          message: errorPayload.message
         })
-        throw new Error(
-          message ?? 'The chat service encountered an error. Please try again.'
+        throw new ChatRequestError(
+          errorPayload.message ?? 'The chat service encountered an error. Please try again.',
+          response.status,
+          errorPayload.code
         )
       }
 
@@ -1823,6 +2064,11 @@ export function Chat({
       return
     }
 
+    if (requiresAuthToContinue) {
+      toast.error('Sign in with Twitter or Google to continue after the 3-message preview.')
+      return
+    }
+
     if (options?.newChat) {
       resetConversationState({ keepInput: true, silent: true })
     }
@@ -1854,10 +2100,12 @@ export function Chat({
       setShowChatList(true); // Show ChatList with fade-in
     }, 300); // Delay should match the fade-out duration
   
-    setIsProcessingQuery(true);
-    console.debug('chat: processing flag set', { traceId: currentTraceIdRef.current })
-    setCurrentDiagnostics(null);
-    setLiveProgress([]);
+	    setIsProcessingQuery(true);
+	    console.debug('chat: processing flag set', { traceId: currentTraceIdRef.current })
+	    setCurrentDiagnostics(null);
+	    setLiveProgress([]);
+	    setStructuredMetadataEntries([]);
+	    setSourcesCollapsed(false);
   
     const messageId = nanoid();
     currentTraceIdRef.current = messageId
@@ -1942,6 +2190,7 @@ export function Chat({
   },
   [
     newMessages,
+    requiresAuthToContinue,
     resetConversationState,
     setShowMiddlePanelOverlay,
     setShowEmptyScreen,
@@ -1958,7 +2207,7 @@ export function Chat({
   ]);
 
   const handleSuggestionSubmit = useCallback(
-    (prompt: string) => handleUserInputSubmit(prompt, { newChat: true }),
+    (prompt: string) => handleUserInputSubmit(prompt),
     [handleUserInputSubmit]
   )
   
@@ -2048,6 +2297,20 @@ export function Chat({
     return currentDiagnostics ?? null
   }, [liveProgress, currentDiagnostics])
 
+  const catalogResults = useMemo(() => {
+    const rows = progressDiagnostics?.catalog_results
+    return Array.isArray(rows) ? rows : []
+  }, [progressDiagnostics])
+
+  useEffect(() => {
+    // `metadataContainerVisible` is toggled by transcript-backed Top Sources. For metadata-only
+    // queries (catalog results), ensure the rail is visible even when `structured_metadata` is empty.
+    if (structuredMetadataEntries.length > 0) return
+    if (catalogResults.length > 0) {
+      setMetadataContainerVisible(true)
+    }
+  }, [catalogResults.length, structuredMetadataEntries.length, setMetadataContainerVisible])
+
   const progressSummary = useMemo(() => {
     if (shared_chat) return null
     if (!isProcessingQuery) return null
@@ -2105,6 +2368,70 @@ export function Chat({
     return [...newMessages, progressMessage]
   }, [newMessages, progressSummary, progressDiagnostics])
 
+  const lastUserMessageText = useMemo(() => {
+    for (let i = displayMessages.length - 1; i >= 0; i--) {
+      const msg = displayMessages[i]
+      if (msg?.role === 'user') return coerceContent((msg as any).content)
+    }
+    return ''
+  }, [displayMessages])
+
+  const youtubeIndexTarget = useMemo(
+    () => extractYoutubeIndexTarget(lastUserMessageText),
+    [lastUserMessageText]
+  )
+
+  const handleIndexYouTubeTarget = useCallback(async () => {
+    if (!youtubeIndexTarget) return
+    if (ytIndexStatus.state === 'running') return
+
+    setYtIndexStatus({ state: 'running', message: 'Indexing...' })
+    try {
+      const payload: Record<string, unknown> = {
+        namespace: 'videos',
+        language: 'en',
+        prefer_auto: true,
+        // Keep this reasonably cheap by default; tune later if you want higher recall.
+        segment_min_s: 120,
+        segment_max_s: 240,
+        segment_stride_s: 120,
+        min_text_chars: 120
+      }
+      if (youtubeIndexTarget.videoUrls.length) {
+        payload.video_urls = youtubeIndexTarget.videoUrls
+      } else if (youtubeIndexTarget.channel) {
+        payload.channel = youtubeIndexTarget.channel
+        payload.max_videos = 10
+      }
+
+      const res = await fetch('/api/index/youtube', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data || data.ok === false) {
+        const detail = data?.detail ?? data?.error ?? 'indexing failed'
+        setYtIndexStatus({ state: 'error', message: String(detail).slice(0, 300) })
+        toast.error('YouTube indexing failed')
+        return
+      }
+
+      const failedCount = Array.isArray(data.failed) ? data.failed.length : 0
+      setYtIndexStatus({
+        state: 'done',
+        message: failedCount
+          ? `Indexed with ${failedCount} failure(s). Ask again to use it.`
+          : 'Indexed. Ask again to use it.'
+      })
+      toast.success('Indexed YouTube target. Re-ask your question to use it.')
+    } catch (error) {
+      console.error('chat: failed to index youtube target', error)
+      setYtIndexStatus({ state: 'error', message: 'indexing request failed' })
+      toast.error('YouTube indexing request failed')
+    }
+  }, [youtubeIndexTarget, ytIndexStatus.state])
+
   React.useEffect(() => {
     if (shared_chat || !shareHeader) {
       setShareControl(null)
@@ -2136,11 +2463,14 @@ export function Chat({
             <div className={styles.scrollableContainer} data-testid="chat-scroll-region">
               {showChatList && (
                 <div className={QuestionsOverlayStyles.fadeIn}>
-                  <ChatList
+                    <ChatList
                     ref={chatListEndRef}
                     messages={displayMessages}
                     lastMessageRole={lastMessageRole}
-                    onViewSources={() => setIsModalOpen(true)}
+                    onViewSources={() => {
+                      setSourcesCollapsed(false)
+                      setIsModalOpen(true)
+                    }}
                     isMobile={isMobile}
                   />
                 </div>
@@ -2174,16 +2504,66 @@ export function Chat({
 
         <div className={rightPanelClass} data-testid="chat-right-rail">
           <div className={metadataContainerClass}>
-            <RightPanelAuthCta isAuthenticated={Boolean(currentUser)} />
-            {newMessages.length > 0 && (
-              <div className={styles.metadataTitle}>Top Sources</div>
-            )}
-            <SourceList
-              entries={structuredMetadataEntries}
-              onSelectClip={handleClipSelect}
-              selectionScope={selectionScope}
-              selection={clipSelection}
+            <RightPanelAuthCta
+              isAuthenticated={Boolean(currentUser)}
+              callbackUrl={callbackUrl}
             />
+	            {structuredMetadataEntries.length > 0 ? (
+	              <>
+	                <div className={styles.metadataTitle}>Top Sources</div>
+	                {sourcesCollapsed ? (
+	                  <div className="mt-2 space-y-2">
+	                    <button
+	                      type="button"
+	                      className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left text-xs text-zinc-200 hover:border-white/20"
+	                      onClick={() => setSourcesCollapsed(false)}
+	                      data-testid="sources-collapsed-toggle"
+	                    >
+	                      {(() => {
+	                        const totalClips = structuredMetadataEntries.reduce(
+	                          (acc, entry) => acc + (Array.isArray(entry.clips) ? entry.clips.length : 0),
+	                          0
+	                        )
+	                        return `${totalClips || structuredMetadataEntries.length} source result(s) found, but the answer looks weak. Click to expand.`
+	                      })()}
+	                    </button>
+
+	                    {youtubeIndexTarget ? (
+	                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+	                        <button
+	                          type="button"
+	                          className="w-full rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-left text-xs text-emerald-100 hover:border-emerald-400/50 disabled:opacity-60"
+	                          onClick={handleIndexYouTubeTarget}
+	                          disabled={ytIndexStatus.state === 'running'}
+	                          data-testid="index-youtube-target"
+	                        >
+	                          {ytIndexStatus.state === 'running' ? 'Indexing YouTube target...' : youtubeIndexTarget.label}
+	                        </button>
+	                        {ytIndexStatus.message ? (
+	                          <div className="mt-2 text-xs text-zinc-300">{ytIndexStatus.message}</div>
+	                        ) : (
+	                          <div className="mt-2 text-[11px] text-zinc-400">
+	                            Adds transcripts to your local index (requires OpenAI embeddings).
+	                          </div>
+	                        )}
+	                      </div>
+	                    ) : null}
+	                  </div>
+	                ) : (
+	                  <SourceList
+	                    entries={structuredMetadataEntries}
+	                    onSelectClip={handleClipSelect}
+	                    selectionScope={selectionScope}
+	                    selection={clipSelection}
+	                  />
+	                )}
+	              </>
+	            ) : catalogResults.length > 0 ? (
+	              <>
+	                <div className={styles.metadataTitle}>Video Catalog</div>
+	                <MetadataCatalog results={catalogResults.slice(0, 10)} />
+	              </>
+	            ) : null}
           </div>
         </div>
       </div>
@@ -2205,11 +2585,28 @@ export function Chat({
             <div className={styles.bottomBarMiddle} data-testid="chat-bottom-middle">
               <div className={styles.bottomBarPrompt}>
                 <div className={styles.bottomBarPromptInner}>
+                  {requiresAuthToContinue ? (
+                    <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-left shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
+                      <p className="text-sm font-semibold text-emerald-100">
+                        Your 3-message preview is complete.
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-300">
+                        Sign in with Twitter or Google to keep chatting and persist this session.
+                      </p>
+                      <div className="mt-3">
+                        <AuthButtonsCallout
+                          callbackUrl={callbackUrl}
+                          className="items-start text-left"
+                        />
+                      </div>
+                    </div>
+                  ) : null}
                   <ChatPanel
                     id={id}
                     isLoading={isProcessingQuery}
                     input={input}
                     setInput={setInput}
+                    inputDisabled={requiresAuthToContinue}
                     onSubmit={handleUserInputSubmit}
                     setMessages={setMessages}
                     setStructuredMetadataEntries={setStructuredMetadataEntries}
@@ -2234,14 +2631,63 @@ export function Chat({
 
       {/* Modal to display MetadataList on mobile */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
-        <h2 className={styles.metadataTitle}>Top Sources</h2>
-        <RightPanelAuthCta isAuthenticated={Boolean(currentUser)} />
-        <SourceList
-          entries={structuredMetadataEntries}
-          onSelectClip={handleClipSelect}
-          selectionScope={selectionScope}
-          selection={clipSelection}
+        <h2 className={styles.metadataTitle}>
+          {structuredMetadataEntries.length > 0
+            ? 'Top Sources'
+            : catalogResults.length > 0
+              ? 'Video Catalog'
+              : 'Top Sources'}
+        </h2>
+        <RightPanelAuthCta
+          isAuthenticated={Boolean(currentUser)}
+          callbackUrl={callbackUrl}
         />
+        {structuredMetadataEntries.length > 0 ? (
+          sourcesCollapsed ? (
+            <div className="mt-2 space-y-2">
+              <button
+                type="button"
+                className="w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left text-xs text-zinc-200 hover:border-white/20"
+                onClick={() => setSourcesCollapsed(false)}
+              >
+                {(() => {
+                  const totalClips = structuredMetadataEntries.reduce(
+                    (acc, entry) => acc + (Array.isArray(entry.clips) ? entry.clips.length : 0),
+                    0
+                  )
+                  return `${totalClips || structuredMetadataEntries.length} source result(s) found, but the answer looks weak. Tap to expand.`
+                })()}
+              </button>
+
+              {youtubeIndexTarget ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-left text-xs text-emerald-100 hover:border-emerald-400/50 disabled:opacity-60"
+                    onClick={handleIndexYouTubeTarget}
+                    disabled={ytIndexStatus.state === 'running'}
+                  >
+                    {ytIndexStatus.state === 'running' ? 'Indexing YouTube target...' : youtubeIndexTarget.label}
+                  </button>
+                  {ytIndexStatus.message ? (
+                    <div className="mt-2 text-xs text-zinc-300">{ytIndexStatus.message}</div>
+                  ) : (
+                    <div className="mt-2 text-[11px] text-zinc-400">Adds transcripts to your local index.</div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <SourceList
+              entries={structuredMetadataEntries}
+              onSelectClip={handleClipSelect}
+              selectionScope={selectionScope}
+              selection={clipSelection}
+            />
+          )
+        ) : catalogResults.length > 0 ? (
+          <MetadataCatalog results={catalogResults.slice(0, 10)} />
+        ) : null}
       </Modal>
       <ClipBundleDrawer
         isOpen={isBundleDrawerOpen && bundleHandle.state.items.length > 0}

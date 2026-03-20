@@ -1,10 +1,16 @@
 import { kv } from '@vercel/kv'
 import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
+import {
+  applyChatAccessResponse,
+  beginChatAccess,
+  finalizeChatAccess
+} from '@/lib/chat-access'
 import { nanoid } from '@/lib/utils'
 import {
   extractSourcesBlock,
   parseMetadata,
+  parseMetadataEntriesV2FromFinalKept,
   type ParsedMetadataEntryV2
 } from '@/lib/utils'
 import { putLocalChat } from '@/lib/local-chat-store'
@@ -20,6 +26,22 @@ interface ChatResponseDiagnostics extends DiagnosticsPayload {
   backend_status?: number
   backend_error?: string
   backend_url?: string
+}
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, '')
+}
+
+function backendChatCandidates(baseUrl: string): string[] {
+  const base = trimTrailingSlashes(baseUrl.trim())
+  if (!base) return []
+
+  const lower = base.toLowerCase()
+  if (lower.endsWith('/chat')) return [base]
+  if (lower.endsWith('/chat/stream')) return [base.slice(0, -'/stream'.length)]
+
+  // Common/default case: env var is service root.
+  return [`${base}/chat`, base]
 }
 
 export async function POST(req: Request) {
@@ -54,6 +76,11 @@ export async function POST(req: Request) {
     userId
   })
 
+  const accessCheck = await beginChatAccess(req, userId)
+  if (!accessCheck.ok) {
+    return accessCheck.response
+  }
+
   const title = messages?.[0]?.content?.substring(0, 100) || 'New Chat'
   const id = json.id ?? nanoid()
   const createdAt = Date.now()
@@ -71,7 +98,8 @@ export async function POST(req: Request) {
     diagnostics: ChatResponseDiagnostics | null,
     requestId: string | null,
     trace: string,
-    clientTrace: string | null
+    clientTrace: string | null,
+    options?: { countPreview?: boolean; status?: number }
   ): Promise<Response> => {
     const processedResponseContent = processResponseContent(assistantContent)
     const payload = {
@@ -91,7 +119,11 @@ export async function POST(req: Request) {
         await kv.zadd(`user:chat:${userId}`, { score: createdAt, member: `chat:${id}` })
       } catch (error) {
         console.error('chat-route: failed to persist chat metadata', { traceId: trace }, error)
-        return new Response('Failed to persist chat', { status: 500 })
+        return applyChatAccessResponse(
+          new Response('Failed to persist chat', { status: 500 }),
+          accessCheck.context,
+          accessCheck.state
+        )
       }
     } else if (userId && !isKvConfigured) {
       console.warn('chat-route: KV not configured, caching chat in memory', { traceId: trace })
@@ -119,7 +151,18 @@ export async function POST(req: Request) {
       client_trace_id: clientTrace
     }
 
-    return new Response(JSON.stringify(responsePayload), { headers: { 'Content-Type': 'application/json' } })
+    const accessState = options?.countPreview
+      ? await finalizeChatAccess(accessCheck.context)
+      : accessCheck.state
+
+    return applyChatAccessResponse(
+      new Response(JSON.stringify(responsePayload), {
+        status: options?.status ?? 200,
+        headers: { 'Content-Type': 'application/json' }
+      }),
+      accessCheck.context,
+      accessState
+    )
   }
 
   const backendBaseUrl =
@@ -139,30 +182,81 @@ export async function POST(req: Request) {
     )
   }
 
-  const backendChatUrl = `${backendBaseUrl.replace(/\/$/, '')}/chat`
-  console.debug('chat-route: forwarding request to backend', { traceId, backendChatUrl })
+  const backendCandidates = backendChatCandidates(backendBaseUrl)
+  if (!backendCandidates.length) {
+    console.error('chat-route: no backend candidates resolved', { traceId, backendBaseUrl })
+    return persistAndRespond(
+      'The retrieval service is not configured yet. Please try again later.',
+      [],
+      {
+        backend_error: 'invalid_backend_url'
+      },
+      null,
+      traceId,
+      clientTraceId
+    )
+  }
+  console.debug('chat-route: forwarding request to backend', {
+    traceId,
+    backendCandidates
+  })
 
-  let chatResponse: Response
+  let chatResponse: Response | null = null
+  let backendChatUrl = backendCandidates[0]
+  const candidateErrors: string[] = []
   const backendRequestStartedAt = Date.now()
-  try {
-    chatResponse = await fetch(backendChatUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: messages?.length ? messages[messages.length - 1].content : 'No messages yet.',
-        chat_history: messages,
-        entry_profile_code: entryProfileCode,
-        channel_filter: channelFilter
+  for (let i = 0; i < backendCandidates.length; i += 1) {
+    const candidateUrl = backendCandidates[i]
+    const isLast = i === backendCandidates.length - 1
+    backendChatUrl = candidateUrl
+    try {
+      const response = await fetch(candidateUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: messages?.length ? messages[messages.length - 1].content : 'No messages yet.',
+          chat_history: messages,
+          entry_profile_code: entryProfileCode,
+          channel_filter: channelFilter
+        })
       })
+      if (response.status === 404 && !isLast) {
+        const candidateError = await response.text().catch(() => response.statusText)
+        candidateErrors.push(`${candidateUrl} -> 404 ${candidateError}`)
+        console.warn('chat-route: backend candidate returned 404, trying fallback', {
+          traceId,
+          candidateUrl
+        })
+        continue
+      }
+      chatResponse = response
+      break
+    } catch (error) {
+      const candidateError = error instanceof Error ? error.message : 'network_failure'
+      candidateErrors.push(`${candidateUrl} -> ${candidateError}`)
+      if (!isLast) {
+        console.warn('chat-route: backend candidate failed, trying fallback', {
+          traceId,
+          candidateUrl,
+          error: candidateError
+        })
+        continue
+      }
+    }
+  }
+
+  if (!chatResponse) {
+    console.error('chat-route: network error calling backend', {
+      traceId,
+      candidateErrors,
+      backendCandidates
     })
-  } catch (error) {
-    console.error('chat-route: network error calling backend', { traceId }, error)
     return persistAndRespond(
       'We could not reach the retrieval service. Please retry in a moment.',
       [],
       {
-        backend_error: error instanceof Error ? error.message : 'network_failure',
-        backend_url: backendChatUrl
+        backend_error: candidateErrors.join(' | ') || 'network_failure',
+        backend_url: backendCandidates.join(',')
       },
       null,
       traceId,
@@ -276,11 +370,16 @@ export async function POST(req: Request) {
 
   let structuredMetadata: ParsedMetadataEntryV2[] = []
   try {
-    const sourcesBlock = extractSourcesBlock(rawAnswer)
-    if (sourcesBlock) {
-      structuredMetadata = parseMetadata(sourcesBlock, rawAnswer)
-    } else if (responseBody.formatted_metadata) {
-      structuredMetadata = parseMetadata(String(responseBody.formatted_metadata), rawAnswer)
+    if (Array.isArray(finalKept) && finalKept.length > 0) {
+      structuredMetadata = parseMetadataEntriesV2FromFinalKept(finalKept as any)
+    }
+    if (!structuredMetadata.length) {
+      const sourcesBlock = extractSourcesBlock(rawAnswer)
+      if (sourcesBlock) {
+        structuredMetadata = parseMetadata(sourcesBlock, rawAnswer)
+      } else if (responseBody.formatted_metadata) {
+        structuredMetadata = parseMetadata(String(responseBody.formatted_metadata), rawAnswer)
+      }
     }
   } catch (error) {
     console.error('chat-route: failed to parse structured metadata', { traceId }, error)
@@ -334,6 +433,7 @@ export async function POST(req: Request) {
     diagnostics as ChatResponseDiagnostics | null,
     requestId,
     traceId,
-    clientTraceId
+    clientTraceId,
+    { countPreview: true }
   )
 }

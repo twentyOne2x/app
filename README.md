@@ -13,7 +13,8 @@ Modern RAG assistant for Internet Capital Markets research. The app pairs stream
 - **Streaming conversational search** driven by Vercel AI SDK and OpenAI models with Pinecone retrieval.
 - **Top Sources panel** summarising every answer with ranked parents, per-clip excerpts, timestamps, and YouTube thumbnails.
 - **Clip utilities** `Play clip`, `Edit clip`, and `Add to bundle` actions that open the clip drawer, prefill timestamps, and feed the bundle generator.
-- **Shareable chats** with optional Privy/Twitter auth, plus a public share view for curated conversations.
+- **Shareable chats** with Twitter/Google auth, plus a public share view for curated conversations.
+- **Preview gating + anti-spam** with a 3-message anonymous preview, server-side rate limits, and durable auth lockout after the preview is exhausted.
 - **Robust metadata parsing** (see [`docs/video-clip-url-spec.md`](docs/video-clip-url-spec.md)) that normalises video IDs, clip URLs, and thumbnails for downstream components.
 - **Built-in QA tooling** via debug scripts (`dev_with_rag.sh`, `debug_script.sh`) and selection tests (`tests/clip-selection-hook.test.js`, `tests/query-progress.test.js`).
 
@@ -22,7 +23,7 @@ Modern RAG assistant for Internet Capital Markets research. The app pairs stream
 ## Audience Guide
 
 ### For Researchers & End Users
-1. Visit [chat.icm.fyi](https://chat.icm.fyi/) and sign in (Twitter or Privy) to unlock sharing.
+1. Visit [chat.icm.fyi](https://chat.icm.fyi/) and start with the anonymous 3-message preview or sign in with Twitter/Google immediately.
 2. Ask a question or pick from the default suggestions. Answers stream in with inline call-outs.
 3. Use **Top Sources** to open the parent content, play clips at the referenced timestamp, or queue clips into a bundle.
 4. Generate/share bundles or chats for follow-up analysis.
@@ -40,7 +41,7 @@ Modern RAG assistant for Internet Capital Markets research. The app pairs stream
 | Layer | Highlights |
 | --- | --- |
 | **UI** | Next.js App Router, server components, shadcn/ui, Tailwind CSS, CSS Modules for complex layouts. |
-| **Chat runtime** | Vercel AI SDK streaming, OpenAI GPT models, optional Privy auth, NextAuth session support. |
+| **Chat runtime** | Vercel AI SDK streaming, OpenAI GPT models, NextAuth Twitter/Google OAuth, server-side preview gating, Vercel KV-backed chat state. |
 | **RAG pipeline** | Pinecone vector lookup, AssemblyAI + internal ingestion for multimedia transcripts, heuristics for YouTube IDs/thumbnails. |
 | **Clip tooling** | `ClipDrawer`, `ClipBundleBar`, `useClipSelection` hook, reusable playback builder. |
 | **Docs & QA** | Structured design docs in `/docs`, scripts for local debugging, Node test suites for selection and markdown sanitisation. |
@@ -52,11 +53,11 @@ Modern RAG assistant for Internet Capital Markets research. The app pairs stream
 ### Prerequisites
 - Node.js **22.x** (see `package.json` engines field).
 - pnpm 8.x (recommended) or npm/yarn.
-- Access credentials for: OpenAI (or configured LLM), Pinecone, AssemblyAI, NextAuth/Privy providers.
+- Access credentials for: OpenAI (or configured LLM), Pinecone, AssemblyAI, NextAuth Twitter/Google providers, and Vercel KV.
 
 ### Environment Configuration
 1. Copy `.env.example` → `.env`.
-2. Fill in API keys and auth secrets (OpenAI/Pinecone/AssemblyAI/NextAuth, Privy).  
+2. Fill in API keys and auth secrets (OpenAI/Pinecone/AssemblyAI/NextAuth, Google/Twitter, Vercel KV).  
    - The backend expects environment variables referenced in `auth.ts`, `app/api/**`, and `lib/constants.ts`.
 
 ### Install & Run
@@ -64,6 +65,9 @@ Modern RAG assistant for Internet Capital Markets research. The app pairs stream
 pnpm install
 pnpm dev
 # App boots on http://localhost:3000
+#
+# If you're running the full local stack via `docker-compose.local.yml`, the app
+# container is exposed on http://localhost:3002 by default (see APP_PORT).
 ```
 
 To verify changes:
@@ -93,9 +97,12 @@ pnpm start
 
 ## Deployment Notes
 
-- First-party deployment happens on Vercel.  
-- When cloning with the “Deploy with Vercel” button, double-check that the required secrets (OpenAI, Pinecone, AssemblyAI, NextAuth/Privy) are added to the project.  
-- Production builds rely on Edge-friendly code paths; avoid introducing Node-only APIs into shared components.
+- Production is split intentionally:
+  - Vercel hosts the Next.js app in `/app`.
+  - A DigitalOcean droplet hosts the backend services (`/rag`, optional `/ingestion`, optional `/clip-service`).
+- In production, configure Vercel KV so chat history, anonymous preview gating, and route rate limiting persist across instances.
+- Double-check that the required secrets (OpenAI, Pinecone, AssemblyAI, Twitter OAuth, Google OAuth, KV, backend URLs) are added to the Vercel project.
+- Deployment details live in [`docs/vercel-do-production.md`](docs/vercel-do-production.md).
 
 ---
 
@@ -123,13 +130,13 @@ pnpm start
 | Aspect | First Commit `d9858e0` | Current `HEAD` |
 | --- | --- | --- |
 | **Brand & Scope** | “MEV.fyi Chatbot” marketing page; generic LlamaIndex phrasing | Production `icm.fyi` research companion with explicit clip/bundle workflows |
-| **Architecture** | Static marketing README; implied single Next.js chat surface | Next.js 13 App Router app with server components, streaming chat, share routes, bundle drawers, Privy/Twitter auth |
+| **Architecture** | Static marketing README; implied single Next.js chat surface | Next.js 13 App Router app with server components, streaming chat, share routes, bundle drawers, Twitter/Google auth, and server-side preview gating |
 | **Source Rendering** | No implementation details; assumed plain list of links | `SourceList` + `MetadataList` components with thumbnails, per-clip actions, selection state, toast feedback |
 | **Clip Experience** | Not mentioned | `ClipDrawer`, HQ generation hooks, bundle selection (`useClipSelection`), timestamp editing, diagnostic logging |
 | **Data Handling** | Promised research papers/Twitter threads; stored thousands of PNG thumbnails + `docs_mapping.json` | Lean YouTube-first pipeline, deterministic thumbnail fallbacks, structured metadata parsing (`parseMetadataEntriesV2`), documented `diagnostics.final_kept[]` schema |
 | **Docs & Specs** | README only (deployment + “default questions”) | Roadmaps and UX briefs in `/docs`, video/clip URL spec, onboarding guidance for researchers and developers |
 | **Tooling & Tests** | None referenced | Node test suite (`test:progress`), clip selection/markdown tests, debug scripts (`dev_with_rag.sh`, `debug_script.sh`), lint/type-check workflows |
-| **Auth & Sharing** | Mentioned NextAuth generically | Privy/Twitter sign-in, share chat header, public share routes, middleware gating |
+| **Auth & Sharing** | Mentioned NextAuth generically | Twitter/Google sign-in, share chat header, public share routes, and durable preview gating after 3 anonymous prompts |
 | **Asset Footprint** | ~13k research paper PNGs shipped in repo | Legacy assets removed; thumbnail logic now fetches from YouTube or defaults |
 
 ### Highlights Since the First Commit
@@ -160,7 +167,7 @@ pnpm start
 
 ### Notes & Responsibilities
 
-- Respect content licensing when replaying or sharing YouTube clips; Privy/Twitter auth gates sharing features.
+- Respect content licensing when replaying or sharing YouTube clips; Twitter/Google auth gates sharing and continued usage after the anonymous preview.
 - HQ clip generation (AssemblyAI) may incur cost; adjust concurrency and padding defaults accordingly.
 - Query diagnostics power UI; backend changes to `diagnostics.final_kept[]` must be mirrored in the spec and parser.
 

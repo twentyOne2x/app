@@ -35,7 +35,9 @@ export function normalizeAliasesInText(text: string): string {
   })
 }
 
-const YOUTUBE_ID_REGEX = /[A-Za-z0-9_-]{11}/
+const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/
+const _YOUTUBE_ID_FROM_URL_RE =
+  /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})(?=[^A-Za-z0-9_-]|$)/i
 
 export function parseYouTubeIdFromString(
   candidate?: string | null
@@ -44,78 +46,47 @@ export function parseYouTubeIdFromString(
   const trimmed = candidate.trim()
   if (!trimmed) return undefined
 
-  if (YOUTUBE_ID_REGEX.test(trimmed) && trimmed.length === 11) {
-    console.debug('utils: parseYouTubeIdFromString matched raw id', {
-      candidate
-    })
-      return trimmed
-  }
+  // Raw 11-char ID.
+  if (YOUTUBE_ID_REGEX.test(trimmed)) return trimmed
+
+  // If the string contains a YouTube URL anywhere (even with surrounding text),
+  // extract an exact 11-char ID with a hard boundary. Never truncate longer tokens.
+  const embedded = trimmed.match(_YOUTUBE_ID_FROM_URL_RE)?.[1]
+  if (embedded && YOUTUBE_ID_REGEX.test(embedded)) return embedded
 
   try {
     const hasScheme = /^[a-z]+:/i.test(trimmed)
     const url = new URL(hasScheme ? trimmed : `https://${trimmed}`)
     const host = url.hostname.toLowerCase()
-    if (!host.includes('youtube.com') && !host.includes('youtu.be')) {
-      const match = trimmed.match(YOUTUBE_ID_REGEX)
-      if (match) {
-        console.debug('utils: parseYouTubeIdFromString matched non-youtube string', {
-          candidate,
-          derived: match[0]
-        })
-      }
-      return match ? match[0] : undefined
-    }
-    if (host.includes('youtu.be')) {
+
+    const isYouTubeHost =
+      host === 'youtu.be' ||
+      host.endsWith('.youtu.be') ||
+      host === 'youtube.com' ||
+      host.endsWith('.youtube.com') ||
+      host === 'youtube-nocookie.com' ||
+      host.endsWith('.youtube-nocookie.com')
+
+    // Never try to "guess" IDs from non-YouTube hosts.
+    if (!isYouTubeHost) return undefined
+
+    if (host === 'youtu.be' || host.endsWith('.youtu.be')) {
       const slug = url.pathname.split('/').filter(Boolean)[0]
-      if (slug && YOUTUBE_ID_REGEX.test(slug)) {
-        console.debug('utils: parseYouTubeIdFromString matched youtu.be slug', {
-          candidate,
-          slug
-        })
-        return slug.slice(0, 11)
-      }
+      return slug && YOUTUBE_ID_REGEX.test(slug) ? slug : undefined
     }
+
     const idParam = url.searchParams.get('v')
-    if (idParam && YOUTUBE_ID_REGEX.test(idParam)) {
-      console.debug('utils: parseYouTubeIdFromString matched search param', {
-        candidate,
-        idParam
-      })
-      return idParam.slice(0, 11)
-    }
+    if (idParam && YOUTUBE_ID_REGEX.test(idParam)) return idParam
+
     const segments = url.pathname.split('/').filter(Boolean)
     for (const segment of segments) {
-      if (segment.length >= 11 && YOUTUBE_ID_REGEX.test(segment.slice(-11))) {
-        console.debug('utils: parseYouTubeIdFromString matched path segment', {
-          candidate,
-          segment
-        })
-        return segment.slice(-11)
-      }
+      if (YOUTUBE_ID_REGEX.test(segment)) return segment
     }
   } catch {
-    const match = trimmed.match(YOUTUBE_ID_REGEX)
-    if (match) {
-      console.debug('utils: parseYouTubeIdFromString recovered from error', {
-        candidate,
-        derived: match[0]
-      })
-    }
-    if (match) return match[0]
+    return undefined
   }
 
-  const looseMatch = trimmed.match(YOUTUBE_ID_REGEX)
-  if (looseMatch) {
-    console.debug('utils: parseYouTubeIdFromString loose match', {
-      candidate,
-      derived: looseMatch[0]
-    })
-  } else {
-    console.debug('utils: parseYouTubeIdFromString failed to derive id', {
-      candidate
-    })
-  }
-  return looseMatch ? looseMatch[0] : undefined
+  return undefined
 }
 
 export function youtubeThumbFor(
@@ -512,7 +483,28 @@ export async function fetcher<JSON = any>(
 }
 
 export function formatDate(input: string | number | Date): string {
+  if (typeof input === 'string') {
+    const trimmed = input.trim()
+    // Common yt-dlp shape: upload_date=YYYYMMDD (not reliably parsed by Date()).
+    const m = /^(\d{4})(\d{2})(\d{2})$/.exec(trimmed)
+    if (m) {
+      const [, yyyy, mm, dd] = m
+      const iso = `${yyyy}-${mm}-${dd}T00:00:00Z`
+      const parsed = new Date(iso)
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      }
+    }
+  }
+
   const date = new Date(input)
+  if (Number.isNaN(date.getTime())) {
+    return typeof input === 'string' ? input : String(input)
+  }
   return date.toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
@@ -530,6 +522,7 @@ export interface ClipItemV2 {
   date?: string
   url?: string // exact-start URL if present in the answer links
   score?: number
+  durationS?: number
   startHMS?: string
   endHMS?: string
   startS?: number
@@ -567,6 +560,7 @@ export interface ParsedMetadataEntryV2 {
   date?: string
   url?: string // canonical/first link we saw for this parent
   scoreMax?: number
+  durationS?: number
   clips: ClipItemV2[]
   videoId?: string
   channelId?: string
@@ -593,6 +587,7 @@ export interface BackendFinalClip {
   video_id?: string | null
   document_type?: string | null
   score?: number | null
+  duration_s?: number | null
   published_at?: string | null
   is_explainer?: boolean | null
   router_boost?: number | null
@@ -654,10 +649,10 @@ function timeToSeconds(hms?: string): number | undefined {
 // Example line (video rows emitted by backend):
 // [Title]: <title> (00:12:34–00:15:22), [Speaker]: X, [Channel]: Y, [Date]: 2024-06-01, [Score]: 0.8123
 // Optional: [Excerpt]: foo … bar
-const FIELD_RE =
-  /\[(Title|Speaker|Channel|Date|Score|Excerpt)\]:\s*([^,\n]+)(?:,|$)/gi
 const RANGE_RE =
   /\(([0-9]{2}:[0-9]{2}:[0-9]{2})\s*[–-]\s*([0-9]{2}:[0-9]{2}:[0-9]{2})\)/
+const FIELD_MARKER_RE =
+  /\[(Title|Speaker|Channel|Channel ID|Date|Score|Excerpt)\]:/gi
 
 interface ParsedRow {
   title: string
@@ -673,41 +668,62 @@ interface ParsedRow {
 function parseOneLine(line: string): ParsedRow | null {
   const out: ParsedRow = { title: '', channel: '' }
 
-  // Title + optional (HH:MM:SS–HH:MM:SS)
-  const titleRe = /\[Title\]:\s*([^(,\n]+)(?:\s*\(([^)]+)\))?/i
-  const titleMatch = titleRe.exec(line)
-  if (!titleMatch) return null
-  out.title = cleanTitle(titleMatch[1].trim())
+  const matches = Array.from(line.matchAll(FIELD_MARKER_RE))
+  if (!matches.length) return null
 
-  const tr = RANGE_RE.exec(line)
-  if (tr) {
-    out.start_hms = tr[1]
-    out.end_hms = tr[2]
+  const sliceValue = (start: number, end: number) => {
+    const raw = line.slice(start, end)
+    return raw.replace(/^[\s,]+/, '').replace(/[\s,]+$/, '').trim()
   }
 
-  let m: RegExpExecArray | null
-  FIELD_RE.lastIndex = 0
-  while ((m = FIELD_RE.exec(line))) {
-    const key = m[1].toLowerCase()
-    const val = (m[2] || '').trim()
-    switch (key) {
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i]
+    const keyRaw = (m[1] || '').toLowerCase()
+    const valueStart = (m.index ?? 0) + m[0].length
+    const valueEnd = i + 1 < matches.length ? (matches[i + 1].index ?? line.length) : line.length
+    const value = sliceValue(valueStart, valueEnd)
+
+    switch (keyRaw) {
+      case 'title': {
+        // Title may include a timestamp range right after it.
+        const tr = RANGE_RE.exec(value)
+        if (tr) {
+          out.start_hms = tr[1]
+          out.end_hms = tr[2]
+        }
+        const cleaned = value.replace(RANGE_RE, '').trim()
+        out.title = cleanTitle(cleaned)
+        break
+      }
       case 'speaker':
-        out.speaker = val || undefined
+        out.speaker = value || undefined
         break
       case 'channel':
-        out.channel = val || ''
+        out.channel = value || ''
         break
       case 'date':
-        out.date = val || undefined
+        out.date = value || undefined
         break
       case 'score':
-        out.score = toNumber(val)
+        out.score = toNumber(value)
         break
       case 'excerpt':
-        out.excerpt = val || undefined
+        out.excerpt = value || undefined
+        break
+      default:
         break
     }
   }
+
+  // Fallback: if timestamp range exists but was not captured via the title field, scan full line.
+  if (!out.start_hms || !out.end_hms) {
+    const tr = RANGE_RE.exec(line)
+    if (tr) {
+      out.start_hms = out.start_hms ?? tr[1]
+      out.end_hms = out.end_hms ?? tr[2]
+    }
+  }
+
   return out.channel ? out : null
 }
 
@@ -841,6 +857,7 @@ export function parseMetadataEntriesV2FromFinalKept(
       url,
       clipUrl,
       score: typeof row.score === 'number' ? row.score : undefined,
+      durationS: typeof row.duration_s === 'number' ? row.duration_s : undefined,
       startHMS: row.start_hms ?? undefined,
       endHMS: row.end_hms ?? undefined,
       startS: startSeconds ?? undefined,
@@ -885,6 +902,9 @@ export function parseMetadataEntriesV2FromFinalKept(
           existing.scoreMax == null ? clip.score : Math.max(existing.scoreMax, clip.score)
       }
       if (!existing.url && clip.url) existing.url = clip.url
+      if (existing.durationS == null && clip.durationS != null) {
+        existing.durationS = clip.durationS
+      }
       existing.thumbnailUrl = existing.thumbnailUrl ?? youtubeThumbFor(clip.url ?? clip.clipUrl, clip.videoId ?? existing.videoId)
     } else {
       byParent.set(key, {
@@ -893,6 +913,7 @@ export function parseMetadataEntriesV2FromFinalKept(
         date: clip.date,
         url: clip.url,
         scoreMax: clip.score,
+        durationS: clip.durationS,
         clips: [clip],
         videoId: clip.videoId ?? clip.parentId,
         parentId: clip.parentId ?? clip.videoId,
@@ -934,33 +955,12 @@ export function normalizeMetadataEntries(
     }
   }
 
-  const extractYouTubeId = (candidate?: string): string | undefined => {
-    if (!candidate) return undefined
-    try {
-      const parsed = new URL(candidate)
-      if (parsed.hostname.includes('youtu.be')) {
-        const slug = parsed.pathname.replace('/', '').split('/')[0]
-        return slug || undefined
-      }
-      if (parsed.hostname.includes('youtube.com')) {
-        const id = parsed.searchParams.get('v')
-        return id ?? undefined
-      }
-      return undefined
-    } catch {
-      return undefined
-    }
-  }
-
   const youtubeThumbnailFrom = (
     candidateUrl?: string,
     fallbackVideoId?: string | null
   ): string | undefined => {
-    const videoId =
-      extractYouTubeId(candidateUrl) ?? fallbackVideoId ?? undefined
-    return videoId
-      ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-      : undefined
+    // Strict: only returns a thumbnail when a real 11-char YouTube ID can be derived.
+    return youtubeThumbFor(candidateUrl, fallbackVideoId)
   }
 
   const parseHmsToSeconds = (hms?: string): number | null => {

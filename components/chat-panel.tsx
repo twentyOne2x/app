@@ -23,6 +23,7 @@ export interface ChatPanelProps {
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
   isLoading: boolean;
+  inputDisabled?: boolean;
   id?: string;
   onSubmit?: (value: string) => void | Promise<void>; // Add this line
   // Add new properties for the state-setting functions
@@ -43,6 +44,7 @@ export interface ChatPanelProps {
 export function ChatPanel({
   id,
   isLoading,
+  inputDisabled = false,
   input,
   setInput,
   onSubmit,
@@ -141,6 +143,7 @@ export function ChatPanel({
               input={input}
               setInput={setInput}
               isLoading={isLoading}
+              inputDisabled={inputDisabled}
               setMessages={setMessages}
               setStructuredMetadataEntries={setStructuredMetadataEntries}
               setLastMessageRole={setLastMessageRole}

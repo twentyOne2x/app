@@ -6,6 +6,7 @@ import { getChat } from '@/app/actions'
 import { Chat } from '@/components/chat'
 import ShareChatHeader from '@/components/share-chat-header'
 import { SourceListInline } from '@/components/source-list-inline'
+import { getServerChatAccessState } from '@/lib/chat-access'
 
 export const preferredRegion = 'home'
 
@@ -38,6 +39,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
     redirect(`/sign-in?callbackUrl=/chat/${params.id}`)
   }
   const userId = session.user?.id ?? ''
+  const accessState = await getServerChatAccessState(userId)
 
   const chat = await getChat(params.id, userId)
   if (!chat) return notFound()
@@ -53,6 +55,7 @@ export default async function ChatPage({ params }: ChatPageProps) {
         id={chat.id}
         initialMessages={adaptMessagesForChat(chat.messages) as any}
         structured_metadata={chat.structured_metadata}
+        accessState={accessState}
         shareHeader={
           userId && chat.userId === userId ? (
             <ShareChatHeader chatId={chat.id} chat={chat} />

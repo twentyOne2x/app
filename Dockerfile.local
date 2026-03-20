@@ -1,0 +1,25 @@
+# Next 13.x is not reliably compatible with Node 22 in dev mode.
+# Use Node 20 for local container runs (production can still upgrade separately).
+FROM node:20-bookworm-slim
+
+WORKDIR /app
+
+# Some dependencies (e.g. bufferutil/utf-8-validate) compile native addons via node-gyp.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm install --no-audit --no-fund
+
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED=1
+EXPOSE 3000
+
+# Dev mode has been unstable in-container for this app; build once, serve via `next start`.
+RUN npm run build
+
+CMD ["npm", "run", "start", "--", "-H", "0.0.0.0", "-p", "3000"]

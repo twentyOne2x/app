@@ -21,6 +21,7 @@ export interface PromptProps
   extends Pick<UseChatHelpers, 'input' | 'setInput'> {
   onSubmit: (value: string, options?: { newChat?: boolean }) => Promise<void>
   isLoading: boolean
+  inputDisabled?: boolean
   // Add new properties for the state-setting functions
   setMessages: (messages: MetadataMessage[]) => void;
   setStructuredMetadataEntries: (entries: any[]) => void; // Replace 'any[]' with a more specific type if available
@@ -39,6 +40,7 @@ export function PromptForm({
   input,
   setInput,
   isLoading,
+  inputDisabled = false,
   setMessages,
   setStructuredMetadataEntries,
   setLastMessageRole,
@@ -86,15 +88,16 @@ export function PromptForm({
           onKeyDown={onKeyDown}
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="Send a message."
+          placeholder={inputDisabled ? 'Sign in to continue chatting.' : 'Send a message.'}
           spellCheck={false}
           className={styles.promptTextarea}
           data-testid="prompt-textarea"
+          disabled={inputDisabled}
         />
         <div className={styles.sendButtonContainer}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button type="submit" size="icon" disabled={isLoading || input === ''}>
+              <Button type="submit" size="icon" disabled={isLoading || input === '' || inputDisabled}>
                 <Image
                   src="/ui_icons/send_chat_2.svg"
                   alt="Send"

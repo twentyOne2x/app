@@ -34,7 +34,7 @@ const BASE_TEMPLATES: SampleTemplate[] = [
             '• EigenLayer restaking surpassed $20B TVL, with the first AVS cohort landing next week.',
             '',
             'Fetched based on the following sources:',
-            '1. [Solana Firedancer testnet recap](https://www.youtube.com/watch?v=solana-fd-weekly)',
+            '1. [Breakpoint 2023: Firedancer Update](https://www.youtube.com/watch?v=hEEWMiMuEF8)',
             '2. [AltLayer async proving AMA](https://mirror.xyz/altlayer/async-proving)',
             '3. [Restaking dashboards thread](https://warpcast.com/icm/0xrestaking)'
           ].join('\n')
@@ -42,21 +42,21 @@ const BASE_TEMPLATES: SampleTemplate[] = [
     ],
     structured_metadata: [
       {
-        parentTitle: 'Solana Firedancer testnet recap',
-        channel: 'icm.fyi',
-        date: '2024-09-10',
-        url: 'https://www.youtube.com/watch?v=solana-fd-weekly',
+        parentTitle: 'Breakpoint 2023: Firedancer Update',
+        channel: '@SolanaFndn',
+        date: '2023-10-31',
+        url: 'https://www.youtube.com/watch?v=hEEWMiMuEF8',
         scoreMax: 0.91,
         clips: [
           {
-            parentTitle: 'Solana Firedancer testnet recap',
-            channel: 'icm.fyi',
+            parentTitle: 'Breakpoint 2023: Firedancer Update',
+            channel: '@SolanaFndn',
             startHMS: '00:01:42',
             endHMS: '00:02:08',
             startS: 102,
             endS: 128,
             excerpt: 'Firedancer public testnet went live with 1M TPS synthetic throughput in lab tests.',
-            clipUrl: 'https://www.youtube.com/watch?v=solana-fd-weekly&t=102s'
+            clipUrl: 'https://www.youtube.com/watch?v=hEEWMiMuEF8&t=102s'
           }
         ]
       },
@@ -103,8 +103,8 @@ const BASE_TEMPLATES: SampleTemplate[] = [
             '',
             'Fetched based on the following sources:',
             '1. [AltLayer blobstream demo](https://warpcast.com/altlayer/blobstream)',
-            '2. [Morpho solver live coding](https://www.youtube.com/watch?v=morpho-solver)',
-            '3. [Lava v2 operator call](https://www.youtube.com/watch?v=lava-network)'
+            '2. [Mira: Beyond Co-Pilots - Making AI Production-Ready - Crypto x AI Events](https://www.youtube.com/watch?v=Ig2NZ1LFGms)',
+            '3. [How to Survive in the Post-AGI world... w- Alex Good](https://www.youtube.com/watch?v=fXqruddnXXE)'
           ].join('\n')
       }
     ],
@@ -129,21 +129,21 @@ const BASE_TEMPLATES: SampleTemplate[] = [
         ]
       },
       {
-        parentTitle: 'Morpho solver live coding',
-        channel: 'Morpho Labs',
-        date: '2024-08-18',
-        url: 'https://www.youtube.com/watch?v=morpho-solver',
+        parentTitle: 'Mira: Beyond Co-Pilots - Making AI Production-Ready - Crypto x AI Events',
+        channel: '@Delphi_Digital',
+        date: '2024-10-31',
+        url: 'https://www.youtube.com/watch?v=Ig2NZ1LFGms',
         scoreMax: 0.81,
         clips: [
           {
-            parentTitle: 'Morpho solver live coding',
-            channel: 'Morpho Labs',
-            startHMS: '00:04:05',
-            endHMS: '00:04:44',
-            startS: 245,
-            endS: 284,
-            excerpt: 'Solver constraints ensure vault slots remain profitable while minimizing MEV exposure.',
-            clipUrl: 'https://www.youtube.com/watch?v=morpho-solver&t=245s'
+            parentTitle: 'Mira: Beyond Co-Pilots - Making AI Production-Ready - Crypto x AI Events',
+            channel: '@Delphi_Digital',
+            startHMS: '00:30:20',
+            endHMS: '00:35:26',
+            startS: 1820,
+            endS: 2126,
+            excerpt: 'In the Q&A, the team describes how they think about scaling foundation models vs specialized apps.',
+            clipUrl: 'https://www.youtube.com/watch?v=Ig2NZ1LFGms&t=1820s'
           }
         ]
       }

@@ -106,7 +106,24 @@ test.describe('Chat layout', () => {
     const overflowBehavior = await scrollRegion.evaluate((el) => getComputedStyle(el).overflowY)
     expect(['auto', 'scroll']).toContain(overflowBehavior)
 
+    // Make the scroll region overflow deterministically (avoid depending on backend/sample chat length).
+    // Use a pseudo-element instead of DOM injection so React rerenders can't wipe it out.
+    await page.addStyleTag({
+      content:
+        '[data-testid="chat-scroll-region"]::after { content: ""; display: block; height: 3000px; width: 1px; }'
+    })
+
+    const canScroll = await scrollRegion.evaluate(
+      (el) => (el as HTMLElement).scrollHeight > (el as HTMLElement).clientHeight
+    )
+    expect(canScroll).toBeTruthy()
+
+    const scrollTopBefore = await scrollRegion.evaluate((el) => (el as HTMLElement).scrollTop)
+    await scrollRegion.hover()
     await page.mouse.wheel(0, 2000)
+    await page.waitForTimeout(50)
+    const scrollTopAfter = await scrollRegion.evaluate((el) => (el as HTMLElement).scrollTop)
+    expect(scrollTopAfter).toBeGreaterThan(scrollTopBefore)
 
     const promptAfterScroll = await promptInput.boundingBox()
     expect(promptAfterScroll).not.toBeNull()

@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     title: 'icm.fyi ICM Research Chatbot', description: '',
     siteName: 'icm.fyi', images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'icm.fyi ICM Research Chatbot' }]
   },
-  twitter: { card: 'summary_large_image', site: '@impliedval', title: 'icm.fyi ICM Research Chatbot', description: '', images: ['/twitter-image.png'] }
+  twitter: { card: 'summary_large_image', site: '@twentyOne2x', title: 'icm.fyi ICM Research Chatbot', description: '', images: ['/twitter-image.png'] }
 }
 
 function PreloadUiIconLinks() {
@@ -121,10 +121,10 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <PreloadAvatarImages />
         <Toaster />
         <Providers attribute="class" defaultTheme="dark" enableSystem={false} entryProfile={entryProfile}>
-          <div className="flex min-h-screen flex-col bg-background">
+          <div className="flex h-screen flex-col bg-background">
             <Header session={session} />
             <div className="flex min-h-0 flex-1">
-              <main className="min-h-0 flex-1 overflow-y-auto bg-muted/40">{children}</main>
+            <main className="min-h-0 flex-1 overflow-hidden bg-muted/40">{children}</main>
             </div>
           </div>
           <TailwindIndicator />

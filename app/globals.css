@@ -44,7 +44,9 @@
   html,
   body {
     height: 100%;
-    overflow: hidden;
+    /* Allow page scroll; modals toggle `.modal-open` to lock background scroll. */
+    overflow-x: hidden;
+    overflow-y: auto;
   }
   body {
     @apply bg-background text-foreground;

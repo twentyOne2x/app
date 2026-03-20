@@ -2,12 +2,20 @@ import auth, { IS_E2E_MODE } from '@/auth'
 import { LoginButton } from '@/components/login-button'
 import { redirect } from 'next/navigation'
 import { e2eSignIn } from '@/app/actions'
+import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 
-export default async function SignInPage() {
+interface SignInPageProps {
+  searchParams?: {
+    callbackUrl?: string
+  }
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
   const session = await auth()
+  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl)
   // redirect to home if user is already logged in
   if (session?.user) {
-    redirect('/')
+    redirect(callbackUrl)
   }
   return (
     <div className="flex h-screen flex-col items-center justify-start pt-20 sm:pt-32">
@@ -24,19 +32,32 @@ export default async function SignInPage() {
         <p className="my-4"></p>
         
         <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          To keep access invitational and prevent spoofing, please authenticate with Twitter.
-          We only use this to understand who&apos;s testing the product—nothing more.
+          You can preview three prompts anonymously. After that, continued use requires
+          Twitter or Google authentication.
         </p>
 
         <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          Once you&apos;re authenticated, you can explore every feature with full context.
+          Authentication keeps the preview durable, prevents form abuse, and unlocks chat history and sharing.
         </p>
       </div>
       
       <p className="my-4"></p>
       
       <div className="mx-auto flex w-full flex-col gap-3 px-3 sm:flex-row sm:justify-center">
-        <LoginButton loginType="twitter" text="Sign in with Twitter" showIcon className="w-full sm:w-auto" />
+        <LoginButton
+          loginType="twitter"
+          text="Sign in with Twitter"
+          callbackUrl={callbackUrl}
+          showIcon
+          className="w-full sm:w-auto"
+        />
+        <LoginButton
+          loginType="google"
+          text="Sign in with Google"
+          callbackUrl={callbackUrl}
+          showIcon
+          className="w-full sm:w-auto"
+        />
       </div>
       {IS_E2E_MODE ? (
         <form action={e2eSignIn} className="mt-6">

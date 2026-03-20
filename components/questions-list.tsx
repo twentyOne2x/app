@@ -66,7 +66,7 @@ export const QuestionList: React.FC<QuestionListProps> = ({ onSubmit, showOverla
   }, [selectRandomQuestions]);
 
   const handleQuestionSelect = (question: string) => {
-    onSubmit(question, { newChat: true });
+    onSubmit(question);
   };
 
   // Apply fade effect to the questionsContainer based on showOverlay

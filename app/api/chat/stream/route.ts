@@ -1,4 +1,10 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import {
+  applyChatAccessResponse,
+  beginChatAccess,
+  finalizeChatAccess
+} from '@/lib/chat-access'
 
 export const maxDuration = 300
 
@@ -9,6 +15,21 @@ function getBackendBaseUrl() {
     process.env.REACT_APP_BACKEND_URL ??
     null
   )
+}
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, '')
+}
+
+function backendStreamCandidates(baseUrl: string): string[] {
+  const base = trimTrailingSlashes(baseUrl.trim())
+  if (!base) return []
+
+  const lower = base.toLowerCase()
+  if (lower.endsWith('/chat/stream')) return [base]
+  if (lower.endsWith('/chat')) return [`${base}/stream`]
+
+  return [`${base}/chat/stream`]
 }
 
 function buildBackendPayload(json: any) {
@@ -53,31 +74,89 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'bad_request' }, { status: 400 })
   }
 
+  const session = await auth()
+  const userId = session?.user?.id ?? null
+  const accessCheck = await beginChatAccess(request, userId)
+  if (!accessCheck.ok) {
+    return accessCheck.response
+  }
+
   const backendBaseUrl = getBackendBaseUrl()
   if (!backendBaseUrl) {
-    return NextResponse.json(
-      { error: 'missing_backend_url', message: 'Retrieval service is not configured.' },
-      { status: 500 }
+    return applyChatAccessResponse(
+      NextResponse.json(
+        { error: 'missing_backend_url', message: 'Retrieval service is not configured.' },
+        { status: 500 }
+      ),
+      accessCheck.context,
+      accessCheck.state
     )
   }
 
-  const backendStreamUrl = `${backendBaseUrl.replace(/\/$/, '')}/chat/stream`
+  const backendCandidates = backendStreamCandidates(backendBaseUrl)
+  if (!backendCandidates.length) {
+    return applyChatAccessResponse(
+      NextResponse.json(
+        { error: 'missing_backend_url', message: 'Retrieval service is not configured.' },
+        { status: 500 }
+      ),
+      accessCheck.context,
+      accessCheck.state
+    )
+  }
 
-  let backendResponse: Response
-  try {
-    backendResponse = await fetch(backendStreamUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'text/event-stream'
-      },
-      body: JSON.stringify(buildBackendPayload(json))
+  let backendResponse: Response | null = null
+  let backendStreamUrl = backendCandidates[0]
+  let lastErrorText: string | null = null
+
+  for (let i = 0; i < backendCandidates.length; i += 1) {
+    const candidateUrl = backendCandidates[i]
+    const isLast = i === backendCandidates.length - 1
+    backendStreamUrl = candidateUrl
+    try {
+      const response = await fetch(candidateUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream'
+        },
+        body: JSON.stringify(buildBackendPayload(json))
+      })
+      if (response.status === 404 && !isLast) {
+        const text = await response.text().catch(() => response.statusText)
+        lastErrorText = text || response.statusText
+        console.warn('chat-stream: backend candidate returned 404, trying fallback', {
+          candidateUrl
+        })
+        continue
+      }
+      backendResponse = response
+      break
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'network_failure'
+      lastErrorText = message
+      if (!isLast) {
+        console.warn('chat-stream: backend candidate network failure, trying fallback', {
+          candidateUrl,
+          error: message
+        })
+        continue
+      }
+    }
+  }
+
+  if (!backendResponse) {
+    console.error('chat-stream: network error calling backend', {
+      backendCandidates,
+      error: lastErrorText
     })
-  } catch (error) {
-    console.error('chat-stream: network error calling backend', error)
-    return NextResponse.json(
-      { error: 'network_error', message: 'Failed to reach retrieval service.' },
-      { status: 502 }
+    return applyChatAccessResponse(
+      NextResponse.json(
+        { error: 'network_error', message: 'Failed to reach retrieval service.' },
+        { status: 502 }
+      ),
+      accessCheck.context,
+      accessCheck.state
     )
   }
 
@@ -86,17 +165,24 @@ export async function POST(request: Request) {
     console.error(
       'chat-stream: backend responded with error',
       backendResponse.status,
-      text
+      text,
+      { backendStreamUrl }
     )
-    return NextResponse.json(
-      {
-        error: 'backend_error',
-        message: text || backendResponse.statusText || 'Backend returned an error.',
-        status: backendResponse.status
-      },
-      { status: backendResponse.status }
+    return applyChatAccessResponse(
+      NextResponse.json(
+        {
+          error: 'backend_error',
+          message: text || backendResponse.statusText || 'Backend returned an error.',
+          status: backendResponse.status
+        },
+        { status: backendResponse.status }
+      ),
+      accessCheck.context,
+      accessCheck.state
     )
   }
+
+  const accessState = await finalizeChatAccess(accessCheck.context)
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -119,7 +205,7 @@ export async function POST(request: Request) {
     }
   })
 
-  return new Response(stream, {
+  return applyChatAccessResponse(new Response(stream, {
     status: 200,
     headers: {
       'Content-Type': 'text/event-stream',
@@ -127,5 +213,5 @@ export async function POST(request: Request) {
       Connection: 'keep-alive',
       'X-Accel-Buffering': 'no'
     }
-  })
+  }), accessCheck.context, accessState)
 }

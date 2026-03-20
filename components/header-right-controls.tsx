@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 import type { Session } from 'next-auth'
 
 import { Button } from '@/components/ui/button'
@@ -15,16 +16,23 @@ interface HeaderRightControlsProps {
 export function HeaderRightControls({ session }: HeaderRightControlsProps) {
   const { shareControl } = useHeaderExtras()
   const userId = session?.user?.id ?? null
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const callbackUrl = React.useMemo(() => {
+    const query = searchParams?.toString()
+    return `${pathname || '/'}${query ? `?${query}` : ''}`
+  }, [pathname, searchParams])
+  const signInHref = `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`
 
   return (
     <div className="flex items-center gap-8">
       {shareControl ? <div className="inline-flex items-center">{shareControl}</div> : null}
       <a
-        href="https://x.com/icmdotfyi"
+        href="https://x.com/twentyOne2x"
         target="_blank"
         rel="noreferrer"
         className="inline-flex items-center transition-transform hover:scale-105"
-        aria-label="icm.fyi on X"
+        aria-label="twentyOne2x on X"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true" className="size-4 text-muted-foreground transition-colors hover:text-foreground">
           <path
@@ -42,7 +50,7 @@ export function HeaderRightControls({ session }: HeaderRightControlsProps) {
         </>
       ) : (
         <Button asChild size="sm" variant="outline">
-          <Link href="/sign-in">Sign in</Link>
+          <Link href={signInHref}>Sign in</Link>
         </Button>
       )}
     </div>

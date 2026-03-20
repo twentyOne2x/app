@@ -60,8 +60,24 @@ export interface DiagnosticsPayload {
   progress_metadata?: Record<string, unknown>
   models?: Record<string, unknown>
   final_kept?: unknown
+  catalog_results?: CatalogResultRow[]
   config?: Record<string, unknown>
   early_abort?: Record<string, unknown>
+}
+
+export interface CatalogResultRow {
+  video_id?: string
+  parent_id?: string
+  title?: string
+  channel_name?: string
+  channel_id?: string
+  published_at?: string
+  duration_s?: number
+  url?: string
+  thumbnail_url?: string
+  source?: string
+  document_type?: string
+  score?: number
 }
 
 export interface ChannelFilterPayload {

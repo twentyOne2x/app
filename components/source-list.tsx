@@ -243,6 +243,16 @@ function parseHmsToSeconds(hms?: string): number | null {
   return hours * 3600 + minutes * 60 + seconds + fractional
 }
 
+function formatDuration(seconds?: number | null): string | null {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return null
+  const total = Math.round(seconds)
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const secs = total % 60
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  return `${minutes}:${String(secs).padStart(2, '0')}`
+}
+
 const normalizeHmsLabel = (value?: string | null): string | null => {
   if (!value) return null
   const trimmed = value.trim()
@@ -288,6 +298,7 @@ export function SourceList({
   selectionScope,
   selection
 }: SourceListProps) {
+  const [expandedExcerpts, setExpandedExcerpts] = useState<Record<string, boolean>>({})
   const parents = useMemo(() => entries ?? [], [entries])
   const fallbackSelection = useClipSelection(selectionScope ?? 'global')
   const selectionHandle = selection ?? fallbackSelection
@@ -359,6 +370,7 @@ export function SourceList({
           parent.publishedAt ?? parent.publishedDate ?? parent.date
         const displayDate = rawPublished ? formatDate(rawPublished) : null
         const channelLabel = parent.channelName ?? parent.channel
+        const durationLabel = formatDuration(parent.durationS ?? firstClip?.durationS)
 
         return (
           <div
@@ -436,6 +448,7 @@ export function SourceList({
                     })()
                   ) : null}
                   {displayDate ? <span className="text-zinc-400">{displayDate}</span> : null}
+                  {durationLabel ? <span className="text-zinc-400">{durationLabel}</span> : null}
                   {parentScoreText ? (
                     <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] uppercase tracking-wide text-emerald-200/80">
                       {parentScoreText}
@@ -497,15 +510,48 @@ export function SourceList({
                                 {timestampLabel}
                               </span>
                             ) : null}
+                            {displayDate ? (
+                              <span className="normal-case text-zinc-200/60">
+                                {displayDate}
+                              </span>
+                            ) : null}
                           </div>
                           {clip.excerpt ? (
-                            <p className="text-xs text-zinc-100">
-                              {sanitizeClipExcerptText(clip.excerpt)}
-                            </p>
+                            (() => {
+                              const clipKey = `${key}__${clipIdx}`
+                              const excerpt = sanitizeClipExcerptText(clip.excerpt)
+                              const expanded = Boolean(expandedExcerpts[clipKey])
+                              const showToggle = Boolean(excerpt && excerpt.length > 240)
+                              return (
+                                <div>
+                                  <p
+                                    className={cn(
+                                      'text-xs text-zinc-100',
+                                      expanded ? '' : 'line-clamp-4'
+                                    )}
+                                  >
+                                    {excerpt}
+                                  </p>
+                                  {showToggle ? (
+                                    <button
+                                      type="button"
+                                      className="mt-1 text-[11px] font-semibold text-emerald-200/80 underline decoration-white/20 underline-offset-4 hover:text-emerald-100"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        setExpandedExcerpts((prev) => ({
+                                          ...prev,
+                                          [clipKey]: !prev[clipKey]
+                                        }))
+                                      }}
+                                    >
+                                      {expanded ? 'Show less' : 'Show more'}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              )
+                            })()
                           ) : (
-                            <p className="text-xs italic text-zinc-400">
-                              No excerpt provided.
-                            </p>
+                            <p className="text-xs italic text-zinc-400">No excerpt provided.</p>
                           )}
                           <div className="relative z-50 flex flex-wrap items-center gap-2 text-xs text-zinc-300">
                             <button

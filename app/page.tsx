@@ -4,6 +4,7 @@ import { nanoid } from '@/lib/utils';
 import { Chat } from '@/components/chat';
 import ShareChatHeader from '@/components/share-chat-header';
 import { auth } from '@/auth';
+import { getServerChatAccessState } from '@/lib/chat-access';
 
 export const metadata: Metadata = {
   title: 'icm.fyi ICM Research Chatbot',
@@ -27,10 +28,15 @@ export const metadata: Metadata = {
 export default async function IndexPage() {
   const session = await auth();
   const id = nanoid();
+  const accessState = await getServerChatAccessState(session?.user?.id ?? null)
   return (
     <>
-      <Chat id={id} currentUser={session?.user ?? null} />
-      {session?.user?.id && <ShareChatHeader chatId={id} />}
+      <Chat
+        id={id}
+        currentUser={session?.user ?? null}
+        accessState={accessState}
+        shareHeader={session?.user?.id ? <ShareChatHeader chatId={id} /> : null}
+      />
     </>
   );
 }

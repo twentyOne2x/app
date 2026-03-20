@@ -8,11 +8,11 @@
   --chat-bottom-padding: calc(var(--chat-panel-offset) + 140px);
   --chat-filter-width: clamp(260px, 20vw, 320px);
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
+  min-height: 0;
   width: 100%;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: stretch;
   gap: clamp(24px, 4vw, 48px);
 }
 
@@ -30,6 +30,7 @@
   position: relative; /* Change to relative to make the left property effective */
   padding-top: 50px;
   height: 100%;
+  min-height: 0;
 }
 
 .leftPanelContent {
@@ -67,6 +68,7 @@
   padding-bottom: 40px;
   z-index: 5;
   pointer-events: auto;
+  min-height: 0;
 }
 
 .rightPanelNoPaddingTop {
@@ -86,6 +88,8 @@
   position: relative; /* Needed for absolute positioning within */
   box-sizing: border-box;
   z-index: 1;
+  height: 100%;
+  min-height: 0;
 }
 
 .middlePanelNoPaddingTop {
@@ -98,9 +102,11 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  height: 100%;
   gap: clamp(24px, 4vh, 36px);
   padding: clamp(20px, 4vh, 40px) var(--chat-horizontal-padding) var(--chat-bottom-padding);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .scrollableContainer {
@@ -110,13 +116,29 @@
   overflow-x: hidden;
   padding: 0 var(--chat-horizontal-padding) 12px;
   width: 100%;
+  overscroll-behavior: contain;
   scrollbar-gutter: stable both-edge;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-width: thin;
 }
 
 .scrollableContainer::-webkit-scrollbar {
-  display: none;
+  width: 10px;
+}
+
+.scrollableContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollableContainer::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.scrollableContainer::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: content-box;
 }
 
 /* ChatList container with scrollable content */
@@ -472,7 +494,6 @@
   }
 
   .scrollableContainer {
-    max-height: calc(100vh - 210px);
     padding: 0 16px 12px;
   }
 

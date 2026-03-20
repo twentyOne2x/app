@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { ThemeProvider as NextThemesProvider } from 'next-themes'
 import { ThemeProviderProps } from 'next-themes/dist/types'
-import { PrivyProvider } from '@privy-io/react-auth'
 
 import { EntryProfileProvider } from '@/components/entry-profile-context'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -14,10 +13,8 @@ interface ProvidersProps extends ThemeProviderProps {
   entryProfile: EntryProfile
 }
 
-const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID
-
 export function Providers({ children, entryProfile, ...props }: ProvidersProps) {
-  const content = (
+  return (
     <NextThemesProvider {...props}>
       <EntryProfileProvider profile={entryProfile}>
         <HeaderExtrasProvider>
@@ -25,24 +22,5 @@ export function Providers({ children, entryProfile, ...props }: ProvidersProps) 
         </HeaderExtrasProvider>
       </EntryProfileProvider>
     </NextThemesProvider>
-  )
-
-  if (!privyAppId) {
-    return content
-  }
-
-  return (
-    <PrivyProvider
-      appId={privyAppId}
-      config={{
-        loginMethods: ['wallet'],
-        appearance: { theme: 'dark', accentColor: '#22c55e' },
-        embeddedWallets: {
-          createOnLogin: 'off'
-        }
-      }}
-    >
-      {content}
-    </PrivyProvider>
   )
 }

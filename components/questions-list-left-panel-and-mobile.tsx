@@ -94,7 +94,7 @@ export const QuestionListLeftPanel: React.FC<QuestionListProps> = ({ onSubmit, s
   }, [selectRandomQuestions]);
 
   const handleQuestionSelect = (question: string) => {
-    onSubmit(question, { newChat: true });
+    onSubmit(question);
   };
 
   // ♻️ {/* Recycle emoji */}

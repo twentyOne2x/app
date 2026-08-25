@@ -117,10 +117,15 @@ test('route scope map is method-specific and refuses unknown or malformed produc
   assert.equal(requiredOAuthScope('POST', '/api/clips'), 'icmfyi:clip:write')
   assert.equal(requiredOAuthScope('GET', `/api/clips/${clipId}/stream`), 'icmfyi:clip:read')
   assert.equal(requiredOAuthScope('POST', `/api/clips/${clipId}/retry`), 'icmfyi:clip:write')
+  assert.equal(
+    requiredOAuthScope('POST', '/api/service/x402/quotes/quote_abc-123/resolve'),
+    'icmfyi:commerce:write'
+  )
   assert.equal(requiredOAuthScope('GET', '/api/index/youtube'), null)
   assert.equal(requiredOAuthScope('GET', '/api/ingest'), null)
   assert.equal(requiredOAuthScope('GET', `/api/ingestion-jobs/${jobId}/../admin`), null)
   assert.equal(requiredOAuthScope('POST', '/api/service/orders'), null)
+  assert.equal(requiredOAuthScope('GET', '/api/service/x402/quotes/quote_abc-123/resolve'), null)
 })
 
 test('invalid Bearer never downgrades to a valid cookie session, while no Bearer preserves session auth', async () => {

@@ -9,6 +9,8 @@ export async function GET() {
     Boolean(
       process.env.NEXTAUTH_SECRET &&
         process.env.INTERNAL_SERVICE_SECRET &&
+        process.env.ICMFYI_IDENTITY_HMAC_SECRET &&
+        process.env.ICMFYI_IDENTITY_HMAC_SECRET.length >= 32 &&
         process.env.ICMFYI_MCP_AUDIENCE &&
         process.env.ICMFYI_MCP_OAUTH_ISSUER &&
         process.env.ICMFYI_MCP_OAUTH_JWKS_URL &&

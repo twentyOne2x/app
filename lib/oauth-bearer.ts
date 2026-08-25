@@ -13,7 +13,8 @@ export const ICMFYI_OAUTH_SCOPES = [
   'icmfyi:export:write',
   'icmfyi:export:read',
   'icmfyi:clip:write',
-  'icmfyi:clip:read'
+  'icmfyi:clip:read',
+  'icmfyi:commerce:write'
 ] as const
 
 export type IcmfyiOAuthScope = (typeof ICMFYI_OAUTH_SCOPES)[number]
@@ -147,6 +148,12 @@ export function requiredOAuthScope(method: string, pathname: string): IcmfyiOAut
   }
   if (/^\/api\/clips\/[0-9a-f]{32}\/retry$/.test(pathname) && normalizedMethod === 'POST') {
     return 'icmfyi:clip:write'
+  }
+  if (
+    /^\/api\/service\/x402\/quotes\/[A-Za-z0-9._:-]{1,255}\/resolve$/.test(pathname) &&
+    normalizedMethod === 'POST'
+  ) {
+    return 'icmfyi:commerce:write'
   }
   if (/^\/api\/clips\/batch\/[A-Za-z0-9._:-]+$/.test(pathname)) {
     if (normalizedMethod === 'GET') return 'icmfyi:clip:read'

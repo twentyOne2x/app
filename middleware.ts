@@ -6,6 +6,7 @@ import { ENTRY_PROFILE_COOKIE, DEFAULT_ENTRY_PROFILE_CODE } from '@/lib/entry-pr
 import {
   resolveGatewayExternalIdentity
 } from '@/lib/gateway-auth'
+import { deriveGatewayScopedIdentity } from '@/lib/gateway-identity'
 
 const RATE_LIMIT = 100;
 const RATE_LIMIT_WINDOW = 60;
@@ -20,31 +21,6 @@ const INTERNAL_IDENTITY_HEADERS = [
 
 function isProduction() {
   return process.env.ICMFYI_PRODUCTION === '1' || process.env.NODE_ENV === 'production'
-}
-
-async function scopedIdentity(
-  prefix: 'usr' | 'ten',
-  identity: string,
-  identityRealm: 'session' | 'oauth' = 'session'
-): Promise<string> {
-  const secret = process.env.INTERNAL_SERVICE_SECRET
-  if (!secret || secret.length < 32) {
-    throw new Error('INTERNAL_SERVICE_SECRET must be at least 32 characters')
-  }
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
-  const signature = await crypto.subtle.sign(
-    'HMAC',
-    key,
-    new TextEncoder().encode(`${prefix}:${identityRealm}:${identity}`)
-  )
-  const digest = Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('')
-  return `${prefix}_${digest}`
 }
 
 async function maybeRateLimit(_ip: string): Promise<number | null> {
@@ -102,9 +78,20 @@ export async function middleware(req: NextRequest) {
         )
       }
       try {
+        const identitySecret = process.env.ICMFYI_IDENTITY_HMAC_SECRET ?? ''
         const [userId, tenantId] = await Promise.all([
-          scopedIdentity('usr', externalIdentity.identity, externalIdentity.realm),
-          scopedIdentity('ten', externalIdentity.identity, externalIdentity.realm)
+          deriveGatewayScopedIdentity(
+            'usr',
+            externalIdentity.identity,
+            externalIdentity.realm,
+            identitySecret
+          ),
+          deriveGatewayScopedIdentity(
+            'ten',
+            externalIdentity.identity,
+            externalIdentity.realm,
+            identitySecret
+          )
         ])
         requestHeaders.set('x-icmfyi-user-id', userId)
         requestHeaders.set('x-icmfyi-tenant-id', tenantId)

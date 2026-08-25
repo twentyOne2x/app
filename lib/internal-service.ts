@@ -1,4 +1,12 @@
 const SCOPE_HEADERS = ['x-icmfyi-user-id', 'x-icmfyi-tenant-id'] as const
+const TRUSTED_USER_ID = /^usr_[0-9a-f]{64}$/
+
+export class TrustedGatewayIdentityError extends Error {
+  constructor() {
+    super('trusted gateway identity is missing for an authorized production request')
+    this.name = 'TrustedGatewayIdentityError'
+  }
+}
 
 export function isProductionRuntime() {
   return process.env.ICMFYI_PRODUCTION === '1' || process.env.NODE_ENV === 'production'
@@ -37,4 +45,23 @@ export function tenantScopedPayload(request: Request, payload: unknown): unknown
     ...(tenantId ? { tenant_id: tenantId } : {}),
     ...(userId ? { user_id: userId } : {})
   }
+}
+
+export function trustedGatewayUserId(request: Request): string | null {
+  const value = request.headers.get('x-icmfyi-user-id')?.trim() ?? ''
+  return TRUSTED_USER_ID.test(value) ? value : null
+}
+
+/** Preserve raw NextAuth chat ownership for cookie-only browser requests while
+ * keeping an OAuth Bearer request bound to the principal chosen by middleware. */
+export function authoritativeRequestUserId(
+  request: Request,
+  sessionUserId: string | null | undefined
+): string | null {
+  const gatewayUserId = trustedGatewayUserId(request)
+  if (isProductionRuntime() && request.headers.has('authorization')) {
+    if (!gatewayUserId) throw new TrustedGatewayIdentityError()
+    return gatewayUserId
+  }
+  return sessionUserId ?? gatewayUserId
 }

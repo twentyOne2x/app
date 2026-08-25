@@ -5,14 +5,14 @@ import { e2eSignIn } from '@/app/actions'
 import { sanitizeCallbackUrl } from '@/lib/auth-callback'
 
 interface SignInPageProps {
-  searchParams?: {
+  searchParams?: Promise<{
     callbackUrl?: string
-  }
+  }>
 }
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const session = await auth()
-  const callbackUrl = sanitizeCallbackUrl(searchParams?.callbackUrl)
+  const [session, resolvedSearchParams] = await Promise.all([auth(), searchParams])
+  const callbackUrl = sanitizeCallbackUrl(resolvedSearchParams?.callbackUrl)
   // redirect to home if user is already logged in
   if (session?.user) {
     redirect(callbackUrl)

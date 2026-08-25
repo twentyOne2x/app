@@ -324,7 +324,7 @@ export async function getServerChatAccessState(userId?: string | null): Promise<
     return buildAccessState(false, getPreviewLimit())
   }
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const anonId = cookieStore.get(CHAT_ACCESS_COOKIE)?.value ?? null
   if (!anonId) {
     return buildAccessState(false, 0)

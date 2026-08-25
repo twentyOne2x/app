@@ -7,8 +7,11 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 
 const {
+  authoritativeRequestUserId,
   internalServiceHeaders,
-  tenantScopedPayload
+  tenantScopedPayload,
+  trustedGatewayUserId,
+  TrustedGatewayIdentityError
 } = require('../lib/internal-service.ts')
 
 function withEnvironment(values, callback) {
@@ -73,4 +76,83 @@ test('tenant payload discards caller identity widening', () => {
       tenant_id: 'ten_trusted'
     }
   )
+})
+
+test('chat identity accepts only the gateway HMAC identifier shape', () => {
+  const trusted = `usr_${'a'.repeat(64)}`
+  assert.equal(
+    trustedGatewayUserId(new Request('https://icm.fyi/api/chat', {
+      headers: { 'x-icmfyi-user-id': trusted }
+    })),
+    trusted
+  )
+  assert.equal(
+    trustedGatewayUserId(new Request('https://icm.fyi/api/chat', {
+      headers: { 'x-icmfyi-user-id': 'oauth:attacker' }
+    })),
+    null
+  )
+})
+
+test('production Bearer requests use only the trusted gateway principal', () => {
+  withEnvironment({ ICMFYI_PRODUCTION: '1' }, () => {
+    const gatewayUser = `usr_${'a'.repeat(64)}`
+    const request = new Request('https://icm.fyi/api/chat', {
+      headers: {
+        authorization: 'Bearer valid-token',
+        'x-icmfyi-user-id': gatewayUser
+      }
+    })
+    assert.equal(authoritativeRequestUserId(request, 'session-user-b'), gatewayUser)
+    assert.equal(authoritativeRequestUserId(request, null), gatewayUser)
+  })
+})
+
+test('production Bearer requests fail closed without an exact gateway principal', () => {
+  withEnvironment({ ICMFYI_PRODUCTION: '1' }, () => {
+    for (const headers of [
+      { authorization: 'Bearer valid-token' },
+      {
+        authorization: 'Bearer valid-token',
+        'x-icmfyi-user-id': 'session-user-b'
+      }
+    ]) {
+      assert.throws(
+        () => authoritativeRequestUserId(
+          new Request('https://icm.fyi/api/chat', { headers }),
+          'session-user-b'
+        ),
+        TrustedGatewayIdentityError
+      )
+    }
+  })
+})
+
+test('cookie-only and nonproduction chat ownership preserves the raw session user', () => {
+  const gatewayUser = `usr_${'b'.repeat(64)}`
+  withEnvironment({ ICMFYI_PRODUCTION: '1' }, () => {
+    assert.equal(
+      authoritativeRequestUserId(
+        new Request('https://icm.fyi/api/chat', {
+          headers: { 'x-icmfyi-user-id': gatewayUser }
+        }),
+        'session-user-b'
+      ),
+      'session-user-b'
+    )
+  })
+  withEnvironment({ ICMFYI_PRODUCTION: '0', NODE_ENV: 'test' }, () => {
+    assert.equal(
+      authoritativeRequestUserId(
+        new Request('https://icm.fyi/api/chat', {
+          headers: {
+            authorization: 'Bearer ignored-in-nonproduction',
+            'x-icmfyi-user-id': gatewayUser
+          }
+        }),
+        'session-user-b'
+      ),
+      'session-user-b'
+    )
+  })
 })

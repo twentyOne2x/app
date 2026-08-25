@@ -9,6 +9,9 @@ export async function GET() {
     Boolean(
       process.env.NEXTAUTH_SECRET &&
         process.env.INTERNAL_SERVICE_SECRET &&
+        process.env.ICMFYI_MCP_AUDIENCE &&
+        process.env.ICMFYI_MCP_OAUTH_ISSUER &&
+        process.env.ICMFYI_MCP_OAUTH_JWKS_URL &&
         process.env.RAG_SERVICE_URL &&
         process.env.INGESTION_SERVICE_URL &&
         process.env.CLIP_SERVICE_URL

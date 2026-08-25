@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 }
 
 interface AccessPageProps {
-  searchParams: Record<string, string | string[] | undefined>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 const isSafeNextPath = (next?: string | string[]) => {
@@ -20,20 +20,20 @@ const isSafeNextPath = (next?: string | string[]) => {
   return value.startsWith('/') && !value.startsWith('//')
 }
 
-export default function AccessPage({ searchParams }: AccessPageProps) {
-  const cookieStore = cookies()
+export default async function AccessPage({ searchParams }: AccessPageProps) {
+  const [cookieStore, resolvedSearchParams] = await Promise.all([cookies(), searchParams])
   const existingCode = cookieStore.get(ENTRY_PROFILE_COOKIE)?.value
   const profile = getEntryProfileByCode(existingCode)
 
   if (profile.code !== DEFAULT_ENTRY_PROFILE_CODE && profile.code === existingCode) {
     const fallbackPath = '/'
-    const nextPath = isSafeNextPath(searchParams?.next) ? (Array.isArray(searchParams?.next) ? searchParams.next[0] : searchParams.next) : fallbackPath
+    const nextPath = isSafeNextPath(resolvedSearchParams?.next) ? (Array.isArray(resolvedSearchParams?.next) ? resolvedSearchParams.next[0] : resolvedSearchParams.next) : fallbackPath
     redirect(nextPath || fallbackPath)
   }
 
   const redirectTo =
-    isSafeNextPath(searchParams?.next) && typeof searchParams?.next === 'string'
-      ? searchParams.next
+    isSafeNextPath(resolvedSearchParams?.next) && typeof resolvedSearchParams?.next === 'string'
+      ? resolvedSearchParams.next
       : '/'
 
   return (

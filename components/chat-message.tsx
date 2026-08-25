@@ -4,7 +4,7 @@
 // @see https://github.com/mckaywrigley/chatbot-ui/blob/main/components/Chat/ChatMessage.tsx
 
 import { useState, useEffect } from 'react';
-import { Message } from 'ai';
+import { type Message } from '@/lib/types';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';

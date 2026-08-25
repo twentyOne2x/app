@@ -9,10 +9,11 @@ import { SourceListInline } from '@/components/source-list-inline'
 
 export const preferredRegion = 'home'
 
-interface SharePageProps { params: { id: string } }
+interface SharePageProps { params: Promise<{ id: string }> }
 
 export async function generateMetadata({ params }: SharePageProps): Promise<Metadata> {
-  const chat = await getSharedChat(params.id)
+  const { id } = await params
+  const chat = await getSharedChat(id)
   return { title: chat?.title.slice(0, 50) ?? 'Chat' }
 }
 
@@ -37,7 +38,8 @@ function adaptMessagesForChat(messages: any[] = []) {
 }
 
 export default async function SharePage({ params }: SharePageProps) {
-  const chat = await getSharedChat(params.id)
+  const { id } = await params
+  const chat = await getSharedChat(id)
   if (!chat || !chat?.sharePath) notFound()
 
   const initialMessages = adaptMessagesForChat(chat.messages)

@@ -3,6 +3,9 @@ import { getToken } from 'next-auth/jwt'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { ENTRY_PROFILE_COOKIE, DEFAULT_ENTRY_PROFILE_CODE } from '@/lib/entry-profiles'
+import {
+  resolveGatewayExternalIdentity
+} from '@/lib/gateway-auth'
 
 const RATE_LIMIT = 100;
 const RATE_LIMIT_WINDOW = 60;
@@ -19,7 +22,11 @@ function isProduction() {
   return process.env.ICMFYI_PRODUCTION === '1' || process.env.NODE_ENV === 'production'
 }
 
-async function scopedIdentity(prefix: 'usr' | 'ten', identity: string): Promise<string> {
+async function scopedIdentity(
+  prefix: 'usr' | 'ten',
+  identity: string,
+  identityRealm: 'session' | 'oauth' = 'session'
+): Promise<string> {
   const secret = process.env.INTERNAL_SERVICE_SECRET
   if (!secret || secret.length < 32) {
     throw new Error('INTERNAL_SERVICE_SECRET must be at least 32 characters')
@@ -34,7 +41,7 @@ async function scopedIdentity(prefix: 'usr' | 'ten', identity: string): Promise<
   const signature = await crypto.subtle.sign(
     'HMAC',
     key,
-    new TextEncoder().encode(`${prefix}:personal:${identity}`)
+    new TextEncoder().encode(`${prefix}:${identityRealm}:${identity}`)
   )
   const digest = Array.from(new Uint8Array(signature), (byte) => byte.toString(16).padStart(2, '0')).join('')
   return `${prefix}_${digest}`
@@ -59,16 +66,45 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith('/api/auth/') || req.nextUrl.pathname === '/api/healthz'
   if (req.nextUrl.pathname.startsWith('/api/') && !isPublicApi) {
     if (isProduction()) {
-      const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-      const subject = typeof token?.userId === 'string' ? token.userId : token?.sub
-      if (!token || !subject) {
-        return NextResponse.json({ error: 'authentication_required' }, { status: 401 })
+      const authorization = req.headers.get('authorization')
+      let externalIdentity
+      try {
+        externalIdentity = await resolveGatewayExternalIdentity(
+          {
+            authorization,
+            method,
+            pathname: req.nextUrl.pathname
+          },
+          {
+            sessionIdentity: async () => {
+              const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+              const subject = typeof token?.userId === 'string' ? token.userId : token?.sub
+              return token && subject
+                ? `${String(token.provider ?? 'unknown')}:${subject}`
+                : null
+            }
+          }
+        )
+      } catch (error) {
+        const status =
+          error instanceof Error && 'code' in error && error.code === 'insufficient_scope'
+            ? 403
+            : 401
+        const errorCode =
+          status === 403
+            ? 'insufficient_scope'
+            : authorization === null
+            ? 'authentication_required'
+            : 'invalid_token'
+        return NextResponse.json(
+          { error: errorCode },
+          { status }
+        )
       }
-      const identity = `${String(token.provider ?? 'unknown')}:${subject}`
       try {
         const [userId, tenantId] = await Promise.all([
-          scopedIdentity('usr', identity),
-          scopedIdentity('ten', identity)
+          scopedIdentity('usr', externalIdentity.identity, externalIdentity.realm),
+          scopedIdentity('ten', externalIdentity.identity, externalIdentity.realm)
         ])
         requestHeaders.set('x-icmfyi-user-id', userId)
         requestHeaders.set('x-icmfyi-tenant-id', tenantId)
@@ -89,7 +125,7 @@ export async function middleware(req: NextRequest) {
   }
 
   const forwardedFor = req.headers.get('x-forwarded-for');
-  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : req.ip || 'unknown';
+  const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown';
 
   if (ip !== 'unknown') {
     const current = await maybeRateLimit(ip);

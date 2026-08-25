@@ -10,12 +10,12 @@ import { getServerChatAccessState } from '@/lib/chat-access'
 
 export const preferredRegion = 'home'
 
-export interface ChatPageProps { params: { id: string } }
+export interface ChatPageProps { params: Promise<{ id: string }> }
 
 export async function generateMetadata({ params }: ChatPageProps): Promise<Metadata> {
-  const session = await auth()
+  const [session, { id }] = await Promise.all([auth(), params])
   if (!session?.user || session.user.id === null) return { title: 'Chat' }
-  const chat = await getChat(params.id, session.user.id)
+  const chat = await getChat(id, session.user.id)
   return { title: chat?.title.toString().slice(0, 50) ?? 'Chat' }
 }
 
@@ -34,14 +34,14 @@ function adaptMessagesForChat(messages: any[] = []) {
 }
 
 export default async function ChatPage({ params }: ChatPageProps) {
-  const session = await auth()
+  const [session, { id }] = await Promise.all([auth(), params])
   if (!session) {
-    redirect(`/sign-in?callbackUrl=/chat/${params.id}`)
+    redirect(`/sign-in?callbackUrl=/chat/${id}`)
   }
   const userId = session.user?.id ?? ''
   const accessState = await getServerChatAccessState(userId)
 
-  const chat = await getChat(params.id, userId)
+  const chat = await getChat(id, userId)
   if (!chat) return notFound()
   if (chat.readOnly) {
     if (chat.sharePath) return redirect(chat.sharePath as string)

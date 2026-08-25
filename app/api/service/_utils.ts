@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server'
 import { internalServiceHeaders, tenantScopedPayload } from '@/lib/internal-service'
 
+const IDEMPOTENCY_KEY = /^[!-~]{1,255}$/
+
+function forwardedIdempotencyKey(request: Request): string | null {
+  const value = request.headers.get('idempotency-key')
+  if (value === null) return null
+  if (!IDEMPOTENCY_KEY.test(value) || value.includes(',')) {
+    throw new Error('invalid_idempotency_key')
+  }
+  return value
+}
+
 function ingestionBaseUrl() {
   return process.env.INGESTION_SERVICE_URL ?? process.env.NEXT_PUBLIC_INGESTION_API_URL ?? null
 }
@@ -34,7 +45,11 @@ export async function proxyJsonPayload(request: Request, path: string, payload: 
 
   let response: Response
   try {
-    const headers = internalServiceHeaders(request, { 'Content-Type': 'application/json' })
+    const idempotencyKey = forwardedIdempotencyKey(request)
+    const headers = internalServiceHeaders(request, {
+      'Content-Type': 'application/json',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
+    })
     response = await fetch(ingestionUrl, {
       method: request.method,
       headers,
@@ -42,6 +57,9 @@ export async function proxyJsonPayload(request: Request, path: string, payload: 
       signal: request.signal
     })
   } catch (error) {
+    if (error instanceof Error && error.message === 'invalid_idempotency_key') {
+      return NextResponse.json({ ok: false, error: 'invalid idempotency key' }, { status: 400 })
+    }
     console.error(`service-route: failed to reach ingestion backend for ${path}`, error)
     return NextResponse.json({ ok: false, error: 'failed to reach ingestion backend' }, { status: 502 })
   }

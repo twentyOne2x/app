@@ -1,8 +1,16 @@
 // lib/types.ts
-import { type Message as AIMsg } from 'ai'
 import type { ParsedMetadataEntryV2 } from './utils'
 
-export type Message = AIMsg
+export interface Message {
+  id?: string
+  role: 'system' | 'user' | 'assistant' | 'data' | 'tool' | 'function'
+  content: unknown
+  createdAt?: Date
+  name?: string
+  data?: unknown
+  annotations?: unknown[]
+  toolInvocations?: unknown[]
+}
 
 export type ServerActionResult<Result> = Promise<Result | { error: string }>
 
@@ -13,7 +21,7 @@ export interface Chat {
   userId: string
   createdAt: number // ms since epoch (matches /api/chat + create-shared-chat)
   path: string
-  messages: AIMsg[] // use Message type from 'ai'
+  messages: Message[]
   structured_metadata: ParsedMetadataEntryV2[] // V2 metadata everywhere
   entryProfileCode?: string
   readOnly?: boolean
@@ -33,7 +41,7 @@ export interface LegacyParsedMetadataEntry {
 }
 
 /** If you need to attach metadata to messages inline. */
-export interface ExtendedMessage extends AIMsg {
+export interface ExtendedMessage extends Message {
   structured_metadata?: ParsedMetadataEntryV2[]
   diagnostics?: DiagnosticsPayload
 }

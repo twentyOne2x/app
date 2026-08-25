@@ -1,4 +1,3 @@
-import { UseChatHelpers } from 'ai/react'
 import * as React from 'react'
 import Textarea from 'react-textarea-autosize'
 
@@ -17,8 +16,9 @@ import { IconBroom } from '@/components/ui/icons'
 import styles from './ChatListContainer.module.css'; // Import the CSS module
 import Image from 'next/image'
 
-export interface PromptProps
-  extends Pick<UseChatHelpers, 'input' | 'setInput'> {
+export interface PromptProps {
+  input: string
+  setInput: (value: string) => void
   onSubmit: (value: string, options?: { newChat?: boolean }) => Promise<void>
   isLoading: boolean
   inputDisabled?: boolean

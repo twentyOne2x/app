@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import type { Message } from 'ai';
+import type { Message } from '@/lib/types';
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'

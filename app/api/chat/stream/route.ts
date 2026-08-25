@@ -5,7 +5,12 @@ import {
   beginChatAccess,
   finalizeChatAccess
 } from '@/lib/chat-access'
-import { internalServiceHeaders, tenantScopedPayload } from '@/lib/internal-service'
+import {
+  authoritativeRequestUserId,
+  internalServiceHeaders,
+  tenantScopedPayload,
+  TrustedGatewayIdentityError
+} from '@/lib/internal-service'
 
 export const maxDuration = 300
 
@@ -76,7 +81,15 @@ export async function POST(request: Request) {
   }
 
   const session = await auth()
-  const userId = session?.user?.id ?? null
+  let userId: string | null
+  try {
+    userId = authoritativeRequestUserId(request, session?.user?.id)
+  } catch (error) {
+    if (error instanceof TrustedGatewayIdentityError) {
+      return NextResponse.json({ error: 'invalid_gateway_identity' }, { status: 401 })
+    }
+    throw error
+  }
   const accessCheck = await beginChatAccess(request, userId)
   if (!accessCheck.ok) {
     return accessCheck.response

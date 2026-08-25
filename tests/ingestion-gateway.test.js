@@ -87,3 +87,43 @@ test('ingestion status gateway rejects non-canonical ids and scopes the canonica
     global.fetch = beforeFetch
   }
 })
+
+test('ingestion proxy preserves one exact printable idempotency key and rejects ambiguity', async () => {
+  const beforeFetch = global.fetch
+  let captured
+  global.fetch = async (url, init) => {
+    captured = { url: String(url), init }
+    return new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' }
+    })
+  }
+  try {
+    const response = await POST(
+      new Request('https://icm.fyi/api/index/youtube', {
+        method: 'POST',
+        headers: {
+          ...trustedHeaders,
+          'idempotency-key': 'ingest-exact-key'
+        },
+        body: JSON.stringify({ video_urls: ['https://youtube.com/watch?v=abcdefghijk'] })
+      })
+    )
+    assert.equal(response.status, 200)
+    assert.equal(captured.init.headers.get('idempotency-key'), 'ingest-exact-key')
+
+    const invalid = await POST(
+      new Request('https://icm.fyi/api/index/youtube', {
+        method: 'POST',
+        headers: {
+          ...trustedHeaders,
+          'idempotency-key': 'one,two'
+        },
+        body: JSON.stringify({ video_urls: ['https://youtube.com/watch?v=abcdefghijk'] })
+      })
+    )
+    assert.equal(invalid.status, 400)
+  } finally {
+    global.fetch = beforeFetch
+  }
+})

@@ -3,7 +3,7 @@ import { kv } from '@vercel/kv';
 import { shareChat } from '@/app/actions';
 import { nanoid } from '@/lib/utils';
 import { parseMetadata, type ParsedMetadataEntryV2 } from '@/lib/utils';
-import { type Message } from 'ai';
+import { type Message } from '@/lib/types';
 import { auth } from '@/auth';
 import type { Chat } from '@/lib/types';
 

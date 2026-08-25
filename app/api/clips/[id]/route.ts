@@ -63,8 +63,8 @@ async function forwardClipStatus(request: Request, id: string): Promise<ClipGene
   return JSON.parse(text) as ClipGenerationRecord
 }
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
-  const id = context.params.id
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params
 
   if (!id) {
     return NextResponse.json({ error: 'Missing clip id' }, { status: 400 })

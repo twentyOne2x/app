@@ -39,7 +39,7 @@ const toKV = (obj: unknown): Record<string, unknown> => ({ ...(obj as any) })
 export async function getChats(userId?: string | null) {
   if (!userId) return []
   if (IS_E2E_MODE) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const enabled = cookieStore.get(E2E_SAMPLE_CHATS_COOKIE)?.value === '1'
     if (enabled && userId === E2E_USER_ID) {
       return E2E_SAMPLE_CHATS
@@ -123,7 +123,7 @@ export async function clearChats() {
   if (!session?.user?.id) return { error: 'Unauthorized' }
 
   if (IS_E2E_MODE) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     cookieStore.delete(E2E_SAMPLE_CHATS_COOKIE)
     revalidatePath('/')
     return redirect('/')
@@ -260,7 +260,7 @@ export async function seedSampleChats(path = '/') {
   }
 
   if (IS_E2E_MODE) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     cookieStore.set({
       name: E2E_SAMPLE_CHATS_COOKIE,
       value: '1',
@@ -300,7 +300,7 @@ export async function e2eSignOut() {
   if (!IS_E2E_MODE) {
     return { error: 'E2E mode is not enabled.' }
   }
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set({
     name: E2E_AUTH_COOKIE,
     value: 'signed-out',
@@ -318,7 +318,7 @@ export async function e2eSignIn() {
   if (!IS_E2E_MODE) {
     redirect('/sign-in?error=e2e-disabled')
   }
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set({
     name: E2E_AUTH_COOKIE,
     value: 'active',
@@ -361,7 +361,7 @@ export async function authorizeEntryCode(
     if (!rawNext.startsWith('/')) return '/'
     return rawNext === '/access' ? '/' : rawNext
   })()
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set({
     name: ENTRY_PROFILE_COOKIE,
     value: profile.code,

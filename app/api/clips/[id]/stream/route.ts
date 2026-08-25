@@ -7,12 +7,12 @@ export const runtime = 'nodejs'
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
 
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   if (!CLIP_SERVICE_URL) {
     return NextResponse.json({ error: 'Clip service unavailable' }, { status: 503 })
   }
 
-  const { id } = context.params
+  const { id } = await context.params
   const base = CLIP_SERVICE_URL.replace(/\/$/, '')
   const target = new URL(`${base}/clips/${id}/file`)
   const incoming = new URL(request.url)

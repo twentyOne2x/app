@@ -1,11 +1,12 @@
 import { proxyGetRequest } from '../../_utils'
 
 type Params = {
-  params: {
+  params: Promise<{
     orderId: string
-  }
+  }>
 }
 
 export async function GET(_request: Request, { params }: Params) {
-  return proxyGetRequest(`/v1/channel-packs/orders/${encodeURIComponent(params.orderId)}`, _request)
+  const { orderId } = await params
+  return proxyGetRequest(`/v1/channel-packs/orders/${encodeURIComponent(orderId)}`, _request)
 }

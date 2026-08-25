@@ -16,20 +16,21 @@ function serviceUrl(path: string) {
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   if (!batchEnabled()) {
     return NextResponse.json(
       { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
       { status: 501 }
     )
   }
-  const url = serviceUrl(`/clips/batch/${params.id}`)
+  const url = serviceUrl(`/clips/batch/${id}`)
   if (!url) {
     if (isProductionRuntime()) {
       return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
     }
-    const batch = getLocalBatch(params.id)
+    const batch = getLocalBatch(id)
     if (!batch) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 })
     }
@@ -74,15 +75,16 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   if (!batchEnabled()) {
     return NextResponse.json(
       { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
       { status: 501 }
     )
   }
-  const url = serviceUrl(`/clips/batch/${params.id}`)
+  const url = serviceUrl(`/clips/batch/${id}`)
   if (!url) {
     if (isProductionRuntime()) {
       return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
@@ -98,7 +100,7 @@ export async function PATCH(
     if (!clipKey) {
       return NextResponse.json({ error: 'bad_request', message: 'clipKey is required.' }, { status: 400 })
     }
-    const success = retryLocalBatchClip(params.id, clipKey)
+    const success = retryLocalBatchClip(id, clipKey)
     if (!success) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 })
     }

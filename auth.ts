@@ -127,7 +127,7 @@ export const authOptions: NextAuthOptions = {
 
 export async function auth() {
   if (IS_E2E_MODE) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const state = cookieStore.get(E2E_AUTH_COOKIE)?.value ?? 'active'
     if (state === 'signed-out') {
       return null

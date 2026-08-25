@@ -29,9 +29,10 @@ function sanitizeStatus(status: unknown) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!CLIP_ID.test(params.id)) {
+  const { id } = await params
+  if (!CLIP_ID.test(id)) {
     return NextResponse.json({ error: 'Invalid clip id' }, { status: 404 })
   }
   const raw = await request.json().catch(() => null)
@@ -49,7 +50,7 @@ export async function POST(
   let response: Response
   try {
     response = await fetch(
-      `${CLIP_SERVICE_URL.replace(/\/$/, '')}/clips/${params.id}/retry`,
+      `${CLIP_SERVICE_URL.replace(/\/$/, '')}/clips/${id}/retry`,
       {
         method: 'POST',
         headers: internalServiceHeaders(request, {

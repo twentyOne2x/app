@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export const useLocalStorage = <T>(
   key: string,
@@ -14,12 +14,12 @@ export const useLocalStorage = <T>(
     }
   }, [key])
 
-  const setValue = (value: T | ((prev: T) => T)) => {
+  const setValue = useCallback((value: T | ((prev: T) => T)) => {
     setStoredValue((prev) => {
       const next = value instanceof Function ? value(prev) : value
       window.localStorage.setItem(key, JSON.stringify(next))
       return next
     })
-  }
+  }, [key])
   return [storedValue, setValue]
 }

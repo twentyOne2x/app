@@ -97,9 +97,11 @@ export type ClipGenerationStatus =
   | 'queued'
   | 'processing'
   | 'ready'
+  | 'expired'
   | 'error'
 
 export interface ClipGenerationRequestPayload {
+  idempotencyKey?: string
   mediaId?: string
   sourceUrl?: string
   parentTitle?: string
@@ -122,6 +124,8 @@ export interface ClipGenerationRecord {
   streamUrl?: string
   downloadUrl?: string
   errorMessage?: string
+  retrying?: boolean
+  retryIdempotencyKey?: string
   requestPayload?: ClipGenerationRequestPayload
   lastUpdated: number | string
 }

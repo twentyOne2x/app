@@ -12,8 +12,9 @@ import { buildClipPreferenceKey } from './use-clip-padding'
 import { computeClipTiming } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import type { ClipPaddingSettings } from './use-clip-padding'
+import { nanoid } from 'nanoid'
 
-interface GenerateOptions {
+export interface GenerateOptions {
   force?: boolean
 }
 
@@ -63,6 +64,19 @@ async function postClipGeneration(payload: ClipGenerationRequestPayload) {
   return (await response.json()) as { id: string; status: ClipGenerationStatus }
 }
 
+async function postClipRetry(clipId: string, idempotencyKey: string) {
+  const response = await fetch(`/api/clips/${clipId}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idempotencyKey })
+  })
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || 'Failed to retry clip')
+  }
+  return (await response.json()) as { id: string; status: ClipGenerationStatus }
+}
+
 async function fetchClipStatus(id: string) {
   const response = await fetch(`/api/clips/${id}`, {
     method: 'GET',
@@ -108,6 +122,7 @@ export function useClipGeneration(
       } else {
         current[targetKey] = value
       }
+      storeRef.current = current
       setStore(current)
     },
     [setStore]
@@ -146,6 +161,8 @@ export function useClipGeneration(
         clip.mediaId ?? clip.media_id ?? parent.mediaId ?? parent.media_id
 
       const payload: ClipGenerationRequestPayload = {
+        idempotencyKey:
+          current?.requestPayload?.idempotencyKey ?? `clip-create-${nanoid(32)}`,
         mediaId,
         sourceUrl: mediaId ? undefined : (clip.url ?? parent.url),
         parentTitle: parent.parentTitle,
@@ -224,6 +241,47 @@ export function useClipGeneration(
     [queueStatusUpdate, record?.requestPayload]
   )
 
+  const retry = useCallback(async () => {
+    if (!key) return
+    const current = normalizeRecord(storeRef.current[key])
+    if (
+      !current?.clipId ||
+      (current.status !== 'error' && current.status !== 'expired') ||
+      current.retrying
+    ) {
+      return
+    }
+    const retryIdempotencyKey =
+      current.retryIdempotencyKey ?? `clip-retry-${nanoid(32)}`
+    queueStatusUpdate({
+      ...current,
+      retrying: true,
+      retryIdempotencyKey,
+      errorMessage: undefined,
+      lastUpdated: Date.now()
+    })
+    try {
+      const result = await postClipRetry(current.clipId, retryIdempotencyKey)
+      queueStatusUpdate({
+        clipId: result.id,
+        status: result.status,
+        requestPayload: current.requestPayload,
+        retrying: false,
+        lastUpdated: Date.now()
+      })
+    } catch (error) {
+      queueStatusUpdate({
+        ...current,
+        retrying: false,
+        retryIdempotencyKey,
+        errorMessage:
+          error instanceof Error ? error.message : 'Failed to retry clip',
+        lastUpdated: Date.now()
+      })
+      throw error
+    }
+  }, [key, queueStatusUpdate])
+
   useEffect(() => {
     if (!key || !record?.clipId || !canPoll(record.status)) {
       return
@@ -261,10 +319,12 @@ export function useClipGeneration(
     streamUrl: record?.streamUrl,
     downloadUrl: record?.downloadUrl,
     error: record?.errorMessage,
-    isGenerating: canPoll(record?.status),
+    isGenerating: canPoll(record?.status) || record?.retrying === true,
     isReady: record?.status === 'ready',
+    isExpired: record?.status === 'expired',
     generate,
     regenerate: useCallback(() => generate({ force: true }), [generate]),
+    retry,
     refresh,
     clear,
     requestPayload: record?.requestPayload

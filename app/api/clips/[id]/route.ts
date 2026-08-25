@@ -19,12 +19,28 @@ function rewriteProxyUrl(raw: unknown, clipId: string) {
 
 function remapClipResponse(record: ClipGenerationRecord) {
   const clipId = record.clipId ?? record.id ?? ''
+  const status = sanitizeStatus(record.status)
   return {
     ...record,
     clipId,
+    status,
     streamUrl: rewriteProxyUrl(record.streamUrl, clipId),
     downloadUrl: rewriteProxyUrl(record.downloadUrl, clipId)
   }
+}
+
+function sanitizeStatus(status: unknown): ClipGenerationRecord['status'] {
+  const candidate = typeof status === 'string' ? status.toLowerCase() : ''
+  if (
+    candidate === 'queued' ||
+    candidate === 'processing' ||
+    candidate === 'ready' ||
+    candidate === 'expired' ||
+    candidate === 'error'
+  ) {
+    return candidate
+  }
+  return 'queued'
 }
 
 async function forwardClipStatus(request: Request, id: string): Promise<ClipGenerationRecord> {

@@ -37,7 +37,8 @@ export default defineConfig({
         env: {
           ...process.env,
           E2E_MODE: '1',
-          NEXT_PUBLIC_E2E_MODE: '1'
+          NEXT_PUBLIC_E2E_MODE: '1',
+          NEXT_PUBLIC_CLIP_BUNDLE_ENABLED: '1'
         }
       }
 })

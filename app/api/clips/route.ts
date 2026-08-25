@@ -16,6 +16,7 @@ export const runtime = 'nodejs'
 
 const requestSchema = z
   .object({
+    idempotencyKey: z.string().min(1).max(200).regex(/^[!-~]+$/).optional(),
     mediaId: z
       .string()
       .min(1)
@@ -48,6 +49,7 @@ function sanitizeStatus(status: unknown): ClipGenerationStatus {
     candidate === 'queued' ||
     candidate === 'processing' ||
     candidate === 'ready' ||
+    candidate === 'expired' ||
     candidate === 'error'
   ) {
     return candidate
@@ -62,15 +64,17 @@ async function forwardClipPost(
   if (!CLIP_SERVICE_URL) {
     throw new Error('Clip service URL not configured')
   }
+  const { idempotencyKey, ...servicePayload } = payload
   const response = await fetch(`${CLIP_SERVICE_URL.replace(/\/$/, '')}/clips`, {
     method: 'POST',
     headers: internalServiceHeaders(request, {
       'Content-Type': 'application/json',
       ...(CLIP_SERVICE_TOKEN
         ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` }
-        : {})
+        : {}),
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {})
     }),
-    body: JSON.stringify(tenantScopedPayload(request, payload))
+    body: JSON.stringify(tenantScopedPayload(request, servicePayload))
   })
 
   const text = await response.text()

@@ -5,6 +5,10 @@ import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
 
+function batchEnabled() {
+  return !isProductionRuntime() || process.env.CLIP_BATCH_ENABLED === '1'
+}
+
 function serviceUrl(path: string) {
   if (!CLIP_SERVICE_URL) return null
   return `${CLIP_SERVICE_URL.replace(/\/$/, '')}${path}`
@@ -14,6 +18,12 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!batchEnabled()) {
+    return NextResponse.json(
+      { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
+      { status: 501 }
+    )
+  }
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
     if (isProductionRuntime()) {
@@ -66,6 +76,12 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  if (!batchEnabled()) {
+    return NextResponse.json(
+      { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
+      { status: 501 }
+    )
+  }
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
     if (isProductionRuntime()) {

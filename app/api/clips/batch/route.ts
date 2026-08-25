@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createLocalBatch } from './local-service'
+import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from '@/lib/internal-service'
 
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
 
   const url = serviceUrl('/clips/batch')
   if (!url) {
+    if (isProductionRuntime()) {
+      return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
+    }
     try {
       const response = createLocalBatch(body as any)
       return NextResponse.json(response, { status: 200 })
@@ -35,11 +39,11 @@ export async function POST(request: Request) {
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: {
+      headers: internalServiceHeaders(request, {
         'Content-Type': 'application/json',
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      },
-      body: JSON.stringify(body)
+      }),
+      body: JSON.stringify(tenantScopedPayload(request, body))
     })
   } catch (error) {
     console.error('clips-batch: network error', error)

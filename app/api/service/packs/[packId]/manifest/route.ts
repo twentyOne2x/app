@@ -7,5 +7,5 @@ type Params = {
 }
 
 export async function GET(_request: Request, { params }: Params) {
-  return proxyGetRequest(`/v1/channel-packs/${encodeURIComponent(params.packId)}/manifest`)
+  return proxyGetRequest(`/v1/channel-packs/${encodeURIComponent(params.packId)}/manifest`, _request)
 }

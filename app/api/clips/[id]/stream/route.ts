@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { internalServiceHeaders } from '@/lib/internal-service'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest, context: { params: { id: string 
   try {
     response = await fetch(target.toString(), {
       method: 'GET',
-      headers: {
+      headers: internalServiceHeaders(request, {
+        ...(request.headers.get('range') ? { Range: request.headers.get('range') as string } : {}),
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      }
+      })
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to fetch clip content'

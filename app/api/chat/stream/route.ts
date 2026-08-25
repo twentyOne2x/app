@@ -5,6 +5,7 @@ import {
   beginChatAccess,
   finalizeChatAccess
 } from '@/lib/chat-access'
+import { internalServiceHeaders, tenantScopedPayload } from '@/lib/internal-service'
 
 export const maxDuration = 300
 
@@ -116,11 +117,11 @@ export async function POST(request: Request) {
     try {
       const response = await fetch(candidateUrl, {
         method: 'POST',
-        headers: {
+        headers: internalServiceHeaders(request, {
           'Content-Type': 'application/json',
           Accept: 'text/event-stream'
-        },
-        body: JSON.stringify(buildBackendPayload(json))
+        }),
+        body: JSON.stringify(tenantScopedPayload(request, buildBackendPayload(json)))
       })
       if (response.status === 404 && !isLast) {
         const text = await response.text().catch(() => response.statusText)

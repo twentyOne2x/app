@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { internalServiceHeaders, tenantScopedPayload } from '@/lib/internal-service'
 
 function ingestionBaseUrl() {
   return process.env.INGESTION_SERVICE_URL ?? process.env.NEXT_PUBLIC_INGESTION_API_URL ?? null
@@ -31,8 +32,8 @@ export async function POST(request: Request) {
   try {
     response = await fetch(ingestionUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: internalServiceHeaders(request, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(tenantScopedPayload(request, payload))
     })
   } catch (error) {
     console.error('index-youtube-route: failed to reach ingestion backend', error)
@@ -54,4 +55,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, raw: text }, { status: 200 })
   }
 }
-

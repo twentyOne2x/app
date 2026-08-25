@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getLocalBatch, retryLocalBatchClip } from '../local-service'
+import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from '@/lib/internal-service'
 
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
@@ -10,11 +11,14 @@ function serviceUrl(path: string) {
 }
 
 export async function GET(
-  _req: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
+    if (isProductionRuntime()) {
+      return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
+    }
     const batch = getLocalBatch(params.id)
     if (!batch) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 })
@@ -26,9 +30,9 @@ export async function GET(
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: {
+      headers: internalServiceHeaders(request, {
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      }
+      })
     })
   } catch (error) {
     console.error('clips-batch: poll error', error)
@@ -64,6 +68,9 @@ export async function PATCH(
 ) {
   const url = serviceUrl(`/clips/batch/${params.id}`)
   if (!url) {
+    if (isProductionRuntime()) {
+      return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
+    }
     let body: unknown
     try {
       body = await request.json()
@@ -93,11 +100,11 @@ export async function PATCH(
   try {
     response = await fetch(url, {
       method: 'PATCH',
-      headers: {
+      headers: internalServiceHeaders(request, {
         'Content-Type': 'application/json',
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      },
-      body: JSON.stringify(body)
+      }),
+      body: JSON.stringify(tenantScopedPayload(request, body))
     })
   } catch (error) {
     console.error('clips-batch: retry network error', error)

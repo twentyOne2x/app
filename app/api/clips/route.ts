@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
 import type { ClipGenerationRequestPayload, ClipGenerationStatus } from '@/lib/types'
 import { enqueueLocalClipJob } from './local-service'
+import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from '@/lib/internal-service'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -34,17 +35,17 @@ function sanitizeStatus(status: unknown): ClipGenerationStatus {
   return 'queued'
 }
 
-async function forwardClipPost(payload: ClipGenerationRequestPayload) {
+async function forwardClipPost(request: Request, payload: ClipGenerationRequestPayload) {
   if (!CLIP_SERVICE_URL) {
     throw new Error('Clip service URL not configured')
   }
   const response = await fetch(`${CLIP_SERVICE_URL.replace(/\/$/, '')}/clips`, {
     method: 'POST',
-    headers: {
+    headers: internalServiceHeaders(request, {
       'Content-Type': 'application/json',
       ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-    },
-    body: JSON.stringify(payload)
+    }),
+    body: JSON.stringify(tenantScopedPayload(request, payload))
   })
 
   const text = await response.text()
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 
   if (CLIP_SERVICE_URL) {
     try {
-      const result = await forwardClipPost(payload)
+      const result = await forwardClipPost(request, payload)
       const clipId = result.clipId ?? result.id
       if (!clipId) {
         throw new Error('Clip service response missing clipId')
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (isProductionRuntime()) {
+    return NextResponse.json({ error: 'Clip service unavailable' }, { status: 503 })
+  }
   const result = enqueueLocalClipJob(payload)
   console.log('clips:response:local', {
     clipId: result.id,

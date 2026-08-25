@@ -17,6 +17,7 @@ export async function GET(_request: Request, { params }: Params) {
   }
 
   return proxyGetPassthrough(
-    `/v1/channel-packs/${encodeURIComponent(params.packId)}/exports/${encodeURIComponent(params.name)}`
+    `/v1/channel-packs/${encodeURIComponent(params.packId)}/exports/${encodeURIComponent(params.name)}`,
+    _request
   )
 }

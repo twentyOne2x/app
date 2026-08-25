@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   console.log(`Received request on /api/create-shared-chat with method: ${request.method}`);
 
   if (request.headers.get('x-api-key') !== API_KEY) {
-    console.error(`Unauthorized attempt with API key: ${request.headers.get('x-api-key')}`);
+    console.error('Unauthorized attempt on /api/create-shared-chat');
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 

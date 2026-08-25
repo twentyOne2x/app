@@ -1,40 +1,8 @@
 import { NextResponse } from 'next/server'
+import { internalServiceHeaders, tenantScopedPayload } from '@/lib/internal-service'
 
 function ingestionBaseUrl() {
   return process.env.INGESTION_SERVICE_URL ?? process.env.NEXT_PUBLIC_INGESTION_API_URL ?? null
-}
-
-function ingestionAuthHeader() {
-  const user = process.env.INGESTION_BASIC_AUTH_USER
-  const password = process.env.INGESTION_BASIC_AUTH_PASSWORD
-  if (!user || !password) return null
-  return `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`
-}
-
-function ingestionHeaders(init?: HeadersInit) {
-  const headers = new Headers(init)
-  const auth = ingestionAuthHeader()
-  if (auth) {
-    headers.set('Authorization', auth)
-  }
-  return headers
-}
-
-function copyTrustedProxyHeaders(request: Request, headers: Headers) {
-  const acpSharedSecret = request.headers.get('x-acp-shared-secret')
-  if (acpSharedSecret) {
-    headers.set('x-acp-shared-secret', acpSharedSecret)
-  }
-
-  const opsSharedSecret = request.headers.get('x-ops-shared-secret')
-  if (opsSharedSecret) {
-    headers.set('x-ops-shared-secret', opsSharedSecret)
-  }
-
-  const authorization = request.headers.get('authorization')
-  if (authorization && !headers.has('Authorization')) {
-    headers.set('Authorization', authorization)
-  }
 }
 
 export function buildIngestionUrl(path: string) {
@@ -62,12 +30,11 @@ export async function proxyJsonRequest(request: Request, path: string) {
 
   let response: Response
   try {
-    const headers = ingestionHeaders({ 'Content-Type': 'application/json' })
-    copyTrustedProxyHeaders(request, headers)
+    const headers = internalServiceHeaders(request, { 'Content-Type': 'application/json' })
     response = await fetch(ingestionUrl, {
       method: request.method,
       headers,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(tenantScopedPayload(request, payload))
     })
   } catch (error) {
     console.error(`service-route: failed to reach ingestion backend for ${path}`, error)
@@ -93,7 +60,7 @@ export async function proxyJsonRequest(request: Request, path: string) {
   }
 }
 
-export async function proxyGetRequest(path: string, request?: Request) {
+export async function proxyGetRequest(path: string, request: Request) {
   const ingestionUrl = buildIngestionUrl(path)
   if (!ingestionUrl) {
     return NextResponse.json(
@@ -104,10 +71,7 @@ export async function proxyGetRequest(path: string, request?: Request) {
 
   let response: Response
   try {
-    const headers = ingestionHeaders({ 'Content-Type': 'application/json' })
-    if (request) {
-      copyTrustedProxyHeaders(request, headers)
-    }
+    const headers = internalServiceHeaders(request, { 'Content-Type': 'application/json' })
     response = await fetch(ingestionUrl, {
       method: 'GET',
       headers
@@ -136,7 +100,7 @@ export async function proxyGetRequest(path: string, request?: Request) {
   }
 }
 
-export async function proxyGetPassthrough(path: string) {
+export async function proxyGetPassthrough(path: string, request: Request) {
   const ingestionUrl = buildIngestionUrl(path)
   if (!ingestionUrl) {
     return NextResponse.json(
@@ -149,7 +113,7 @@ export async function proxyGetPassthrough(path: string) {
   try {
     response = await fetch(ingestionUrl, {
       method: 'GET',
-      headers: ingestionHeaders()
+      headers: internalServiceHeaders(request)
     })
   } catch (error) {
     console.error(`service-route: failed to reach ingestion backend for ${path}`, error)

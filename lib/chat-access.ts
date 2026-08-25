@@ -320,6 +320,10 @@ export async function getServerChatAccessState(userId?: string | null): Promise<
     return buildAccessState(true, 0)
   }
 
+  if (process.env.ICMFYI_PRODUCTION === '1') {
+    return buildAccessState(false, getPreviewLimit())
+  }
+
   const cookieStore = cookies()
   const anonId = cookieStore.get(CHAT_ACCESS_COOKIE)?.value ?? null
   if (!anonId) {

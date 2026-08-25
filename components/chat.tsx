@@ -513,7 +513,7 @@ function AuthButtonsCallout({
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
           Connect to continue
         </span>
-        Sign in with Twitter or Google to keep chatting, save history, and unlock sharing.
+        Sign in with a configured provider to query, save history, export data, and create clips.
       </p>
     </div>
   )
@@ -2065,7 +2065,7 @@ export function Chat({
     }
 
     if (requiresAuthToContinue) {
-      toast.error('Sign in with Twitter or Google to continue after the 3-message preview.')
+      toast.error('Sign in to continue.')
       return
     }
 
@@ -2588,10 +2588,10 @@ export function Chat({
                   {requiresAuthToContinue ? (
                     <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-left shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
                       <p className="text-sm font-semibold text-emerald-100">
-                        Your 3-message preview is complete.
+                        Sign in to use ICMFYI.
                       </p>
                       <p className="mt-1 text-xs text-zinc-300">
-                        Sign in with Twitter or Google to keep chatting and persist this session.
+                        Authentication protects tenant-scoped queries, exports, and clip jobs.
                       </p>
                       <div className="mt-3">
                         <AuthButtonsCallout

@@ -1,4 +1,4 @@
-import auth, { IS_E2E_MODE } from '@/auth'
+import auth, { hasGoogleConfig, hasTwitterConfig, IS_E2E_MODE } from '@/auth'
 import { LoginButton } from '@/components/login-button'
 import { redirect } from 'next/navigation'
 import { e2eSignIn } from '@/app/actions'
@@ -32,32 +32,32 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
         <p className="my-4"></p>
         
         <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          You can preview three prompts anonymously. After that, continued use requires
-          Twitter or Google authentication.
-        </p>
-
-        <p className="text-base leading-normal text-muted-foreground sm:text-lg">
-          Authentication keeps the preview durable, prevents form abuse, and unlocks chat history and sharing.
+          Sign in to query your entitled creator archive, save chat history, export your
+          tenant database, and create source-verified clips.
         </p>
       </div>
       
       <p className="my-4"></p>
       
       <div className="mx-auto flex w-full flex-col gap-3 px-3 sm:flex-row sm:justify-center">
-        <LoginButton
-          loginType="twitter"
-          text="Sign in with Twitter"
-          callbackUrl={callbackUrl}
-          showIcon
-          className="w-full sm:w-auto"
-        />
-        <LoginButton
-          loginType="google"
-          text="Sign in with Google"
-          callbackUrl={callbackUrl}
-          showIcon
-          className="w-full sm:w-auto"
-        />
+        {hasTwitterConfig ? (
+          <LoginButton
+            loginType="twitter"
+            text="Sign in with Twitter"
+            callbackUrl={callbackUrl}
+            showIcon
+            className="w-full sm:w-auto"
+          />
+        ) : null}
+        {hasGoogleConfig ? (
+          <LoginButton
+            loginType="google"
+            text="Sign in with Google"
+            callbackUrl={callbackUrl}
+            showIcon
+            className="w-full sm:w-auto"
+          />
+        ) : null}
       </div>
       {IS_E2E_MODE ? (
         <form action={e2eSignIn} className="mt-6">

@@ -31,8 +31,12 @@ declare module 'next-auth/jwt' {
   }
 }
 
-const hasTwitterConfig = Boolean(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
-const hasGoogleConfig = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+export const hasTwitterConfig = Boolean(
+  process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET
+)
+export const hasGoogleConfig = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+)
 
 export const IS_E2E_MODE =
   process.env.E2E_MODE === '1' || process.env.NEXT_PUBLIC_E2E_MODE === '1'

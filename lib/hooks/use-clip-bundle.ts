@@ -2,10 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'react-hot-toast'
-import type { ClipSelectionEntry, ClipSelectionHandle } from './use-clip-selection'
+import type {
+  ClipSelectionEntry,
+  ClipSelectionHandle
+} from './use-clip-selection'
 import { resolveClipStartSeconds, resolveClipEndSeconds } from '@/lib/utils'
 
-export type ClipBundleStatus = 'idle' | 'queued' | 'processing' | 'ready' | 'error'
+export type ClipBundleStatus =
+  | 'idle'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'error'
 export interface ClipBundleItem {
   key: string
   selection: ClipSelectionEntry
@@ -47,7 +55,11 @@ interface UseClipBundleOptions {
 
 const POLL_INTERVAL = 2000
 
-export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptions): ClipBundleHandle {
+export function useClipBundle({
+  selection,
+  scope,
+  autoOpen
+}: UseClipBundleOptions): ClipBundleHandle {
   const [state, setState] = useState<ClipBundleState>({
     status: 'idle',
     bundleStatus: 'idle',
@@ -78,24 +90,31 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       return
     }
 
-    const sanitizedEntries = selection.selectedEntries.map((entry) => {
+    const sanitizedEntries = selection.selectedEntries.map(entry => {
       const start = resolveClipStartSeconds(entry.clip)
       const end = resolveClipEndSeconds(entry.clip)
       return { entry, start, end }
     })
 
     const invalid = sanitizedEntries.filter(
-      ({ start, end }) => typeof start !== 'number' || typeof end !== 'number' || end <= start
+      ({ start, end }) =>
+        typeof start !== 'number' || typeof end !== 'number' || end <= start
     )
 
     if (invalid.length) {
-      toast.error('One or more clips are missing valid timestamps. Please adjust them before bundling.')
+      toast.error(
+        'One or more clips are missing valid timestamps. Please adjust them before bundling.'
+      )
       return
     }
 
     const clipsPayload = sanitizedEntries.map(({ entry, start, end }) => ({
       key: entry.key,
-      sourceUrl: entry.clip.url ?? entry.parent.url ?? undefined,
+      mediaId: entry.clip.mediaId ?? entry.parent.mediaId,
+      sourceUrl:
+        entry.clip.mediaId || entry.parent.mediaId
+          ? undefined
+          : (entry.clip.url ?? entry.parent.url ?? undefined),
       start,
       end,
       startHMS: entry.clip.startHMS ?? undefined,
@@ -103,14 +122,18 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       contextMode: 'seconds',
       padBefore: 5,
       padAfter: 5,
+      preferVideo: true,
+      renderProfile: 'hq-1080p-v1',
       derived: entry.timingFallback ?? false
     }))
 
-    const initialItems: ClipBundleItem[] = selection.selectedEntries.map((entry) => ({
-      key: entry.key,
-      selection: entry,
-      status: 'queued'
-    }))
+    const initialItems: ClipBundleItem[] = selection.selectedEntries.map(
+      entry => ({
+        key: entry.key,
+        selection: entry,
+        status: 'queued'
+      })
+    )
 
     const startedAt = Date.now()
     setState({
@@ -141,7 +164,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
     } catch (error) {
       console.error('clip-bundle: failed to reach batch endpoint', error)
       toast.error('Unable to reach the clip service. Please try again.')
-      setState((prev) => ({
+      setState(prev => ({
         ...prev,
         status: 'error',
         errorMessage: 'network_error'
@@ -150,8 +173,10 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
     }
 
     if (response.status === 501) {
-      toast('Batch clip service is not yet available. Single clip downloads still work.')
-      setState((prev) => ({
+      toast(
+        'Batch clip service is not yet available. Single clip downloads still work.'
+      )
+      setState(prev => ({
         ...prev,
         status: 'error',
         errorMessage: 'not_implemented'
@@ -163,7 +188,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       const text = await response.text()
       console.error('clip-bundle: backend error', response.status, text)
       toast.error('Clip bundle could not be started.')
-      setState((prev) => ({
+      setState(prev => ({
         ...prev,
         status: 'error',
         errorMessage: text || `http_${response.status}`
@@ -174,7 +199,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
     const data = await response.json().catch(() => null)
     if (!data || !data.batchId) {
       toast.error('Clip bundle request returned an unexpected response.')
-      setState((prev) => ({
+      setState(prev => ({
         ...prev,
         status: 'error',
         errorMessage: 'invalid_response'
@@ -183,7 +208,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
     }
 
     const itemsByKey = new Map<string, ClipBundleItem>()
-    initialItems.forEach((item) => itemsByKey.set(item.key, item))
+    initialItems.forEach(item => itemsByKey.set(item.key, item))
     if (Array.isArray(data.clips)) {
       for (const clip of data.clips) {
         if (clip.key && itemsByKey.has(clip.key)) {
@@ -200,12 +225,14 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
     const now = Date.now()
     setState({
       status: 'queued',
-      bundleStatus: (data.bundle?.status as ClipBundleStatus | undefined) ?? 'queued',
+      bundleStatus:
+        (data.bundle?.status as ClipBundleStatus | undefined) ?? 'queued',
       bundleId: data.batchId,
       items: Array.from(itemsByKey.values()),
       createdAt: startedAt,
       completedAt: undefined,
-      bundleDownloadUrl: data.bundle?.downloadUrl ?? data.bundle?.download_url ?? null,
+      bundleDownloadUrl:
+        data.bundle?.downloadUrl ?? data.bundle?.download_url ?? null,
       diagnostics: (data.diagnostics as Record<string, unknown> | null) ?? null,
       errorMessage: null,
       lastPolledAt: now
@@ -222,7 +249,10 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       pollIntervalRef.current = null
     }
 
-    if (!activeBundleId || (activeStatus !== 'queued' && activeStatus !== 'processing')) {
+    if (
+      !activeBundleId ||
+      (activeStatus !== 'queued' && activeStatus !== 'processing')
+    ) {
       return
     }
 
@@ -238,12 +268,14 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       if (cancelled) return
       let response: Response
       try {
-        response = await fetch(`/api/clips/batch/${activeBundleId}`, { method: 'GET' })
+        response = await fetch(`/api/clips/batch/${activeBundleId}`, {
+          method: 'GET'
+        })
       } catch (error) {
         console.error('clip-bundle: poll error', error)
         toast.error('Clip bundle polling failed.')
         stopPolling()
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'error',
           bundleStatus: 'error',
@@ -255,7 +287,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       if (response.status === 404) {
         toast.error('Clip bundle expired or not found.')
         stopPolling()
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'error',
           bundleStatus: 'error',
@@ -267,7 +299,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       if (response.status === 501) {
         toast('Clip bundle polling is not yet supported by the backend.')
         stopPolling()
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'error',
           bundleStatus: 'error',
@@ -278,10 +310,14 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
 
       if (!response.ok) {
         const text = await response.text()
-        console.error('clip-bundle: polling backend error', response.status, text)
+        console.error(
+          'clip-bundle: polling backend error',
+          response.status,
+          text
+        )
         toast.error('Clip bundle encountered an error.')
         stopPolling()
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'error',
           bundleStatus: 'error',
@@ -293,7 +329,7 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       const data = await response.json().catch(() => null)
       if (!data) {
         stopPolling()
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'error',
           bundleStatus: 'error',
@@ -305,8 +341,8 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
       let toastTrigger: 'ready' | 'error' | null = null
       let shouldStop = false
 
-      setState((prev) => {
-        const itemsByKey = new Map(prev.items.map((item) => [item.key, item]))
+      setState(prev => {
+        const itemsByKey = new Map(prev.items.map(item => [item.key, item]))
         if (Array.isArray(data.clips)) {
           for (const clip of data.clips) {
             const key = clip.key ?? clip.selection?.key
@@ -315,11 +351,17 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
             itemsByKey.set(existing.key, {
               ...existing,
               clipId: clip.clipId ?? clip.clip_id ?? existing.clipId,
-              status: (clip.status as ClipBundleStatus | undefined) ?? existing.status,
+              status:
+                (clip.status as ClipBundleStatus | undefined) ??
+                existing.status,
               progress:
-                typeof clip.progress === 'number' ? Math.max(0, Math.min(1, clip.progress)) : existing.progress,
-              downloadUrl: clip.downloadUrl ?? clip.download_url ?? existing.downloadUrl,
-              streamUrl: clip.streamUrl ?? clip.stream_url ?? existing.streamUrl,
+                typeof clip.progress === 'number'
+                  ? Math.max(0, Math.min(1, clip.progress))
+                  : existing.progress,
+              downloadUrl:
+                clip.downloadUrl ?? clip.download_url ?? existing.downloadUrl,
+              streamUrl:
+                clip.streamUrl ?? clip.stream_url ?? existing.streamUrl,
               errorMessage: clip.error ?? existing.errorMessage ?? null
             })
           }
@@ -328,19 +370,21 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
         const items = Array.from(itemsByKey.values())
         const bundleStatus =
           (data.bundle?.status as ClipBundleStatus | undefined) ??
-          (items.every((item) => item.status === 'ready') ? 'ready' : prev.bundleStatus)
-        const anyClipError = items.some((item) => item.status === 'error')
+          (items.every(item => item.status === 'ready')
+            ? 'ready'
+            : prev.bundleStatus)
+        const anyClipError = items.some(item => item.status === 'error')
 
         const nextStatus =
           bundleStatus === 'error'
             ? 'error'
             : bundleStatus === 'ready' && !anyClipError
-            ? 'ready'
-            : anyClipError
-            ? 'error'
-            : bundleStatus === 'queued'
-            ? 'queued'
-            : 'processing'
+              ? 'ready'
+              : anyClipError
+                ? 'error'
+                : bundleStatus === 'queued'
+                  ? 'queued'
+                  : 'processing'
 
         if (prev.status !== nextStatus) {
           if (nextStatus === 'ready') toastTrigger = 'ready'
@@ -354,18 +398,29 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
           items,
           bundleId: (data.batchId as string | undefined) ?? prev.bundleId,
           bundleDownloadUrl:
-            data.bundle?.downloadUrl ?? data.bundle?.download_url ?? prev.bundleDownloadUrl ?? null,
-          diagnostics: (data.diagnostics as Record<string, unknown> | null) ?? prev.diagnostics ?? null,
+            data.bundle?.downloadUrl ??
+            data.bundle?.download_url ??
+            prev.bundleDownloadUrl ??
+            null,
+          diagnostics:
+            (data.diagnostics as Record<string, unknown> | null) ??
+            prev.diagnostics ??
+            null,
           completedAt:
-            nextStatus === 'ready' && !prev.completedAt ? Date.now() : prev.completedAt,
+            nextStatus === 'ready' && !prev.completedAt
+              ? Date.now()
+              : prev.completedAt,
           errorMessage:
             nextStatus === 'error'
-              ? prev.errorMessage ?? (data.bundle?.error as string | undefined) ?? 'clip_error'
+              ? (prev.errorMessage ??
+                (data.bundle?.error as string | undefined) ??
+                'clip_error')
               : null,
           lastPolledAt: Date.now()
         }
 
-        shouldStop = nextState.status === 'ready' || nextState.status === 'error'
+        shouldStop =
+          nextState.status === 'ready' || nextState.status === 'error'
         return nextState
       })
 
@@ -410,10 +465,10 @@ export function useClipBundle({ selection, scope, autoOpen }: UseClipBundleOptio
           return
         }
         toast.success('Clip requeued.')
-        setState((prev) => ({
+        setState(prev => ({
           ...prev,
           status: 'processing',
-          items: prev.items.map((item) =>
+          items: prev.items.map(item =>
             item.key === clipKey
               ? { ...item, status: 'queued', errorMessage: null, progress: 0 }
               : item

@@ -21,7 +21,9 @@ const STORAGE_KEY = 'clip-generation-records/v1'
 
 type PollingStatus = Extract<ClipGenerationStatus, 'queued' | 'processing'>
 
-function normalizeRecord(input?: ClipGenerationRecord): ClipGenerationRecord | undefined {
+function normalizeRecord(
+  input?: ClipGenerationRecord
+): ClipGenerationRecord | undefined {
   if (!input) return undefined
   const status: ClipGenerationStatus = input.status ?? 'idle'
   return {
@@ -82,14 +84,20 @@ export function useClipGeneration(
   clip?: ClipItemV2,
   padding?: ClipPaddingSettings
 ) {
-  const [store, setStore] = useLocalStorage<ClipGenerationStore>(STORAGE_KEY, {})
+  const [store, setStore] = useLocalStorage<ClipGenerationStore>(
+    STORAGE_KEY,
+    {}
+  )
   const storeRef = useRef(store)
 
   useEffect(() => {
     storeRef.current = store
   }, [store])
 
-  const key = useMemo(() => buildGenerationKey(parent, clip, padding), [parent, clip, padding])
+  const key = useMemo(
+    () => buildGenerationKey(parent, clip, padding),
+    [parent, clip, padding]
+  )
   const record = normalizeRecord(key ? store[key] : undefined)
 
   const updateStoreForKey = useCallback(
@@ -134,9 +142,12 @@ export function useClipGeneration(
       }
 
       const { start, end, derived } = computeClipTiming(clip)
+      const mediaId =
+        clip.mediaId ?? clip.media_id ?? parent.mediaId ?? parent.media_id
 
       const payload: ClipGenerationRequestPayload = {
-        sourceUrl: clip.url ?? parent.url,
+        mediaId,
+        sourceUrl: mediaId ? undefined : (clip.url ?? parent.url),
         parentTitle: parent.parentTitle,
         clipLabel: clip.parentTitle,
         channel: clip.channel,
@@ -144,9 +155,15 @@ export function useClipGeneration(
         end,
         contextMode: padding.mode === 'smart' ? 'sentence' : 'seconds',
         padBefore:
-          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padBeforeSeconds,
+          padding.mode === 'smart'
+            ? padding.smartPadSeconds
+            : padding.padBeforeSeconds,
         padAfter:
-          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padAfterSeconds,
+          padding.mode === 'smart'
+            ? padding.smartPadSeconds
+            : padding.padAfterSeconds,
+        preferVideo: true,
+        renderProfile: 'hq-1080p-v1',
         derived
       }
 
@@ -169,7 +186,8 @@ export function useClipGeneration(
         queueStatusUpdate({
           clipId: current?.clipId ?? '',
           status: 'error',
-          errorMessage: error instanceof Error ? error.message : 'Failed to queue clip',
+          errorMessage:
+            error instanceof Error ? error.message : 'Failed to queue clip',
           requestPayload: payload,
           lastUpdated: Date.now()
         })
@@ -193,7 +211,10 @@ export function useClipGeneration(
         queueStatusUpdate({
           clipId,
           status: 'error',
-          errorMessage: error instanceof Error ? error.message : 'Failed to refresh clip status',
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : 'Failed to refresh clip status',
           requestPayload: record?.requestPayload,
           lastUpdated: Date.now()
         })

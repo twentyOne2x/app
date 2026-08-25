@@ -11,10 +11,10 @@ export interface Chat {
   id: string
   title: string
   userId: string
-  createdAt: number        // ms since epoch (matches /api/chat + create-shared-chat)
+  createdAt: number // ms since epoch (matches /api/chat + create-shared-chat)
   path: string
-  messages: AIMsg[]        // use Message type from 'ai'
-  structured_metadata: ParsedMetadataEntryV2[]  // V2 metadata everywhere
+  messages: AIMsg[] // use Message type from 'ai'
+  structured_metadata: ParsedMetadataEntryV2[] // V2 metadata everywhere
   entryProfileCode?: string
   readOnly?: boolean
   sharePath?: string
@@ -38,7 +38,12 @@ export interface ExtendedMessage extends AIMsg {
   diagnostics?: DiagnosticsPayload
 }
 
-export type ProgressStageStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'error'
+export type ProgressStageStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'skipped'
+  | 'error'
 
 export interface ProgressTraceEntry {
   stage?: string
@@ -87,9 +92,15 @@ export interface ChannelFilterPayload {
   exclude_names?: string[]
 }
 
-export type ClipGenerationStatus = 'idle' | 'queued' | 'processing' | 'ready' | 'error'
+export type ClipGenerationStatus =
+  | 'idle'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'error'
 
 export interface ClipGenerationRequestPayload {
+  mediaId?: string
   sourceUrl?: string
   parentTitle?: string
   clipLabel?: string
@@ -99,6 +110,8 @@ export interface ClipGenerationRequestPayload {
   contextMode: 'seconds' | 'sentence'
   padBefore: number
   padAfter: number
+  preferVideo?: boolean
+  renderProfile?: 'hq-1080p-v1'
   derived?: boolean
 }
 

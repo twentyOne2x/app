@@ -14,24 +14,28 @@ const { render, fireEvent, cleanup } = require('@testing-library/react')
 
 const { useClipSelection } = require('../lib/hooks/use-clip-selection.ts')
 
-const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost' })
+const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+  url: 'http://localhost'
+})
 
 globalThis.window = dom.window
 globalThis.document = dom.window.document
 globalThis.navigator = dom.window.navigator
 
-globalThis.matchMedia = globalThis.matchMedia || function matchMedia() {
-  return {
-    matches: false,
-    addEventListener() {},
-    removeEventListener() {},
-    addListener() {},
-    removeListener() {},
-    dispatchEvent() {
-      return false
+globalThis.matchMedia =
+  globalThis.matchMedia ||
+  function matchMedia() {
+    return {
+      matches: false,
+      addEventListener() {},
+      removeEventListener() {},
+      addListener() {},
+      removeListener() {},
+      dispatchEvent() {
+        return false
+      }
     }
   }
-}
 
 globalThis.window.matchMedia = globalThis.matchMedia
 
@@ -39,7 +43,8 @@ const parent = {
   parentTitle: 'Sample Parent',
   channel: 'Demo Channel',
   date: '2024-05-01',
-  url: 'https://example.com/watch'
+  url: 'https://example.com/watch',
+  mediaId: '0199a100-0000-7000-8000-000000000001'
 }
 
 const clip = {
@@ -67,7 +72,11 @@ function Harness({ scope }) {
       },
       'Toggle'
     ),
-    React.createElement('span', { 'data-testid': 'count' }, selection.selectionCount)
+    React.createElement(
+      'span',
+      { 'data-testid': 'count' },
+      selection.selectionCount
+    )
   )
 }
 
@@ -86,6 +95,11 @@ test('useClipSelection toggles and persists selections', () => {
   assert.equal(count(), 0)
   fireEvent.click(view.getByText('Toggle'))
   assert.equal(count(), 1)
+  const persisted = JSON.parse(
+    window.localStorage.getItem(`clip-selection:${scope}`)
+  )
+  assert.equal(persisted[0].parent.mediaId, parent.mediaId)
+  assert.equal(persisted[0].clip.mediaId, parent.mediaId)
 
   view.unmount()
   view = renderHarness(scope)

@@ -1,14 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import type { ClipGenerationRequestPayload, ClipGenerationStatus } from '@/lib/types'
+import type {
+  ClipGenerationRequestPayload,
+  ClipGenerationStatus
+} from '@/lib/types'
 import { enqueueLocalClipJob } from './local-service'
-import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from '@/lib/internal-service'
+import {
+  internalServiceHeaders,
+  isProductionRuntime,
+  tenantScopedPayload
+} from '@/lib/internal-service'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 const requestSchema = z
   .object({
+    mediaId: z
+      .string()
+      .min(1)
+      .max(192)
+      .regex(/^[A-Za-z0-9._:-]+$/)
+      .optional(),
     sourceUrl: z.string().url().optional(),
     parentTitle: z.string().optional(),
     clipLabel: z.string().optional(),
@@ -18,9 +31,11 @@ const requestSchema = z
     contextMode: z.enum(['seconds', 'sentence']),
     padBefore: z.number().min(0),
     padAfter: z.number().min(0),
+    preferVideo: z.boolean().optional(),
+    renderProfile: z.literal('hq-1080p-v1').optional(),
     derived: z.boolean().optional()
   })
-  .refine((payload) => payload.end > payload.start, {
+  .refine(payload => payload.end > payload.start, {
     message: 'Clip end must be greater than clip start'
   })
 
@@ -29,13 +44,21 @@ const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
 
 function sanitizeStatus(status: unknown): ClipGenerationStatus {
   const candidate = typeof status === 'string' ? status.toLowerCase() : ''
-  if (candidate === 'queued' || candidate === 'processing' || candidate === 'ready' || candidate === 'error') {
+  if (
+    candidate === 'queued' ||
+    candidate === 'processing' ||
+    candidate === 'ready' ||
+    candidate === 'error'
+  ) {
     return candidate
   }
   return 'queued'
 }
 
-async function forwardClipPost(request: Request, payload: ClipGenerationRequestPayload) {
+async function forwardClipPost(
+  request: Request,
+  payload: ClipGenerationRequestPayload
+) {
   if (!CLIP_SERVICE_URL) {
     throw new Error('Clip service URL not configured')
   }
@@ -43,14 +66,18 @@ async function forwardClipPost(request: Request, payload: ClipGenerationRequestP
     method: 'POST',
     headers: internalServiceHeaders(request, {
       'Content-Type': 'application/json',
-      ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
+      ...(CLIP_SERVICE_TOKEN
+        ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` }
+        : {})
     }),
     body: JSON.stringify(tenantScopedPayload(request, payload))
   })
 
   const text = await response.text()
   if (!response.ok) {
-    throw new Error(text || `Clip service responded with status ${response.status}`)
+    throw new Error(
+      text || `Clip service responded with status ${response.status}`
+    )
   }
 
   return JSON.parse(text) as { clipId?: string; id?: string; status?: string }
@@ -75,6 +102,15 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = parsed.data
+  if (isProductionRuntime() && (!payload.mediaId || payload.sourceUrl)) {
+    return NextResponse.json(
+      {
+        error:
+          'Production clip requests require mediaId and do not accept sourceUrl'
+      },
+      { status: 400 }
+    )
+  }
   console.log('clips:request', {
     start: payload.start,
     end: payload.end,
@@ -102,7 +138,8 @@ export async function POST(request: NextRequest) {
         status: sanitizeStatus(result.status)
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to reach clip service'
+      const message =
+        error instanceof Error ? error.message : 'Failed to reach clip service'
       console.error('clips:response:error', {
         message,
         durationMs: Date.now() - startedAt
@@ -112,7 +149,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (isProductionRuntime()) {
-    return NextResponse.json({ error: 'Clip service unavailable' }, { status: 503 })
+    return NextResponse.json(
+      { error: 'Clip service unavailable' },
+      { status: 503 }
+    )
   }
   const result = enqueueLocalClipJob(payload)
   console.log('clips:response:local', {

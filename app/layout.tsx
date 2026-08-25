@@ -1,5 +1,5 @@
 // app/layout.tsx
-import { Metadata } from 'next'
+import { Metadata, type Viewport } from 'next'
 import Image from 'next/image'
 import { Toaster } from 'react-hot-toast'
 import '@/app/globals.css'
@@ -7,7 +7,6 @@ import { fontSans } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 import { TailwindIndicator } from '@/components/tailwind-indicator'
 import { Providers } from '@/components/providers'
-import { Analytics } from '@vercel/analytics/react'
 import { cookies } from 'next/headers'
 import { ENTRY_PROFILE_COOKIE, getEntryProfileByCode } from '@/lib/entry-profiles'
 import auth from '@/auth'
@@ -44,10 +43,6 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXTAUTH_URL || 'http://localhost:3000'),
   title: { default: 'icm.fyi ICM Research Chatbot', template: `%s - icm.fyi ICM Research Chatbot` },
   description: '',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: 'white' },
-    { media: '(prefers-color-scheme: dark)', color: 'black' }
-  ],
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
@@ -61,6 +56,13 @@ export const metadata: Metadata = {
     siteName: 'icm.fyi', images: [{ url: '/opengraph-image.png', width: 1200, height: 630, alt: 'icm.fyi ICM Research Chatbot' }]
   },
   twitter: { card: 'summary_large_image', site: '@twentyOne2x', title: 'icm.fyi ICM Research Chatbot', description: '', images: ['/twitter-image.png'] }
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: 'white' },
+    { media: '(prefers-color-scheme: dark)', color: 'black' }
+  ]
 }
 
 function PreloadUiIconLinks() {
@@ -109,7 +111,7 @@ function PreloadAvatarImages() {
 interface RootLayoutProps { children: React.ReactNode }
 
 export default async function RootLayout({ children }: RootLayoutProps) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const entryCode = cookieStore.get(ENTRY_PROFILE_COOKIE)?.value
   const entryProfile = getEntryProfileByCode(entryCode)
   const session = await auth()
@@ -129,7 +131,6 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           </div>
           <TailwindIndicator />
         </Providers>
-        <Analytics />
       </body>
     </html>
   )

@@ -3,6 +3,7 @@ import type { ClipBundleStatus } from '@/lib/hooks/use-clip-bundle'
 
 interface ClipBundleRequestClip {
   key?: string
+  mediaId?: string
   sourceUrl?: string
   start?: number
   end?: number
@@ -55,7 +56,7 @@ function toResponse(batch: LocalBatch) {
       status: batch.status,
       downloadUrl: batch.downloadUrl
     },
-    clips: batch.items.map((item) => ({
+    clips: batch.items.map(item => ({
       key: item.key,
       clipId: item.clipId,
       status: item.status,
@@ -66,7 +67,11 @@ function toResponse(batch: LocalBatch) {
   }
 }
 
-function updateBatch(batch: LocalBatch, status: ClipBundleStatus, overrides?: Partial<LocalBatch>) {
+function updateBatch(
+  batch: LocalBatch,
+  status: ClipBundleStatus,
+  overrides?: Partial<LocalBatch>
+) {
   batch.status = status
   batch.updatedAt = Date.now()
   if (overrides) {
@@ -114,7 +119,7 @@ export function createLocalBatch(payload: CreateBatchPayload) {
 
   const processingTimer = setTimeout(() => {
     updateBatch(batch, 'processing')
-    batch.items.forEach((item) => updateClip(item, 'processing'))
+    batch.items.forEach(item => updateClip(item, 'processing'))
     console.log('clips:batch:processing', {
       batchId: batch.id,
       clipCount: batch.items.length
@@ -122,7 +127,7 @@ export function createLocalBatch(payload: CreateBatchPayload) {
   }, 1200)
 
   const readyTimer = setTimeout(() => {
-    batch.items.forEach((item) => {
+    batch.items.forEach(item => {
       updateClip(item, 'ready', {
         downloadUrl: SAMPLE_STREAM_URL,
         streamUrl: SAMPLE_STREAM_URL
@@ -159,10 +164,10 @@ export function getLocalBatch(batchId: string) {
 export function retryLocalBatchClip(batchId: string, clipKey: string) {
   const batch = batches.get(batchId)
   if (!batch) return false
-  const clip = batch.items.find((item) => item.key === clipKey)
+  const clip = batch.items.find(item => item.key === clipKey)
   if (!clip) return false
 
-  clip.timers.forEach((timer) => clearTimeout(timer))
+  clip.timers.forEach(timer => clearTimeout(timer))
   clip.timers = []
 
   updateClip(clip, 'queued', {
@@ -181,7 +186,7 @@ export function retryLocalBatchClip(batchId: string, clipKey: string) {
       downloadUrl: SAMPLE_STREAM_URL,
       streamUrl: SAMPLE_STREAM_URL
     })
-    const allReady = batch.items.every((item) => item.status === 'ready')
+    const allReady = batch.items.every(item => item.status === 'ready')
     if (allReady) {
       updateBatch(batch, 'ready', {
         downloadUrl: SAMPLE_ZIP_URL
@@ -200,9 +205,11 @@ export function retryLocalBatchClip(batchId: string, clipKey: string) {
 }
 
 export function __resetLocalBatchesForTests() {
-  batches.forEach((batch) => {
-    batch.timers.forEach((timer) => clearTimeout(timer))
-    batch.items.forEach((clip) => clip.timers.forEach((timer) => clearTimeout(timer)))
+  batches.forEach(batch => {
+    batch.timers.forEach(timer => clearTimeout(timer))
+    batch.items.forEach(clip =>
+      clip.timers.forEach(timer => clearTimeout(timer))
+    )
   })
   batches.clear()
 }

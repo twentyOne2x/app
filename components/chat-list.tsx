@@ -1,6 +1,6 @@
 // components/chat-list.tsx
 import React, { forwardRef } from 'react';
-import { type Message } from 'ai';
+import { type Message } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { ChatMessage } from '@/components/chat-message';
 import styles from './ChatListContainer.module.css';

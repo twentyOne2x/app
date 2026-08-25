@@ -2,13 +2,20 @@
 
 import { useCallback, useMemo } from 'react'
 import type { ClipItemV2, ParsedMetadataEntryV2 } from '@/lib/utils'
-import { computeClipTiming, formatSecondsToHms, sanitizeClipExcerptText } from '@/lib/utils'
+import {
+  computeClipTiming,
+  formatSecondsToHms,
+  sanitizeClipExcerptText
+} from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import { toast } from 'react-hot-toast'
 
 export interface ClipSelectionEntry {
   key: string
-  parent: Pick<ParsedMetadataEntryV2, 'parentTitle' | 'channel' | 'date' | 'url'>
+  parent: Pick<
+    ParsedMetadataEntryV2,
+    'parentTitle' | 'channel' | 'date' | 'url' | 'mediaId'
+  >
   clip: Pick<
     ClipItemV2,
     | 'parentTitle'
@@ -23,6 +30,7 @@ export interface ClipSelectionEntry {
     | 'clipUrl'
     | 'segmentId'
     | 'videoId'
+    | 'mediaId'
   >
   timingFallback?: boolean
 }
@@ -35,9 +43,13 @@ export interface ClipSelectionHandle {
   clearSelection: () => void
 }
 
-export function buildClipSelectionKey(parent: ParsedMetadataEntryV2, clip: ClipItemV2): string {
+export function buildClipSelectionKey(
+  parent: ParsedMetadataEntryV2,
+  clip: ClipItemV2
+): string {
   const parts = [
     clip.segmentId ?? '',
+    clip.mediaId ?? parent.mediaId ?? '',
     parent.parentTitle ?? '',
     parent.channel ?? '',
     parent.date ?? '',
@@ -54,7 +66,10 @@ export function buildClipSelectionKey(parent: ParsedMetadataEntryV2, clip: ClipI
   return parts.join('::')
 }
 
-function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): ClipSelectionEntry {
+function toSelectionEntry(
+  parent: ParsedMetadataEntryV2,
+  clip: ClipItemV2
+): ClipSelectionEntry {
   const timing = computeClipTiming(clip)
   const sanitizedExcerpt = sanitizeClipExcerptText(clip.excerpt)
   return {
@@ -63,7 +78,8 @@ function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): Clip
       parentTitle: parent.parentTitle,
       channel: parent.channel,
       date: parent.date,
-      url: parent.url
+      url: parent.url,
+      mediaId: parent.mediaId
     },
     clip: {
       parentTitle: clip.parentTitle,
@@ -77,7 +93,8 @@ function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): Clip
       url: clip.url,
       clipUrl: clip.clipUrl,
       segmentId: clip.segmentId,
-      videoId: clip.videoId
+      videoId: clip.videoId,
+      mediaId: clip.mediaId ?? parent.mediaId
     },
     timingFallback: timing.derived
   }
@@ -85,12 +102,14 @@ function toSelectionEntry(parent: ParsedMetadataEntryV2, clip: ClipItemV2): Clip
 
 export function useClipSelection(scope: string): ClipSelectionHandle {
   const storageKey = `clip-selection:${scope}`
-  const [storedEntries, setStoredEntries] = useLocalStorage<ClipSelectionEntry[]>(storageKey, [])
+  const [storedEntries, setStoredEntries] = useLocalStorage<
+    ClipSelectionEntry[]
+  >(storageKey, [])
 
   const isSelected = useCallback(
     (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
       const key = buildClipSelectionKey(parent, clip)
-      return storedEntries.some((entry) => entry.key === key)
+      return storedEntries.some(entry => entry.key === key)
     },
     [storedEntries]
   )
@@ -98,9 +117,9 @@ export function useClipSelection(scope: string): ClipSelectionHandle {
   const toggleClip = useCallback(
     (parent: ParsedMetadataEntryV2, clip: ClipItemV2) => {
       const key = buildClipSelectionKey(parent, clip)
-      setStoredEntries((prev) => {
+      setStoredEntries(prev => {
         const next = Array.isArray(prev) ? [...prev] : []
-        const existingIndex = next.findIndex((entry) => entry.key === key)
+        const existingIndex = next.findIndex(entry => entry.key === key)
         if (existingIndex >= 0) {
           next.splice(existingIndex, 1)
           toast('Removed clip from bundle.')

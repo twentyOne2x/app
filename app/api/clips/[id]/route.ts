@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import type { ClipGenerationRecord } from '@/lib/types'
 import { getLocalClipJob } from '../local-service'
+import { internalServiceHeaders, isProductionRuntime } from '@/lib/internal-service'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -18,23 +19,39 @@ function rewriteProxyUrl(raw: unknown, clipId: string) {
 
 function remapClipResponse(record: ClipGenerationRecord) {
   const clipId = record.clipId ?? record.id ?? ''
+  const status = sanitizeStatus(record.status)
   return {
     ...record,
     clipId,
+    status,
     streamUrl: rewriteProxyUrl(record.streamUrl, clipId),
     downloadUrl: rewriteProxyUrl(record.downloadUrl, clipId)
   }
 }
 
-async function forwardClipStatus(id: string): Promise<ClipGenerationRecord> {
+function sanitizeStatus(status: unknown): ClipGenerationRecord['status'] {
+  const candidate = typeof status === 'string' ? status.toLowerCase() : ''
+  if (
+    candidate === 'queued' ||
+    candidate === 'processing' ||
+    candidate === 'ready' ||
+    candidate === 'expired' ||
+    candidate === 'error'
+  ) {
+    return candidate
+  }
+  return 'queued'
+}
+
+async function forwardClipStatus(request: Request, id: string): Promise<ClipGenerationRecord> {
   if (!CLIP_SERVICE_URL) {
     throw new Error('Clip service URL not configured')
   }
   const response = await fetch(`${CLIP_SERVICE_URL.replace(/\/$/, '')}/clips/${id}`, {
     method: 'GET',
-    headers: {
+    headers: internalServiceHeaders(request, {
       ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-    },
+    }),
     cache: 'no-store'
   })
 
@@ -46,8 +63,8 @@ async function forwardClipStatus(id: string): Promise<ClipGenerationRecord> {
   return JSON.parse(text) as ClipGenerationRecord
 }
 
-export async function GET(_request: NextRequest, context: { params: { id: string } }) {
-  const id = context.params.id
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params
 
   if (!id) {
     return NextResponse.json({ error: 'Missing clip id' }, { status: 400 })
@@ -55,7 +72,7 @@ export async function GET(_request: NextRequest, context: { params: { id: string
 
   if (CLIP_SERVICE_URL) {
     try {
-      const status = await forwardClipStatus(id)
+      const status = await forwardClipStatus(request, id)
       return NextResponse.json(remapClipResponse(status))
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to reach clip service'
@@ -63,6 +80,9 @@ export async function GET(_request: NextRequest, context: { params: { id: string
     }
   }
 
+  if (isProductionRuntime()) {
+    return NextResponse.json({ error: 'Clip service unavailable' }, { status: 503 })
+  }
   const job = getLocalClipJob(id)
   if (!job) {
     return NextResponse.json({ error: 'Clip not found' }, { status: 404 })

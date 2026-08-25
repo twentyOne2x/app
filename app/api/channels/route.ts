@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { internalServiceHeaders } from '@/lib/internal-service'
+import { isProductionRuntime } from '@/lib/internal-service'
 
 function backendBaseUrl() {
   return (
@@ -25,14 +27,16 @@ export async function GET(request: Request) {
 
   const backendUrl = buildBackendUrl(scope)
   if (!backendUrl) {
-    return NextResponse.json({ channels: [] }, { status: 200 })
+    return isProductionRuntime()
+      ? NextResponse.json({ error: 'retrieval_service_unavailable' }, { status: 503 })
+      : NextResponse.json({ channels: [] }, { status: 200 })
   }
 
   let response: Response
   try {
     response = await fetch(backendUrl, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      headers: internalServiceHeaders(request, { 'Content-Type': 'application/json' })
     })
   } catch (error) {
     console.error('channels-route: failed to reach backend', error)

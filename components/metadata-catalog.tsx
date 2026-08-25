@@ -69,7 +69,7 @@ export default function MetadataCatalog({ results, className }: MetadataCatalogP
             aria-label={`Open video ${title}`}
           >
             <div className="flex gap-3">
-              <div className="relative h-[60px] w-[106px] flex-shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/40">
+              <div className="relative h-[60px] w-[106px] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black/40">
                 {thumb ? (
                   <Image
                     src={thumb}

@@ -1,8 +1,16 @@
 // lib/types.ts
-import { type Message as AIMsg } from 'ai'
 import type { ParsedMetadataEntryV2 } from './utils'
 
-export type Message = AIMsg
+export interface Message {
+  id?: string
+  role: 'system' | 'user' | 'assistant' | 'data' | 'tool' | 'function'
+  content: unknown
+  createdAt?: Date
+  name?: string
+  data?: unknown
+  annotations?: unknown[]
+  toolInvocations?: unknown[]
+}
 
 export type ServerActionResult<Result> = Promise<Result | { error: string }>
 
@@ -11,10 +19,10 @@ export interface Chat {
   id: string
   title: string
   userId: string
-  createdAt: number        // ms since epoch (matches /api/chat + create-shared-chat)
+  createdAt: number // ms since epoch (matches /api/chat + create-shared-chat)
   path: string
-  messages: AIMsg[]        // use Message type from 'ai'
-  structured_metadata: ParsedMetadataEntryV2[]  // V2 metadata everywhere
+  messages: Message[]
+  structured_metadata: ParsedMetadataEntryV2[] // V2 metadata everywhere
   entryProfileCode?: string
   readOnly?: boolean
   sharePath?: string
@@ -33,12 +41,17 @@ export interface LegacyParsedMetadataEntry {
 }
 
 /** If you need to attach metadata to messages inline. */
-export interface ExtendedMessage extends AIMsg {
+export interface ExtendedMessage extends Message {
   structured_metadata?: ParsedMetadataEntryV2[]
   diagnostics?: DiagnosticsPayload
 }
 
-export type ProgressStageStatus = 'pending' | 'running' | 'completed' | 'skipped' | 'error'
+export type ProgressStageStatus =
+  | 'pending'
+  | 'running'
+  | 'completed'
+  | 'skipped'
+  | 'error'
 
 export interface ProgressTraceEntry {
   stage?: string
@@ -87,9 +100,17 @@ export interface ChannelFilterPayload {
   exclude_names?: string[]
 }
 
-export type ClipGenerationStatus = 'idle' | 'queued' | 'processing' | 'ready' | 'error'
+export type ClipGenerationStatus =
+  | 'idle'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'expired'
+  | 'error'
 
 export interface ClipGenerationRequestPayload {
+  idempotencyKey?: string
+  mediaId?: string
   sourceUrl?: string
   parentTitle?: string
   clipLabel?: string
@@ -99,6 +120,8 @@ export interface ClipGenerationRequestPayload {
   contextMode: 'seconds' | 'sentence'
   padBefore: number
   padAfter: number
+  preferVideo?: boolean
+  renderProfile?: 'hq-1080p-v1'
   derived?: boolean
 }
 
@@ -109,6 +132,8 @@ export interface ClipGenerationRecord {
   streamUrl?: string
   downloadUrl?: string
   errorMessage?: string
+  retrying?: boolean
+  retryIdempotencyKey?: string
   requestPayload?: ClipGenerationRequestPayload
   lastUpdated: number | string
 }

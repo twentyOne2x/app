@@ -23,6 +23,7 @@ import {
   useClipSelection,
   type ClipSelectionHandle
 } from '@/lib/hooks/use-clip-selection'
+import { isClipBundleEnabled } from '@/lib/product-capabilities'
 
 export interface SourceListProps {
   entries: ParsedMetadataEntryV2[]
@@ -37,6 +38,7 @@ export interface SourceListProps {
   ) => void
   selectionScope?: string
   selection?: ClipSelectionHandle
+  bundleEnabled?: boolean
 }
 
 const YOUTUBE_THUMB_VARIANTS = [
@@ -296,7 +298,8 @@ export function SourceList({
   className,
   onSelectClip,
   selectionScope,
-  selection
+  selection,
+  bundleEnabled = isClipBundleEnabled()
 }: SourceListProps) {
   const [expandedExcerpts, setExpandedExcerpts] = useState<Record<string, boolean>>({})
   const parents = useMemo(() => entries ?? [], [entries])
@@ -564,25 +567,29 @@ export function SourceList({
                             >
                               Edit clip
                             </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                handleCheckboxToggle(parent, clip)
-                              }}
-                              className={cn(
-                                'inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
-                                selected
-                                  ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
-                                  : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
-                              )}
-                            >
-                                {selected ? 'Added to bundle' : 'Add to bundle'}
-                              </button>
-                            {selected ? (
-                              <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                                In bundle
-                              </span>
+                            {bundleEnabled ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleCheckboxToggle(parent, clip)
+                                  }}
+                                  className={cn(
+                                    'inline-flex cursor-pointer items-center rounded-full border px-3 py-1 text-xs font-semibold transition',
+                                    selected
+                                      ? 'border-emerald-400/70 bg-emerald-400/15 text-emerald-100'
+                                      : 'border-white/20 bg-white/0 text-zinc-100 hover:bg-white/10'
+                                  )}
+                                >
+                                  {selected ? 'Added to bundle' : 'Add to bundle'}
+                                </button>
+                                {selected ? (
+                                  <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                                    In bundle
+                                  </span>
+                                ) : null}
+                              </>
                             ) : null}
                           </div>
                         </div>

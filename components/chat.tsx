@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import type { Message } from 'ai';
+import type { Message } from '@/lib/types';
 import { nanoid } from 'nanoid';
 import { cn } from '@/lib/utils'
 import { ChatList } from '@/components/chat-list'
@@ -46,6 +46,14 @@ import {
   buildDefaultChatAccessState,
   type ChatAccessState
 } from '@/lib/chat-access-shared'
+import {
+  newYoutubeIngestionIntent,
+  resumeYoutubeIngestionIntent,
+  runYoutubeIngestionOnce,
+  type WorkflowHttpResult,
+  type YoutubeIngestionIntent
+} from '@/lib/durable-product-workflows'
+import { isClipBundleEnabled } from '@/lib/product-capabilities'
 
 type ChannelOption = {
   id?: string | null
@@ -95,6 +103,60 @@ type YoutubeIndexTarget = {
   videoUrls: string[]
   channel: string | null
   label: string
+}
+
+function youtubeIndexPayload(target: YoutubeIndexTarget): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    namespace: 'videos',
+    language: 'en',
+    prefer_auto: true,
+    clip_ready: true,
+    segment_min_s: 120,
+    segment_max_s: 240,
+    segment_stride_s: 120,
+    min_text_chars: 120
+  }
+  if (target.videoUrls.length) {
+    payload.video_urls = target.videoUrls
+  } else if (target.channel) {
+    payload.channel = target.channel
+    payload.max_videos = 10
+  }
+  return payload
+}
+
+async function workflowResponse(response: Response): Promise<WorkflowHttpResult> {
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: await response.json().catch(() => null)
+  }
+}
+
+function youtubeIntentUiState(intent: YoutubeIngestionIntent): {
+  state: 'idle' | 'running' | 'done' | 'error'
+  message?: string
+} {
+  if (intent.phase === 'completed') {
+    return { state: 'done', message: 'Indexed. Ask again to use it.' }
+  }
+  if (intent.phase === 'failed') {
+    return {
+      state: 'error',
+      message: intent.errorMessage ?? 'YouTube indexing failed'
+    }
+  }
+  if (intent.phase === 'polling') {
+    const ready = intent.jobs.filter(job => job.ready).length
+    return {
+      state: 'running',
+      message: `Acquiring clip-ready video (${ready}/${intent.jobs.length} ready)…`
+    }
+  }
+  if (intent.phase === 'resubmitting') {
+    return { state: 'running', message: 'Publishing transcripts and index entries…' }
+  }
+  return { state: 'running', message: 'Submitting durable ingestion request…' }
 }
 
 function extractYoutubeIndexTarget(text: string | null | undefined): YoutubeIndexTarget | null {
@@ -513,7 +575,7 @@ function AuthButtonsCallout({
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-200">
           Connect to continue
         </span>
-        Sign in with Twitter or Google to keep chatting, save history, and unlock sharing.
+        Sign in with a configured provider to query, save history, export data, and create clips.
       </p>
     </div>
   )
@@ -567,10 +629,16 @@ export function Chat({
     null
   )
   const entryProfile = useEntryProfile();
+  const clipBundleEnabled = isClipBundleEnabled()
   const [channelCatalogCache, setChannelCatalogCache] = useLocalStorage<ChannelOption[]>(
     `channel-catalog:${entryProfile.code}`,
     []
   )
+  const [youtubeIngestionIntent, setYoutubeIngestionIntent] =
+    useLocalStorage<YoutubeIngestionIntent | null>(
+      `youtube-ingestion-intent/v1:${currentUser?.id ?? 'local'}`,
+      null
+    )
   const sanitizedStructuredMetadata = useMemo(
     () => normalizeMetadataEntries(structured_metadata),
     [structured_metadata]
@@ -628,6 +696,9 @@ export function Chat({
   const [ytIndexStatus, setYtIndexStatus] = useState<
     { state: 'idle' | 'running' | 'done' | 'error'; message?: string }
   >({ state: 'idle' });
+  const youtubeIngestionIntentRef = useRef(youtubeIngestionIntent)
+  const youtubeIngestionAbortRef = useRef<AbortController | null>(null)
+  const youtubeIngestionRunnerRef = useRef<string | null>(null)
   const [selectedClip, setSelectedClip] = useState<{
     parent: ParsedMetadataEntryV2
     clip: ClipItemV2
@@ -676,6 +747,13 @@ export function Chat({
     if (!channelCatalogCache.length) return
     setAvailableChannels(channelCatalogCache)
   }, [channelCatalogCache])
+
+  useEffect(() => {
+    youtubeIngestionIntentRef.current = youtubeIngestionIntent
+    if (youtubeIngestionIntent) {
+      setYtIndexStatus(youtubeIntentUiState(youtubeIngestionIntent))
+    }
+  }, [youtubeIngestionIntent])
 
   useEffect(() => {
     console.debug('chat: component mounted', {
@@ -2065,7 +2143,7 @@ export function Chat({
     }
 
     if (requiresAuthToContinue) {
-      toast.error('Sign in with Twitter or Google to continue after the 3-message preview.')
+      toast.error('Sign in to continue.')
       return
     }
 
@@ -2380,57 +2458,143 @@ export function Chat({
     () => extractYoutubeIndexTarget(lastUserMessageText),
     [lastUserMessageText]
   )
-
-  const handleIndexYouTubeTarget = useCallback(async () => {
-    if (!youtubeIndexTarget) return
-    if (ytIndexStatus.state === 'running') return
-
-    setYtIndexStatus({ state: 'running', message: 'Indexing...' })
-    try {
-      const payload: Record<string, unknown> = {
-        namespace: 'videos',
-        language: 'en',
-        prefer_auto: true,
-        // Keep this reasonably cheap by default; tune later if you want higher recall.
-        segment_min_s: 120,
-        segment_max_s: 240,
-        segment_stride_s: 120,
-        min_text_chars: 120
-      }
-      if (youtubeIndexTarget.videoUrls.length) {
-        payload.video_urls = youtubeIndexTarget.videoUrls
-      } else if (youtubeIndexTarget.channel) {
-        payload.channel = youtubeIndexTarget.channel
-        payload.max_videos = 10
-      }
-
-      const res = await fetch('/api/index/youtube', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data || data.ok === false) {
-        const detail = data?.detail ?? data?.error ?? 'indexing failed'
-        setYtIndexStatus({ state: 'error', message: String(detail).slice(0, 300) })
-        toast.error('YouTube indexing failed')
-        return
-      }
-
-      const failedCount = Array.isArray(data.failed) ? data.failed.length : 0
-      setYtIndexStatus({
-        state: 'done',
-        message: failedCount
-          ? `Indexed with ${failedCount} failure(s). Ask again to use it.`
-          : 'Indexed. Ask again to use it.'
-      })
-      toast.success('Indexed YouTube target. Re-ask your question to use it.')
-    } catch (error) {
-      console.error('chat: failed to index youtube target', error)
-      setYtIndexStatus({ state: 'error', message: 'indexing request failed' })
-      toast.error('YouTube indexing request failed')
+  const youtubeTerminalFailureForTarget = useMemo(() => {
+    if (
+      !youtubeIndexTarget ||
+      youtubeIngestionIntent?.phase !== 'failed' ||
+      youtubeIngestionIntent.retryable
+    ) {
+      return false
     }
-  }, [youtubeIndexTarget, ytIndexStatus.state])
+    return (
+      JSON.stringify(youtubeIngestionIntent.payload) ===
+      JSON.stringify(youtubeIndexPayload(youtubeIndexTarget))
+    )
+  }, [youtubeIndexTarget, youtubeIngestionIntent])
+
+  useEffect(() => {
+    if (!youtubeIndexTarget || !youtubeIngestionIntent) return
+    if (
+      ['submitting', 'polling', 'resubmitting'].includes(youtubeIngestionIntent.phase)
+    ) {
+      return
+    }
+    if (
+      JSON.stringify(youtubeIngestionIntent.payload) !==
+      JSON.stringify(youtubeIndexPayload(youtubeIndexTarget))
+    ) {
+      setYtIndexStatus({ state: 'idle' })
+    }
+  }, [youtubeIndexTarget, youtubeIngestionIntent])
+
+  const runYoutubeIngestion = useCallback(
+    async (intent: YoutubeIngestionIntent) => {
+      if (youtubeIngestionRunnerRef.current === intent.intentId) return
+      youtubeIngestionAbortRef.current?.abort()
+      const controller = new AbortController()
+      youtubeIngestionAbortRef.current = controller
+      youtubeIngestionRunnerRef.current = intent.intentId
+      setYtIndexStatus(youtubeIntentUiState(intent))
+      try {
+        const result = await runYoutubeIngestionOnce(
+          intent,
+          {
+            submit: async (payload, signal) =>
+              workflowResponse(
+                await fetch('/api/index/youtube', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify(payload),
+                  signal
+                })
+              ),
+            getJob: async (jobId, signal) =>
+              workflowResponse(
+                await fetch(`/api/ingestion-jobs/${jobId}`, {
+                  method: 'GET',
+                  cache: 'no-store',
+                  signal
+                })
+              )
+          },
+          {
+            signal: controller.signal,
+            persist: next => {
+              youtubeIngestionIntentRef.current = next
+              setYoutubeIngestionIntent(next)
+              setYtIndexStatus(youtubeIntentUiState(next))
+            }
+          }
+        )
+        if (result.phase === 'completed') {
+          toast.success('Indexed YouTube target. Re-ask your question to use it.')
+        } else if (result.phase === 'failed') {
+          toast.error('YouTube indexing failed')
+        }
+      } catch (error) {
+        if (!(error instanceof Error && error.name === 'AbortError')) {
+          console.error('chat: failed to index youtube target', error)
+          toast.error('YouTube indexing request failed')
+        }
+      } finally {
+        if (youtubeIngestionAbortRef.current === controller) {
+          youtubeIngestionAbortRef.current = null
+        }
+        if (youtubeIngestionRunnerRef.current === intent.intentId) {
+          youtubeIngestionRunnerRef.current = null
+        }
+      }
+    },
+    [setYoutubeIngestionIntent]
+  )
+
+  useEffect(() => {
+    if (
+      !youtubeIngestionIntent ||
+      !['submitting', 'polling', 'resubmitting'].includes(youtubeIngestionIntent.phase)
+    ) {
+      return
+    }
+    void runYoutubeIngestion(youtubeIngestionIntent)
+    return () => {
+      youtubeIngestionAbortRef.current?.abort()
+    }
+    // Persisted phase updates are emitted by the same active workflow and must not
+    // tear down its request. A new intent id is the only automatic restart boundary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [youtubeIngestionIntent?.intentId, runYoutubeIngestion])
+
+  const handleIndexYouTubeTarget = useCallback(() => {
+    if (!youtubeIndexTarget) return
+    const payload = youtubeIndexPayload(youtubeIndexTarget)
+    const current = youtubeIngestionIntentRef.current
+    if (
+      current &&
+      ['submitting', 'polling', 'resubmitting'].includes(current.phase)
+    ) {
+      void runYoutubeIngestion(current)
+      return
+    }
+    if (
+      current?.phase === 'failed' &&
+      current.retryable &&
+      JSON.stringify(current.payload) === JSON.stringify(payload)
+    ) {
+      const resumed = resumeYoutubeIngestionIntent(current)
+      youtubeIngestionIntentRef.current = resumed
+      setYoutubeIngestionIntent(resumed)
+      void runYoutubeIngestion(resumed)
+      return
+    }
+    const created = newYoutubeIngestionIntent(
+      `yti_${nanoid(24)}`,
+      youtubeIndexTarget.label,
+      payload
+    )
+    youtubeIngestionIntentRef.current = created
+    setYoutubeIngestionIntent(created)
+    void runYoutubeIngestion(created)
+  }, [runYoutubeIngestion, setYoutubeIngestionIntent, youtubeIndexTarget])
 
   React.useEffect(() => {
     if (shared_chat || !shareHeader) {
@@ -2534,10 +2698,14 @@ export function Chat({
 	                          type="button"
 	                          className="w-full rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-left text-xs text-emerald-100 hover:border-emerald-400/50 disabled:opacity-60"
 	                          onClick={handleIndexYouTubeTarget}
-	                          disabled={ytIndexStatus.state === 'running'}
+	                          disabled={ytIndexStatus.state === 'running' || youtubeTerminalFailureForTarget}
 	                          data-testid="index-youtube-target"
 	                        >
-	                          {ytIndexStatus.state === 'running' ? 'Indexing YouTube target...' : youtubeIndexTarget.label}
+	                          {ytIndexStatus.state === 'running'
+	                            ? 'Indexing YouTube target...'
+	                            : youtubeTerminalFailureForTarget
+	                              ? 'Acquisition failed — operator attention required'
+	                              : youtubeIndexTarget.label}
 	                        </button>
 	                        {ytIndexStatus.message ? (
 	                          <div className="mt-2 text-xs text-zinc-300">{ytIndexStatus.message}</div>
@@ -2555,6 +2723,7 @@ export function Chat({
 	                    onSelectClip={handleClipSelect}
 	                    selectionScope={selectionScope}
 	                    selection={clipSelection}
+	                    bundleEnabled={clipBundleEnabled}
 	                  />
 	                )}
 	              </>
@@ -2588,10 +2757,10 @@ export function Chat({
                   {requiresAuthToContinue ? (
                     <div className="mb-3 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-left shadow-[0_18px_38px_-22px_rgba(34,197,94,0.35)]">
                       <p className="text-sm font-semibold text-emerald-100">
-                        Your 3-message preview is complete.
+                        Sign in to use ICMFYI.
                       </p>
                       <p className="mt-1 text-xs text-zinc-300">
-                        Sign in with Twitter or Google to keep chatting and persist this session.
+                        Authentication protects tenant-scoped queries, exports, and clip jobs.
                       </p>
                       <div className="mt-3">
                         <AuthButtonsCallout
@@ -2665,9 +2834,13 @@ export function Chat({
                     type="button"
                     className="w-full rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-left text-xs text-emerald-100 hover:border-emerald-400/50 disabled:opacity-60"
                     onClick={handleIndexYouTubeTarget}
-                    disabled={ytIndexStatus.state === 'running'}
+                    disabled={ytIndexStatus.state === 'running' || youtubeTerminalFailureForTarget}
                   >
-                    {ytIndexStatus.state === 'running' ? 'Indexing YouTube target...' : youtubeIndexTarget.label}
+                    {ytIndexStatus.state === 'running'
+                      ? 'Indexing YouTube target...'
+                      : youtubeTerminalFailureForTarget
+                        ? 'Acquisition failed — operator attention required'
+                        : youtubeIndexTarget.label}
                   </button>
                   {ytIndexStatus.message ? (
                     <div className="mt-2 text-xs text-zinc-300">{ytIndexStatus.message}</div>
@@ -2683,26 +2856,31 @@ export function Chat({
               onSelectClip={handleClipSelect}
               selectionScope={selectionScope}
               selection={clipSelection}
+              bundleEnabled={clipBundleEnabled}
             />
           )
         ) : catalogResults.length > 0 ? (
           <MetadataCatalog results={catalogResults.slice(0, 10)} />
         ) : null}
       </Modal>
-      <ClipBundleDrawer
-        isOpen={isBundleDrawerOpen && bundleHandle.state.items.length > 0}
-        onClose={handleCloseBundleDrawer}
-        state={bundleHandle.state}
-        onRetryClip={(key) => void bundleHandle.retryClip(key)}
-      />
-      <ClipBundleBar
-        selectionCount={clipSelection.selectionCount}
-        entries={clipSelection.selectedEntries}
-        onGenerate={handleGenerateBundle}
-        onClear={handleClearSelection}
-        disabled={bundleHandle.state.errorMessage === 'not_implemented'}
-        isRunning={bundleHandle.isRunning}
-      />
+      {clipBundleEnabled ? (
+        <>
+          <ClipBundleDrawer
+            isOpen={isBundleDrawerOpen && bundleHandle.state.items.length > 0}
+            onClose={handleCloseBundleDrawer}
+            state={bundleHandle.state}
+            onRetryClip={(key) => void bundleHandle.retryClip(key)}
+          />
+          <ClipBundleBar
+            selectionCount={clipSelection.selectionCount}
+            entries={clipSelection.selectedEntries}
+            onGenerate={handleGenerateBundle}
+            onClear={handleClearSelection}
+            disabled={bundleHandle.state.errorMessage === 'not_implemented'}
+            isRunning={bundleHandle.isRunning}
+          />
+        </>
+      ) : null}
       <ClipDrawer
         isOpen={Boolean(selectedClip)}
         parent={selectedClip?.parent}

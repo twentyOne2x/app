@@ -14,6 +14,12 @@ import {
   type ParsedMetadataEntryV2
 } from '@/lib/utils'
 import { putLocalChat } from '@/lib/local-chat-store'
+import {
+  authoritativeRequestUserId,
+  internalServiceHeaders,
+  tenantScopedPayload,
+  TrustedGatewayIdentityError
+} from '@/lib/internal-service'
 import type { DiagnosticsPayload } from '@/lib/types'
 
 export const maxDuration = 300
@@ -65,7 +71,15 @@ export async function POST(req: Request) {
   const traceId = clientTraceId ?? (typeof json.id === 'string' ? String(json.id) : null) ?? randomUUID()
 
   const session = await auth()
-  const userId = session?.user?.id ?? null
+  let userId: string | null
+  try {
+    userId = authoritativeRequestUserId(req, session?.user?.id)
+  } catch (error) {
+    if (error instanceof TrustedGatewayIdentityError) {
+      return Response.json({ error: 'invalid_gateway_identity' }, { status: 401 })
+    }
+    throw error
+  }
 
   console.debug('chat-route: request received', {
     traceId,
@@ -210,15 +224,16 @@ export async function POST(req: Request) {
     const isLast = i === backendCandidates.length - 1
     backendChatUrl = candidateUrl
     try {
+      const backendPayload = tenantScopedPayload(req, {
+        message: messages?.length ? messages[messages.length - 1].content : 'No messages yet.',
+        chat_history: messages,
+        entry_profile_code: entryProfileCode,
+        channel_filter: channelFilter
+      })
       const response = await fetch(candidateUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: messages?.length ? messages[messages.length - 1].content : 'No messages yet.',
-          chat_history: messages,
-          entry_profile_code: entryProfileCode,
-          channel_filter: channelFilter
-        })
+        headers: internalServiceHeaders(req, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify(backendPayload)
       })
       if (response.status === 404 && !isLast) {
         const candidateError = await response.text().catch(() => response.statusText)

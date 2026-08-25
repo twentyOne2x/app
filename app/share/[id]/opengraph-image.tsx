@@ -17,13 +17,14 @@ const interRegular = fs.readFileSync(path.join(process.cwd(), 'app/share/[id]/fo
 const interBold = fs.readFileSync(path.join(process.cwd(), 'app/share/[id]/fonts/Inter-Bold.woff'))
 
 interface ImageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function Image({ params }: ImageProps) {
-  const chat = await getSharedChat(params.id)
+  const { id } = await params
+  const chat = await getSharedChat(id)
 
   if (!chat || !chat.sharePath) {
     return new ImageResponse(

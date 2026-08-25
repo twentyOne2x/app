@@ -11,7 +11,7 @@ const NAME_ALIASES: Record<string, string> = {
   cupsy: 'Cupsey',
   hyperliquid: 'Hyper Liquid',
   anzo: 'Anza',
-  Soul: 'SOL',
+  Soul: 'SOL'
 }
 
 function aliasKey(value: string): string {
@@ -28,11 +28,14 @@ export function applyNameAlias(value?: string | null): string | undefined {
 
 export function normalizeAliasesInText(text: string): string {
   if (typeof text !== 'string' || !text) return text
-  return text.replace(/\b([A-Za-z][A-Za-z0-9]*)(['’]s)?\b/g, (full, word, possessive) => {
-    const aliased = applyNameAlias(word)
-    if (!aliased || aliased === word) return full
-    return `${aliased}${possessive ?? ''}`
-  })
+  return text.replace(
+    /\b([A-Za-z][A-Za-z0-9]*)(['’]s)?\b/g,
+    (full, word, possessive) => {
+      const aliased = applyNameAlias(word)
+      if (!aliased || aliased === word) return full
+      return `${aliased}${possessive ?? ''}`
+    }
+  )
 }
 
 const YOUTUBE_ID_REGEX = /^[A-Za-z0-9_-]{11}$/
@@ -116,7 +119,9 @@ function normalizeUrlCandidate(value?: string | null): URL | undefined {
   }
 }
 
-function extractPumpfunTokenFromString(value?: string | null): string | undefined {
+function extractPumpfunTokenFromString(
+  value?: string | null
+): string | undefined {
   if (!value) return undefined
   const trimmed = value.trim()
   if (!trimmed) return undefined
@@ -158,7 +163,9 @@ function extractPumpfunClipSlug(value?: string | null): string | undefined {
     }
   }
 
-  const idMatch = trimmed.match(/pumpfun_[A-Za-z0-9]+pump_([0-9]{8}_[0-9]{6})[-:]([0-9]+)_([0-9]{8}_[0-9]{6})/)
+  const idMatch = trimmed.match(
+    /pumpfun_[A-Za-z0-9]+pump_([0-9]{8}_[0-9]{6})[-:]([0-9]+)_([0-9]{8}_[0-9]{6})/
+  )
   if (idMatch) {
     const [, start, fractional, end] = idMatch
     if (start && fractional && end) {
@@ -200,10 +207,12 @@ function derivePumpfunLink(
     (clip as any)?.router_tags,
     (parent as any)?.routerTags,
     (parent as any)?.router_tags
-  ].flatMap((value) => (Array.isArray(value) ? value : [])).filter(Boolean) as string[]
+  ]
+    .flatMap(value => (Array.isArray(value) ? value : []))
+    .filter(Boolean) as string[]
 
   const tokenFromTags = tagsCandidates
-    .map((tag) => {
+    .map(tag => {
       if (typeof tag !== 'string') return undefined
       const trimmed = tag.trim()
       if (!trimmed) return undefined
@@ -243,7 +252,9 @@ export function buildCanonicalClipLink(
     clip.clipUrl ??
     clip.url ??
     parent?.url ??
-    (parent?.videoId ? `https://www.youtube.com/watch?v=${parent.videoId}` : undefined)
+    (parent?.videoId
+      ? `https://www.youtube.com/watch?v=${parent.videoId}`
+      : undefined)
   if (!base) return undefined
 
   const seconds =
@@ -315,9 +326,7 @@ export function resolveThumbnailUrl(
   return fallback
 }
 
-export function sanitizeClipExcerptText(
-  value?: string | null
-): string {
+export function sanitizeClipExcerptText(value?: string | null): string {
   if (typeof value !== 'string') return ''
   const raw = value.trim()
   if (!raw) return ''
@@ -339,7 +348,11 @@ export function parseFlexibleHms(value?: string | null): number | undefined {
   const hours = Number(rawH)
   const minutes = Number(rawM)
   const seconds = Number(rawS)
-  if ([hours, minutes, seconds].some((n) => Number.isNaN(n) || !Number.isFinite(n) || n < 0)) {
+  if (
+    [hours, minutes, seconds].some(
+      n => Number.isNaN(n) || !Number.isFinite(n) || n < 0
+    )
+  ) {
     return undefined
   }
   const total = hours * 3600 + minutes * 60 + seconds
@@ -355,15 +368,13 @@ export function formatSecondsToHms(seconds: number): string {
 }
 
 const clipStartCandidates = (clip: ClipItemV2): Array<number | undefined> => {
-  const raw = clip.startS ?? (clip as any).start_seconds ?? (clip as any).start_s
+  const raw =
+    clip.startS ?? (clip as any).start_seconds ?? (clip as any).start_s
   const startFromHms =
     parseFlexibleHms(clip.startHMS ?? (clip as any).start_hms ?? undefined) ??
     parseFlexibleHms((clip as any).start) ??
     undefined
-  return [
-    typeof raw === 'number' ? raw : undefined,
-    startFromHms
-  ]
+  return [typeof raw === 'number' ? raw : undefined, startFromHms]
 }
 
 const clipEndCandidates = (clip: ClipItemV2): Array<number | undefined> => {
@@ -372,15 +383,16 @@ const clipEndCandidates = (clip: ClipItemV2): Array<number | undefined> => {
     parseFlexibleHms(clip.endHMS ?? (clip as any).end_hms ?? undefined) ??
     parseFlexibleHms((clip as any).end) ??
     undefined
-  return [
-    typeof raw === 'number' ? raw : undefined,
-    endFromHms
-  ]
+  return [typeof raw === 'number' ? raw : undefined, endFromHms]
 }
 
 export function resolveClipStartSeconds(clip: ClipItemV2): number | undefined {
   for (const candidate of clipStartCandidates(clip)) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      candidate >= 0
+    ) {
       return candidate
     }
   }
@@ -389,7 +401,11 @@ export function resolveClipStartSeconds(clip: ClipItemV2): number | undefined {
 
 export function resolveClipEndSeconds(clip: ClipItemV2): number | undefined {
   for (const candidate of clipEndCandidates(clip)) {
-    if (typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0) {
+    if (
+      typeof candidate === 'number' &&
+      Number.isFinite(candidate) &&
+      candidate >= 0
+    ) {
       return candidate
     }
   }
@@ -402,7 +418,10 @@ export interface ResolvedClipTiming {
   derived: boolean
 }
 
-export function computeClipTiming(clip: ClipItemV2, options?: { fallbackStart?: number; fallbackDuration?: number }): ResolvedClipTiming {
+export function computeClipTiming(
+  clip: ClipItemV2,
+  options?: { fallbackStart?: number; fallbackDuration?: number }
+): ResolvedClipTiming {
   const fallbackWindow = Math.max(5, options?.fallbackDuration ?? 30)
 
   const resolvedStart = resolveClipStartSeconds(clip)
@@ -532,6 +551,7 @@ export interface ClipItemV2 {
   segmentId?: string
   parentId?: string
   videoId?: string
+  mediaId?: string
   id?: string
   documentType?: string
   nodeType?: string
@@ -547,6 +567,7 @@ export interface ClipItemV2 {
   published_date?: string
   clip_url?: string
   video_id?: string
+  media_id?: string
   parent_id?: string
   thumbnail_url?: string
   segment_id?: string
@@ -563,6 +584,7 @@ export interface ParsedMetadataEntryV2 {
   durationS?: number
   clips: ClipItemV2[]
   videoId?: string
+  mediaId?: string
   channelId?: string
   channelName?: string
   publishedAt?: string
@@ -575,6 +597,7 @@ export interface ParsedMetadataEntryV2 {
   published_at?: string
   published_date?: string
   video_id?: string
+  media_id?: string
   thumbnail_url?: string
   parent_id?: string
   routerTags?: string[]
@@ -585,6 +608,8 @@ export interface BackendFinalClip {
   segment_id: string
   parent_id?: string | null
   video_id?: string | null
+  media_id?: string | null
+  parent_media_id?: string | null
   document_type?: string | null
   score?: number | null
   duration_s?: number | null
@@ -673,14 +698,20 @@ function parseOneLine(line: string): ParsedRow | null {
 
   const sliceValue = (start: number, end: number) => {
     const raw = line.slice(start, end)
-    return raw.replace(/^[\s,]+/, '').replace(/[\s,]+$/, '').trim()
+    return raw
+      .replace(/^[\s,]+/, '')
+      .replace(/[\s,]+$/, '')
+      .trim()
   }
 
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i]
     const keyRaw = (m[1] || '').toLowerCase()
     const valueStart = (m.index ?? 0) + m[0].length
-    const valueEnd = i + 1 < matches.length ? (matches[i + 1].index ?? line.length) : line.length
+    const valueEnd =
+      i + 1 < matches.length
+        ? (matches[i + 1].index ?? line.length)
+        : line.length
     const value = sliceValue(valueStart, valueEnd)
 
     switch (keyRaw) {
@@ -845,6 +876,7 @@ export function parseMetadataEntriesV2FromFinalKept(
         : timeToSeconds(row.start_hms ?? undefined)
     const endSeconds = timeToSeconds(row.end_hms ?? undefined)
     const videoId = row.video_id ?? row.parent_id ?? undefined
+    const mediaId = row.media_id ?? row.parent_media_id ?? undefined
     const clipUrl = row.clip_url ?? undefined
     const url = row.url ?? undefined
 
@@ -857,7 +889,8 @@ export function parseMetadataEntriesV2FromFinalKept(
       url,
       clipUrl,
       score: typeof row.score === 'number' ? row.score : undefined,
-      durationS: typeof row.duration_s === 'number' ? row.duration_s : undefined,
+      durationS:
+        typeof row.duration_s === 'number' ? row.duration_s : undefined,
       startHMS: row.start_hms ?? undefined,
       endHMS: row.end_hms ?? undefined,
       startS: startSeconds ?? undefined,
@@ -867,6 +900,7 @@ export function parseMetadataEntriesV2FromFinalKept(
       segmentId: row.segment_id,
       parentId: row.parent_id ?? row.video_id ?? undefined,
       videoId,
+      mediaId,
       documentType: row.document_type ?? undefined,
       publishedAt: row.published_at ?? undefined,
       publishedDate: row.published_at ?? undefined,
@@ -899,13 +933,21 @@ export function parseMetadataEntriesV2FromFinalKept(
       existing.clips.push(clip)
       if (clip.score != null) {
         existing.scoreMax =
-          existing.scoreMax == null ? clip.score : Math.max(existing.scoreMax, clip.score)
+          existing.scoreMax == null
+            ? clip.score
+            : Math.max(existing.scoreMax, clip.score)
       }
       if (!existing.url && clip.url) existing.url = clip.url
       if (existing.durationS == null && clip.durationS != null) {
         existing.durationS = clip.durationS
       }
-      existing.thumbnailUrl = existing.thumbnailUrl ?? youtubeThumbFor(clip.url ?? clip.clipUrl, clip.videoId ?? existing.videoId)
+      if (!existing.mediaId && clip.mediaId) existing.mediaId = clip.mediaId
+      existing.thumbnailUrl =
+        existing.thumbnailUrl ??
+        youtubeThumbFor(
+          clip.url ?? clip.clipUrl,
+          clip.videoId ?? existing.videoId
+        )
     } else {
       byParent.set(key, {
         parentTitle: clip.parentTitle,
@@ -916,12 +958,16 @@ export function parseMetadataEntriesV2FromFinalKept(
         durationS: clip.durationS,
         clips: [clip],
         videoId: clip.videoId ?? clip.parentId,
+        mediaId: clip.mediaId,
         parentId: clip.parentId ?? clip.videoId,
         channelId: clip.channelId,
         channelName: clip.channelName ?? clip.channel,
         publishedAt: clip.publishedAt,
         publishedDate: clip.publishedDate ?? clip.date,
-        thumbnailUrl: youtubeThumbFor(clip.url ?? clip.clipUrl, clip.videoId ?? clip.parentId)
+        thumbnailUrl: youtubeThumbFor(
+          clip.url ?? clip.clipUrl,
+          clip.videoId ?? clip.parentId
+        )
       })
     }
   })
@@ -1055,6 +1101,7 @@ export function normalizeMetadataEntries(
           last.url = preferred.url ?? last.url
           last.segmentId = preferred.segmentId ?? last.segmentId
           last.videoId = preferred.videoId ?? last.videoId
+          last.mediaId = preferred.mediaId ?? last.mediaId ?? current.mediaId
           last.thumbnailUrl = preferred.thumbnailUrl ?? last.thumbnailUrl
           last.documentType = preferred.documentType ?? last.documentType
           last.nodeType = preferred.nodeType ?? last.nodeType
@@ -1086,6 +1133,11 @@ export function normalizeMetadataEntries(
       readString(entryRecord, 'video_id') ??
       readString(entryRecord, 'parent_id') ??
       readString(entryRecord, 'id')
+    const entryMediaId =
+      entry.mediaId ??
+      readString(entryRecord, 'media_id') ??
+      entry.clips.find(clip => clip.mediaId || clip.media_id)?.mediaId ??
+      entry.clips.find(clip => clip.media_id)?.media_id
     const entryParentId =
       entry.parentId ??
       readString(entryRecord, 'parent_id') ??
@@ -1128,6 +1180,8 @@ export function normalizeMetadataEntries(
         clip.channelId ?? readString(clipRecord, 'channel_id') ?? entryChannelId
       const clipVideoId =
         clip.videoId ?? readString(clipRecord, 'video_id') ?? entryVideoId
+      const clipMediaId =
+        clip.mediaId ?? readString(clipRecord, 'media_id') ?? entryMediaId
       const clipParentId =
         clip.parentId ??
         readString(clipRecord, 'parent_id') ??
@@ -1167,6 +1221,7 @@ export function normalizeMetadataEntries(
         clipUrl: clipClipUrl,
         parentId: clipParentId,
         videoId: clipVideoId,
+        mediaId: clipMediaId,
         publishedAt: clipPublishedAt ?? undefined,
         publishedDate: clipPublishedDate ?? undefined,
         thumbnailUrl: clipThumbnail
@@ -1181,6 +1236,7 @@ export function normalizeMetadataEntries(
       channelName: normalizedChannelName,
       channelId: entryChannelId,
       videoId: entryVideoId,
+      mediaId: entryMediaId,
       parentId: entryParentId ?? entryVideoId,
       publishedAt: entryPublishedAt ?? undefined,
       publishedDate: entryPublishedDate ?? undefined,

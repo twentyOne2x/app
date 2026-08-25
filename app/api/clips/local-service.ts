@@ -25,6 +25,7 @@ const SAMPLE_STREAM_URL =
 
 function serializePayload(payload: ClipGenerationRequestPayload): string {
   return JSON.stringify({
+    mediaId: payload.mediaId ?? null,
     sourceUrl: payload.sourceUrl ?? null,
     parentTitle: payload.parentTitle ?? null,
     clipLabel: payload.clipLabel ?? null,
@@ -33,7 +34,9 @@ function serializePayload(payload: ClipGenerationRequestPayload): string {
     end: payload.end,
     contextMode: payload.contextMode,
     padBefore: payload.padBefore,
-    padAfter: payload.padAfter
+    padAfter: payload.padAfter,
+    preferVideo: payload.preferVideo ?? false,
+    renderProfile: payload.renderProfile ?? 'hq-1080p-v1'
   })
 }
 
@@ -49,7 +52,11 @@ function jobToRecord(job: LocalClipJob): ClipGenerationRecord {
   }
 }
 
-function updateJob(job: LocalClipJob, status: ClipGenerationStatus, overrides?: Partial<LocalClipJob>) {
+function updateJob(
+  job: LocalClipJob,
+  status: ClipGenerationStatus,
+  overrides?: Partial<LocalClipJob>
+) {
   job.status = status
   job.updatedAt = Date.now()
   if (overrides) {
@@ -57,7 +64,10 @@ function updateJob(job: LocalClipJob, status: ClipGenerationStatus, overrides?: 
   }
 }
 
-export function enqueueLocalClipJob(payload: ClipGenerationRequestPayload): { id: string; status: ClipGenerationStatus } {
+export function enqueueLocalClipJob(payload: ClipGenerationRequestPayload): {
+  id: string
+  status: ClipGenerationStatus
+} {
   const key = serializePayload(payload)
   const existingId = dedupeIndex.get(key)
   if (existingId) {

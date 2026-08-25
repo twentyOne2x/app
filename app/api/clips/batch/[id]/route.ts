@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 import { getLocalBatch, retryLocalBatchClip } from '../local-service'
+import { internalServiceHeaders, isProductionRuntime, tenantScopedPayload } from '@/lib/internal-service'
 
 const CLIP_SERVICE_URL = process.env.CLIP_SERVICE_URL
 const CLIP_SERVICE_TOKEN = process.env.CLIP_SERVICE_TOKEN
+
+function batchEnabled() {
+  return !isProductionRuntime() || process.env.CLIP_BATCH_ENABLED === '1'
+}
 
 function serviceUrl(path: string) {
   if (!CLIP_SERVICE_URL) return null
@@ -10,12 +15,22 @@ function serviceUrl(path: string) {
 }
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const url = serviceUrl(`/clips/batch/${params.id}`)
+  const { id } = await params
+  if (!batchEnabled()) {
+    return NextResponse.json(
+      { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
+      { status: 501 }
+    )
+  }
+  const url = serviceUrl(`/clips/batch/${id}`)
   if (!url) {
-    const batch = getLocalBatch(params.id)
+    if (isProductionRuntime()) {
+      return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
+    }
+    const batch = getLocalBatch(id)
     if (!batch) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 })
     }
@@ -26,9 +41,9 @@ export async function GET(
   try {
     response = await fetch(url, {
       method: 'GET',
-      headers: {
+      headers: internalServiceHeaders(request, {
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      }
+      })
     })
   } catch (error) {
     console.error('clips-batch: poll error', error)
@@ -60,10 +75,20 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const url = serviceUrl(`/clips/batch/${params.id}`)
+  const { id } = await params
+  if (!batchEnabled()) {
+    return NextResponse.json(
+      { error: 'not_implemented', message: 'Clip bundles are not enabled.' },
+      { status: 501 }
+    )
+  }
+  const url = serviceUrl(`/clips/batch/${id}`)
   if (!url) {
+    if (isProductionRuntime()) {
+      return NextResponse.json({ error: 'clip_service_unavailable' }, { status: 503 })
+    }
     let body: unknown
     try {
       body = await request.json()
@@ -75,7 +100,7 @@ export async function PATCH(
     if (!clipKey) {
       return NextResponse.json({ error: 'bad_request', message: 'clipKey is required.' }, { status: 400 })
     }
-    const success = retryLocalBatchClip(params.id, clipKey)
+    const success = retryLocalBatchClip(id, clipKey)
     if (!success) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 })
     }
@@ -93,11 +118,11 @@ export async function PATCH(
   try {
     response = await fetch(url, {
       method: 'PATCH',
-      headers: {
+      headers: internalServiceHeaders(request, {
         'Content-Type': 'application/json',
         ...(CLIP_SERVICE_TOKEN ? { Authorization: `Bearer ${CLIP_SERVICE_TOKEN}` } : {})
-      },
-      body: JSON.stringify(body)
+      }),
+      body: JSON.stringify(tenantScopedPayload(request, body))
     })
   } catch (error) {
     console.error('clips-batch: retry network error', error)

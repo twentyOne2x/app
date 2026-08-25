@@ -21,6 +21,7 @@ import { IconSpinner } from '@/components/ui/icons'
 import { e2eSignOut } from '@/app/actions'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { TenantExportMenu } from '@/components/tenant-export-menu'
 
 export interface UserMenuProps {
   user: Session['user']
@@ -148,6 +149,7 @@ export function UserMenu({ user }: UserMenuProps) {
           >
             Settings (soon)
           </DropdownMenuItem>
+          {user?.id ? <TenantExportMenu userId={user.id} /> : null}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-xs text-red-500 focus:text-red-500"

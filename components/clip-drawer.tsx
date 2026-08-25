@@ -193,21 +193,29 @@ export function ClipDrawer({
     status: generationStatus,
     isGenerating,
     isReady,
+    isExpired,
+    clipId,
     streamUrl,
     downloadUrl,
     error: generationError,
-    generate
+    generate,
+    retry
   } = useClipGeneration(parent, clip, settings)
 
   const handleGenerate = useCallback(async () => {
     try {
-      await generate()
-      toast.success('High-quality clip requested. We will let you know when it is ready.')
+      if (generationStatus === 'expired' || (generationStatus === 'error' && clipId)) {
+        await retry()
+        toast.success('High-quality clip retry requested.')
+      } else {
+        await generate(generationStatus === 'error' ? { force: true } : undefined)
+        toast.success('High-quality clip requested. We will let you know when it is ready.')
+      }
     } catch (error) {
       console.error('clip-drawer: failed to queue HQ clip', error)
       toast.error('Unable to queue a high-quality clip. Please adjust the timestamps or try another source.')
     }
-  }, [generate])
+  }, [clipId, generate, generationStatus, retry])
 
   const autoDownloadTriggered = useRef(false)
 
@@ -259,9 +267,13 @@ export function ClipDrawer({
     ? generationStatus === 'queued'
       ? 'Queued…'
       : 'Processing…'
-    : isReady
-      ? 'Regenerate high-quality clip'
-      : 'Generate high-quality clip'
+    : isExpired
+      ? 'Regenerate expired clip'
+      : generationStatus === 'error'
+        ? 'Retry high-quality clip'
+        : isReady
+          ? 'High-quality clip ready'
+          : 'Generate high-quality clip'
 
   const embedSrc = (() => {
     if (!data.embedUrl) return undefined
@@ -369,7 +381,7 @@ export function ClipDrawer({
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={!hasBoundaries || isGenerating}
+                disabled={!hasBoundaries || isGenerating || isReady}
                 className={cn(
                   'rounded-md border px-3 py-1 text-xs font-medium shadow-sm transition',
                   !hasBoundaries
@@ -390,6 +402,12 @@ export function ClipDrawer({
           {generationError ? (
             <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-700">
               {generationError}
+            </div>
+          ) : null}
+
+          {isExpired && !generationError ? (
+            <div className="rounded-md border border-amber-300/40 bg-amber-100 p-3 text-xs text-amber-900">
+              This generated artifact expired. Retry creates a new durable generation from the same source and timestamps.
             </div>
           ) : null}
 

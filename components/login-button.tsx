@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { signIn } from 'next-auth/react'
+import { getProviders, signIn } from 'next-auth/react'
 import { toast } from 'react-hot-toast'
 
 import { Button, type ButtonProps } from '@/components/ui/button'
@@ -42,6 +42,22 @@ export function LoginButton({
   const [isLoading, setIsLoading] = React.useState(false)
   const metadata = getLoginMetadata(loginType)
   const Icon = metadata.icon
+  const [isAvailable, setIsAvailable] = React.useState<boolean | null>(null)
+
+  React.useEffect(() => {
+    let active = true
+    void getProviders()
+      .then((providers) => {
+        if (active) setIsAvailable(Boolean(providers?.[metadata.provider]))
+      })
+      .catch((error) => {
+        console.error('Unable to load configured authentication providers', error)
+        if (active) setIsAvailable(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [metadata.provider])
 
   const handleLogin = React.useCallback(async () => {
     setIsLoading(true)
@@ -55,6 +71,8 @@ export function LoginButton({
       setIsLoading(false)
     }
   }, [callbackUrl, metadata.label, metadata.provider])
+
+  if (isAvailable !== true) return null
 
   return (
     <Button

@@ -31,8 +31,12 @@ declare module 'next-auth/jwt' {
   }
 }
 
-const hasTwitterConfig = Boolean(process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET)
-const hasGoogleConfig = Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+export const hasTwitterConfig = Boolean(
+  process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET
+)
+export const hasGoogleConfig = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+)
 
 export const IS_E2E_MODE =
   process.env.E2E_MODE === '1' || process.env.NEXT_PUBLIC_E2E_MODE === '1'
@@ -123,7 +127,7 @@ export const authOptions: NextAuthOptions = {
 
 export async function auth() {
   if (IS_E2E_MODE) {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const state = cookieStore.get(E2E_AUTH_COOKIE)?.value ?? 'active'
     if (state === 'signed-out') {
       return null

@@ -12,8 +12,9 @@ import { buildClipPreferenceKey } from './use-clip-padding'
 import { computeClipTiming } from '@/lib/utils'
 import { useLocalStorage } from './use-local-storage'
 import type { ClipPaddingSettings } from './use-clip-padding'
+import { nanoid } from 'nanoid'
 
-interface GenerateOptions {
+export interface GenerateOptions {
   force?: boolean
 }
 
@@ -21,7 +22,9 @@ const STORAGE_KEY = 'clip-generation-records/v1'
 
 type PollingStatus = Extract<ClipGenerationStatus, 'queued' | 'processing'>
 
-function normalizeRecord(input?: ClipGenerationRecord): ClipGenerationRecord | undefined {
+function normalizeRecord(
+  input?: ClipGenerationRecord
+): ClipGenerationRecord | undefined {
   if (!input) return undefined
   const status: ClipGenerationStatus = input.status ?? 'idle'
   return {
@@ -61,6 +64,19 @@ async function postClipGeneration(payload: ClipGenerationRequestPayload) {
   return (await response.json()) as { id: string; status: ClipGenerationStatus }
 }
 
+async function postClipRetry(clipId: string, idempotencyKey: string) {
+  const response = await fetch(`/api/clips/${clipId}/retry`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idempotencyKey })
+  })
+  if (!response.ok) {
+    const message = await response.text()
+    throw new Error(message || 'Failed to retry clip')
+  }
+  return (await response.json()) as { id: string; status: ClipGenerationStatus }
+}
+
 async function fetchClipStatus(id: string) {
   const response = await fetch(`/api/clips/${id}`, {
     method: 'GET',
@@ -82,14 +98,20 @@ export function useClipGeneration(
   clip?: ClipItemV2,
   padding?: ClipPaddingSettings
 ) {
-  const [store, setStore] = useLocalStorage<ClipGenerationStore>(STORAGE_KEY, {})
+  const [store, setStore] = useLocalStorage<ClipGenerationStore>(
+    STORAGE_KEY,
+    {}
+  )
   const storeRef = useRef(store)
 
   useEffect(() => {
     storeRef.current = store
   }, [store])
 
-  const key = useMemo(() => buildGenerationKey(parent, clip, padding), [parent, clip, padding])
+  const key = useMemo(
+    () => buildGenerationKey(parent, clip, padding),
+    [parent, clip, padding]
+  )
   const record = normalizeRecord(key ? store[key] : undefined)
 
   const updateStoreForKey = useCallback(
@@ -100,6 +122,7 @@ export function useClipGeneration(
       } else {
         current[targetKey] = value
       }
+      storeRef.current = current
       setStore(current)
     },
     [setStore]
@@ -134,9 +157,14 @@ export function useClipGeneration(
       }
 
       const { start, end, derived } = computeClipTiming(clip)
+      const mediaId =
+        clip.mediaId ?? clip.media_id ?? parent.mediaId ?? parent.media_id
 
       const payload: ClipGenerationRequestPayload = {
-        sourceUrl: clip.url ?? parent.url,
+        idempotencyKey:
+          current?.requestPayload?.idempotencyKey ?? `clip-create-${nanoid(32)}`,
+        mediaId,
+        sourceUrl: mediaId ? undefined : (clip.url ?? parent.url),
         parentTitle: parent.parentTitle,
         clipLabel: clip.parentTitle,
         channel: clip.channel,
@@ -144,9 +172,15 @@ export function useClipGeneration(
         end,
         contextMode: padding.mode === 'smart' ? 'sentence' : 'seconds',
         padBefore:
-          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padBeforeSeconds,
+          padding.mode === 'smart'
+            ? padding.smartPadSeconds
+            : padding.padBeforeSeconds,
         padAfter:
-          padding.mode === 'smart' ? padding.smartPadSeconds : padding.padAfterSeconds,
+          padding.mode === 'smart'
+            ? padding.smartPadSeconds
+            : padding.padAfterSeconds,
+        preferVideo: true,
+        renderProfile: 'hq-1080p-v1',
         derived
       }
 
@@ -169,7 +203,8 @@ export function useClipGeneration(
         queueStatusUpdate({
           clipId: current?.clipId ?? '',
           status: 'error',
-          errorMessage: error instanceof Error ? error.message : 'Failed to queue clip',
+          errorMessage:
+            error instanceof Error ? error.message : 'Failed to queue clip',
           requestPayload: payload,
           lastUpdated: Date.now()
         })
@@ -193,7 +228,10 @@ export function useClipGeneration(
         queueStatusUpdate({
           clipId,
           status: 'error',
-          errorMessage: error instanceof Error ? error.message : 'Failed to refresh clip status',
+          errorMessage:
+            error instanceof Error
+              ? error.message
+              : 'Failed to refresh clip status',
           requestPayload: record?.requestPayload,
           lastUpdated: Date.now()
         })
@@ -202,6 +240,47 @@ export function useClipGeneration(
     },
     [queueStatusUpdate, record?.requestPayload]
   )
+
+  const retry = useCallback(async () => {
+    if (!key) return
+    const current = normalizeRecord(storeRef.current[key])
+    if (
+      !current?.clipId ||
+      (current.status !== 'error' && current.status !== 'expired') ||
+      current.retrying
+    ) {
+      return
+    }
+    const retryIdempotencyKey =
+      current.retryIdempotencyKey ?? `clip-retry-${nanoid(32)}`
+    queueStatusUpdate({
+      ...current,
+      retrying: true,
+      retryIdempotencyKey,
+      errorMessage: undefined,
+      lastUpdated: Date.now()
+    })
+    try {
+      const result = await postClipRetry(current.clipId, retryIdempotencyKey)
+      queueStatusUpdate({
+        clipId: result.id,
+        status: result.status,
+        requestPayload: current.requestPayload,
+        retrying: false,
+        lastUpdated: Date.now()
+      })
+    } catch (error) {
+      queueStatusUpdate({
+        ...current,
+        retrying: false,
+        retryIdempotencyKey,
+        errorMessage:
+          error instanceof Error ? error.message : 'Failed to retry clip',
+        lastUpdated: Date.now()
+      })
+      throw error
+    }
+  }, [key, queueStatusUpdate])
 
   useEffect(() => {
     if (!key || !record?.clipId || !canPoll(record.status)) {
@@ -240,10 +319,12 @@ export function useClipGeneration(
     streamUrl: record?.streamUrl,
     downloadUrl: record?.downloadUrl,
     error: record?.errorMessage,
-    isGenerating: canPoll(record?.status),
+    isGenerating: canPoll(record?.status) || record?.retrying === true,
     isReady: record?.status === 'ready',
+    isExpired: record?.status === 'expired',
     generate,
     regenerate: useCallback(() => generate({ force: true }), [generate]),
+    retry,
     refresh,
     clear,
     requestPayload: record?.requestPayload

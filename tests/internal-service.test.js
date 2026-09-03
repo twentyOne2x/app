@@ -128,7 +128,7 @@ test('production Bearer requests fail closed without an exact gateway principal'
   })
 })
 
-test('cookie-only and nonproduction chat ownership preserves the raw session user', () => {
+test('cookie-only and nonproduction chat ownership prefers an attached canonical gateway user', () => {
   const gatewayUser = `usr_${'b'.repeat(64)}`
   withEnvironment({ ICMFYI_PRODUCTION: '1' }, () => {
     assert.equal(
@@ -138,7 +138,7 @@ test('cookie-only and nonproduction chat ownership preserves the raw session use
         }),
         'session-user-b'
       ),
-      'session-user-b'
+      gatewayUser
     )
   })
   withEnvironment({ ICMFYI_PRODUCTION: '0', NODE_ENV: 'test' }, () => {
@@ -150,6 +150,13 @@ test('cookie-only and nonproduction chat ownership preserves the raw session use
             'x-icmfyi-user-id': gatewayUser
           }
         }),
+        'session-user-b'
+      ),
+      gatewayUser
+    )
+    assert.equal(
+      authoritativeRequestUserId(
+        new Request('https://icm.fyi/api/chat'),
         'session-user-b'
       ),
       'session-user-b'

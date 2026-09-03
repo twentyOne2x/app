@@ -1,5 +1,8 @@
 # Vercel + DigitalOcean Production Split
 
+> Historical topology only. The current single-host Linux persistence and
+> cutover contract is [Linux Production Persistence and Cutover](./linux-production-cutover.md).
+
 This app is intended to run as a split deployment:
 
 - Vercel for the Next.js frontend in `/Users/user/PycharmProjects/icmfyi/app`

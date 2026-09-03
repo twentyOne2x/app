@@ -10,9 +10,13 @@ import { getServerChatAccessState } from '@/lib/chat-access'
 
 export const preferredRegion = 'home'
 
-export interface ChatPageProps { params: Promise<{ id: string }> }
+export interface ChatPageProps {
+  params: Promise<{ id: string }>
+}
 
-export async function generateMetadata({ params }: ChatPageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params
+}: ChatPageProps): Promise<Metadata> {
   const [session, { id }] = await Promise.all([auth(), params])
   if (!session?.user || session.user.id === null) return { title: 'Chat' }
   const chat = await getChat(id, session.user.id)
@@ -20,12 +24,14 @@ export async function generateMetadata({ params }: ChatPageProps): Promise<Metad
 }
 
 function adaptMessagesForChat(messages: any[] = []) {
-  return messages.map((m) => {
+  return messages.map(m => {
     const role = m.role ?? m.sender ?? 'assistant'
     const content =
-      typeof m.content === 'string' ? m.content :
-      typeof m.text === 'string' ? m.text :
-      JSON.stringify(m.content ?? m)
+      typeof m.content === 'string'
+        ? m.content
+        : typeof m.text === 'string'
+          ? m.text
+          : JSON.stringify(m.content ?? m)
     const base: any = { role, content }
     if (m.id) base.id = m.id
     if (m.metadata) base.metadata = m.metadata
@@ -47,7 +53,10 @@ export default async function ChatPage({ params }: ChatPageProps) {
     if (chat.sharePath) return redirect(chat.sharePath as string)
     return notFound()
   }
-  if (!userId || (chat.userId && chat.userId !== userId)) return notFound()
+  // getChat verifies the caller's raw session and resolves its canonical
+  // PostgreSQL scope before returning a row; chat.userId is intentionally the
+  // opaque canonical principal rather than the provider subject in session.
+  if (!userId) return notFound()
 
   return (
     <>
@@ -57,13 +66,14 @@ export default async function ChatPage({ params }: ChatPageProps) {
         structured_metadata={chat.structured_metadata}
         accessState={accessState}
         shareHeader={
-          userId && chat.userId === userId ? (
-            <ShareChatHeader chatId={chat.id} chat={chat} />
-          ) : null
+          userId ? <ShareChatHeader chatId={chat.id} chat={chat} /> : null
         }
       />
       <div className="px-4 pb-16">
-        <SourceListInline entries={chat.structured_metadata as any} className="mt-6" />
+        <SourceListInline
+          entries={chat.structured_metadata as any}
+          className="mt-6"
+        />
       </div>
     </>
   )

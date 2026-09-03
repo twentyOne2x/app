@@ -10,10 +10,15 @@
 
 ## Data and Control Flow
 1. User submits prompt from chat UI.
-2. API route performs retrieval + model streaming and emits answer chunks.
-3. Source metadata is parsed into clip/timestamp-aware entries.
-4. UI actions can play, edit, and bundle clips for downstream workflows.
+2. Middleware derives stable opaque user and tenant IDs from the authenticated
+   provider identity; caller-supplied scope headers are discarded.
+3. API route performs retrieval + model streaming and emits answer chunks.
+4. Completed chats and immutable shares are stored in PostgreSQL under forced
+   tenant/principal RLS. Redis contains only expiring rate counters.
+5. Source metadata is parsed into clip/timestamp-aware entries.
+6. UI actions can play, edit, and bundle clips for downstream workflows.
 
 ## Ops Notes
-- Runtime assumes configured model and retrieval provider credentials.
+- Production health requires live PostgreSQL chat storage and Redis counters in
+  addition to configured model, retrieval, OAuth, and service credentials.
 - Use `scripts/knowledge_check.py` to validate repo knowledge-base hygiene.

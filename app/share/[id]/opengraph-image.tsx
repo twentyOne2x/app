@@ -156,7 +156,7 @@ export default async function Image({ params }: ImageProps) {
               <path d="M24 22.525H0l12-21.05 12 21.05z" />
             </svg>
             <div style={{ display: 'flex', marginLeft: '1rem', color: '#eaeaf0' }}>
-              Built with <span style={{ marginLeft: '0.5rem', marginRight: '0.5rem' }}>Vercel AI SDK</span> &amp; <span style={{ marginLeft: '0.5rem' }}>KV</span>
+              Built with <span style={{ marginLeft: '0.5rem', marginRight: '0.5rem' }}>ICMFYI retrieval</span> &amp; <span style={{ marginLeft: '0.5rem' }}>PostgreSQL</span>
             </div>
           </div>
           <div style={{ fontSize: '1.8rem', marginLeft: 'auto', color: '#9b9ba4' }}>chat.vercel.ai</div>

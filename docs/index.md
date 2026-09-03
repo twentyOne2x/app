@@ -11,4 +11,5 @@
 - [Completed Plans](./plans/completed/)
 
 ## Existing Product Notes
+- [Linux Production Persistence and Cutover](./linux-production-cutover.md)
 - Clip UX and source-list docs under `docs/*.md` remain the detailed feature references.

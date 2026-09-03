@@ -14,7 +14,7 @@ export interface Message {
 
 export type ServerActionResult<Result> = Promise<Result | { error: string }>
 
-/** Unified Chat shape used in KV and across routes/components. */
+/** Unified authoritative chat shape used by PostgreSQL and route components. */
 export interface Chat {
   id: string
   title: string

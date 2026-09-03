@@ -479,6 +479,15 @@ class ChatRequestError extends Error {
   }
 }
 
+const LEGACY_CHAT_FALLBACK_STATUSES = new Set([404, 405, 501])
+
+function shouldFallbackToLegacyChat(error: unknown): boolean {
+  return (
+    error instanceof ChatRequestError &&
+    LEGACY_CHAT_FALLBACK_STATUSES.has(error.status)
+  )
+}
+
 function parseAccessStateHeader(response: Response): ChatAccessState | null {
   const raw = response.headers.get(CHAT_ACCESS_HEADER)
   if (!raw) return null
@@ -1821,7 +1830,11 @@ export function Chat({
             } else if (eventType === 'error') {
               await reader.cancel().catch(() => undefined)
               const errorMessage = String((eventData as { error?: unknown }).error ?? 'Streaming error')
-              throw new Error(errorMessage)
+              const errorCode =
+                typeof (eventData as { code?: unknown }).code === 'string'
+                  ? (eventData as { code: string }).code
+                  : null
+              throw new ChatRequestError(errorMessage, 502, errorCode)
             }
           }
         }
@@ -2218,7 +2231,7 @@ export function Chat({
       if (isAbortError) {
         backendPayload = { error: 'stream_aborted' }
         backendMode = 'error'
-      } else {
+      } else if (shouldFallbackToLegacyChat(streamError)) {
         console.error('chat: streaming failed, falling back to legacy request', { traceId: messageId }, streamError)
         try {
           backendPayload = await sendChatLegacy(nextMessages, messageId)
@@ -2242,6 +2255,28 @@ export function Chat({
           console.debug('chat: cleared transient state after error', { traceId: messageId })
           backendMode = 'error'
         }
+      } else {
+        console.error(
+          'chat: streaming failed without legacy fallback',
+          { traceId: messageId },
+          streamError
+        )
+        toast.error(
+          streamError instanceof Error && streamError.message
+            ? streamError.message
+            : 'Unable to reach the chat service. Please try again.'
+        )
+        setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        setCurrentDiagnostics(null);
+        setLiveProgress([]);
+        setLastMessageRole('user')
+        backendPayload = {
+          error: streamError instanceof Error ? streamError.message : String(streamError)
+        }
+        console.debug('chat: cleared transient state after streaming error', {
+          traceId: messageId
+        })
+        backendMode = 'error'
       }
     } finally {
       setIsProcessingQuery(false);

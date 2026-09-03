@@ -2,8 +2,6 @@ process.env.TS_NODE_COMPILER_OPTIONS = JSON.stringify({ module: 'commonjs' })
 process.env.ICMFYI_PRODUCTION = '1'
 process.env.INTERNAL_SERVICE_SECRET = 's'.repeat(32)
 process.env.RAG_SERVICE_URL = 'http://rag:8080'
-delete process.env.KV_REST_API_URL
-delete process.env.KV_REST_API_TOKEN
 
 require('ts-node/register/transpile-only')
 require('tsconfig-paths/register')
@@ -14,6 +12,7 @@ const Module = require('node:module')
 
 const sessionUserId = 'session-user-b'
 const accessPrincipals = []
+const persisted = []
 const originalLoad = Module._load
 
 Module._load = function patchedLoad(request, parent, isMain) {
@@ -28,6 +27,16 @@ Module._load = function patchedLoad(request, parent, isMain) {
       },
       applyChatAccessResponse: (response) => response,
       finalizeChatAccess: async () => ({})
+    }
+  }
+  if (request === '@/lib/chat-store') {
+    return {
+      chatStore: () => ({
+        put: async (scope, chat) => {
+          persisted.push({ scope, chat })
+          return chat
+        }
+      })
     }
   }
   return originalLoad.call(this, request, parent, isMain)
@@ -61,7 +70,7 @@ test('mixed Bearer and session use the gateway principal in both chat routes', a
   global.fetch = async (url, init) => {
     captured.push({ url: String(url), init })
     if (String(url).endsWith('/chat/stream')) {
-      return new Response('data: {"ok":true}\n\n', {
+      return new Response('data: {"type":"result","response":"ok"}\n\n', {
         status: 200,
         headers: { 'content-type': 'text/event-stream' }
       })
@@ -93,11 +102,11 @@ test('mixed Bearer and session use the gateway principal in both chat routes', a
   }
 })
 
-test('cookie-only browser chat retains raw session ownership in both routes', async () => {
+test('cookie-only browser chat uses the gateway-derived principal in both routes', async () => {
   const beforeFetch = global.fetch
   global.fetch = async (url) => {
     if (String(url).endsWith('/chat/stream')) {
-      return new Response('data: {"ok":true}\n\n', {
+      return new Response('data: {"type":"result","response":"ok"}\n\n', {
         status: 200,
         headers: { 'content-type': 'text/event-stream' }
       })
@@ -118,8 +127,12 @@ test('cookie-only browser chat retains raw session ownership in both routes', as
       request('/api/chat', { authorization: false, sessionGateway: true })
     )
     assert.equal(chatResponse.status, 200)
-    assert.equal((await chatResponse.json()).userId, sessionUserId)
-    assert.deepEqual(accessPrincipals.slice(-2), [sessionUserId, sessionUserId])
+    assert.equal((await chatResponse.json()).userId, sessionGatewayUserId)
+    assert.deepEqual(accessPrincipals.slice(-2), [sessionGatewayUserId, sessionGatewayUserId])
+    assert.deepEqual(persisted.at(-1).scope, {
+      userId: sessionGatewayUserId,
+      tenantId: sessionGatewayTenantId
+    })
   } finally {
     global.fetch = beforeFetch
   }
@@ -139,4 +152,27 @@ test('production Bearer route fails closed if the trusted gateway principal is a
   const response = await streamRoute.POST(invalid)
   assert.equal(response.status, 401)
   assert.deepEqual(await response.json(), { error: 'invalid_gateway_identity' })
+})
+
+test('both production chat handlers reject a raw session without canonical gateway scope', async () => {
+  const direct = path =>
+    new Request(`https://icm.fyi${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: 'raw-session-must-not-query',
+        messages: [{ role: 'user', content: 'hello' }]
+      })
+    })
+
+  const streamRoute = require('../app/api/chat/stream/route.ts')
+  const chatRoute = require('../app/api/chat/route.ts')
+  for (const [path, handler] of [
+    ['/api/chat/stream', streamRoute.POST],
+    ['/api/chat', chatRoute.POST]
+  ]) {
+    const response = await handler(direct(path))
+    assert.equal(response.status, 401)
+    assert.deepEqual(await response.json(), { error: 'invalid_gateway_identity' })
+  }
 })

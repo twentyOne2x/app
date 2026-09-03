@@ -94,7 +94,13 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, account, user }) {
-      if (account?.provider === 'twitter' || account?.provider === 'google') {
+      if (
+        account?.provider === 'twitter' ||
+        account?.provider === 'google' ||
+        (account?.provider === 'local-dev' &&
+          process.env.ICMFYI_PRODUCTION !== '1' &&
+          process.env.NODE_ENV !== 'production')
+      ) {
         token.provider = account.provider
         token.userId = user?.id ?? account.providerAccountId ?? token.userId ?? token.sub ?? undefined
         token.email = user?.email ?? token.email ?? null

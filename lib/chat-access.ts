@@ -1,7 +1,7 @@
-import { kv } from '@vercel/kv'
 import { randomUUID } from 'crypto'
 import { cookies } from 'next/headers'
 import { parse as parseCookie, serialize as serializeCookie } from 'cookie'
+import { createClient } from 'redis'
 
 import {
   CHAT_ACCESS_COOKIE,
@@ -9,6 +9,7 @@ import {
   buildDefaultChatAccessState,
   type ChatAccessState
 } from '@/lib/chat-access-shared'
+import { isProductionRuntime } from '@/lib/internal-service'
 
 const PREVIEW_TTL_SECONDS = 60 * 60 * 24 * 30
 
@@ -22,6 +23,14 @@ type LocalChatAccessStore = {
   rateLimits: Map<string, ExpiringCounter>
 }
 
+type RedisCounterClient = {
+  connect(): Promise<unknown>
+  get(key: string): Promise<string | null>
+  incr(key: string): Promise<number>
+  expire(key: string, seconds: number): Promise<number | boolean>
+  on(event: 'error', listener: (error: unknown) => void): unknown
+}
+
 type PreparedChatAccess = {
   anonId: string | null
   shouldSetCookie: boolean
@@ -33,9 +42,65 @@ type PreparedChatAccess = {
 
 const globalStore = globalThis as typeof globalThis & {
   __LOCAL_CHAT_ACCESS_STORE__?: LocalChatAccessStore
+  __ICMFYI_CHAT_ACCESS_REDIS__?: RedisCounterClient
+  __ICMFYI_CHAT_ACCESS_REDIS_PROMISE__?: Promise<RedisCounterClient>
+  __ICMFYI_CHAT_ACCESS_REDIS_URL__?: string
 }
 
-const isKvConfigured = Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN)
+function redisUrl(): string {
+  return process.env.APP_REDIS_URL?.trim() ?? ''
+}
+
+async function redisClient(): Promise<RedisCounterClient | null> {
+  const url = redisUrl()
+  if (!url) {
+    if (isProductionRuntime()) {
+      throw new Error('APP_REDIS_URL is required in production')
+    }
+    return null
+  }
+  if (
+    globalStore.__ICMFYI_CHAT_ACCESS_REDIS_URL__ &&
+    globalStore.__ICMFYI_CHAT_ACCESS_REDIS_URL__ !== url
+  ) {
+    throw new Error(
+      'APP_REDIS_URL changed after the runtime client was initialized'
+    )
+  }
+  if (!globalStore.__ICMFYI_CHAT_ACCESS_REDIS_PROMISE__) {
+    const client = createClient({
+      url,
+      socket: {
+        connectTimeout: 5000,
+        reconnectStrategy: retries => Math.min(250 * Math.max(1, retries), 2000)
+      }
+    }) as unknown as RedisCounterClient
+    client.on('error', error => {
+      console.error(
+        'chat access Redis error',
+        error instanceof Error ? error.message : 'redis_error'
+      )
+    })
+    globalStore.__ICMFYI_CHAT_ACCESS_REDIS__ = client
+    globalStore.__ICMFYI_CHAT_ACCESS_REDIS_URL__ = url
+    globalStore.__ICMFYI_CHAT_ACCESS_REDIS_PROMISE__ = client
+      .connect()
+      .then(() => client)
+  }
+  return globalStore.__ICMFYI_CHAT_ACCESS_REDIS_PROMISE__
+}
+
+export async function chatAccessStoreHealth(): Promise<void> {
+  const redis = await redisClient()
+  if (!redis) {
+    if (isProductionRuntime()) {
+      throw new Error('APP_REDIS_URL is required in production')
+    }
+    return
+  }
+  const key = `chat:health:${process.pid}`
+  await redis.get(key)
+}
 
 function getNumericEnv(name: string, fallback: number): number {
   const raw = process.env[name]
@@ -86,7 +151,9 @@ function getRequestCookies(request: Request) {
 function getRequestAnonId(request: Request): string | null {
   const parsed = getRequestCookies(request)
   const candidate = parsed[CHAT_ACCESS_COOKIE]
-  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null
+  return typeof candidate === 'string' && candidate.trim()
+    ? candidate.trim()
+    : null
 }
 
 function getRequestIp(request: Request): string | null {
@@ -110,8 +177,9 @@ function rateLimitKey(identity: string) {
 }
 
 async function readPreviewCount(anonId: string): Promise<number> {
-  if (isKvConfigured) {
-    const raw = await kv.get(previewUsageKey(anonId))
+  const redis = await redisClient()
+  if (redis) {
+    const raw = await redis.get(previewUsageKey(anonId))
     const parsed = Number(raw ?? 0)
     return Number.isFinite(parsed) ? parsed : 0
   }
@@ -122,11 +190,12 @@ async function readPreviewCount(anonId: string): Promise<number> {
 }
 
 async function incrementPreviewCount(anonId: string): Promise<number> {
-  if (isKvConfigured) {
+  const redis = await redisClient()
+  if (redis) {
     const key = previewUsageKey(anonId)
-    const next = await kv.incr(key)
+    const next = await redis.incr(key)
     if (next === 1) {
-      await kv.expire(key, PREVIEW_TTL_SECONDS)
+      await redis.expire(key, PREVIEW_TTL_SECONDS)
     }
     return next
   }
@@ -142,14 +211,18 @@ async function incrementPreviewCount(anonId: string): Promise<number> {
   return next
 }
 
-async function incrementRateLimit(identity: string, max: number): Promise<{ count: number; remaining: number }> {
+async function incrementRateLimit(
+  identity: string,
+  max: number
+): Promise<{ count: number; remaining: number }> {
   const windowSeconds = getRateLimitWindowSeconds()
   const key = rateLimitKey(identity)
 
-  if (isKvConfigured) {
-    const count = await kv.incr(key)
+  const redis = await redisClient()
+  if (redis) {
+    const count = await redis.incr(key)
     if (count === 1) {
-      await kv.expire(key, windowSeconds + 5)
+      await redis.expire(key, windowSeconds + 5)
     }
     return {
       count,
@@ -171,7 +244,10 @@ async function incrementRateLimit(identity: string, max: number): Promise<{ coun
   }
 }
 
-function buildAccessState(isAuthenticated: boolean, previewCount: number): ChatAccessState {
+function buildAccessState(
+  isAuthenticated: boolean,
+  previewCount: number
+): ChatAccessState {
   const previewLimit = getPreviewLimit()
   if (isAuthenticated) {
     return buildDefaultChatAccessState({
@@ -244,19 +320,27 @@ function buildAccessErrorResponse(
   return applyChatAccessResponse(response, context, state)
 }
 
-export async function beginChatAccess(request: Request, userId?: string | null) {
+export async function beginChatAccess(
+  request: Request,
+  userId?: string | null
+) {
   const isAuthenticated = Boolean(userId)
   const previewLimit = getPreviewLimit()
   const existingAnonId = isAuthenticated ? null : getRequestAnonId(request)
-  const anonId = isAuthenticated ? null : existingAnonId ?? randomUUID()
+  const anonId = isAuthenticated ? null : (existingAnonId ?? randomUUID())
   const previewCount = anonId ? await readPreviewCount(anonId) : 0
 
   const ip = getRequestIp(request)
   const rateLimitIdentity = isAuthenticated
     ? `user:${userId}`
     : `anon:${ip ?? anonId ?? 'unknown'}`
-  const rateLimitMax = isAuthenticated ? getAuthRateLimitMax() : getAnonRateLimitMax()
-  const rateLimitResult = await incrementRateLimit(rateLimitIdentity, rateLimitMax)
+  const rateLimitMax = isAuthenticated
+    ? getAuthRateLimitMax()
+    : getAnonRateLimitMax()
+  const rateLimitResult = await incrementRateLimit(
+    rateLimitIdentity,
+    rateLimitMax
+  )
 
   const context: PreparedChatAccess = {
     anonId,
@@ -315,12 +399,14 @@ export async function finalizeChatAccess(context: PreparedChatAccess) {
   return buildAccessState(false, nextCount)
 }
 
-export async function getServerChatAccessState(userId?: string | null): Promise<ChatAccessState> {
+export async function getServerChatAccessState(
+  userId?: string | null
+): Promise<ChatAccessState> {
   if (userId) {
     return buildAccessState(true, 0)
   }
 
-  if (process.env.ICMFYI_PRODUCTION === '1') {
+  if (isProductionRuntime()) {
     return buildAccessState(false, getPreviewLimit())
   }
 

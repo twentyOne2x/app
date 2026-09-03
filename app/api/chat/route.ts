@@ -1,4 +1,3 @@
-import { kv } from '@vercel/kv'
 import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import {
@@ -13,20 +12,18 @@ import {
   parseMetadataEntriesV2FromFinalKept,
   type ParsedMetadataEntryV2
 } from '@/lib/utils'
-import { putLocalChat } from '@/lib/local-chat-store'
+import { chatStore } from '@/lib/chat-store'
+import { requestChatScope, type ChatScope } from '@/lib/chat-scope'
 import {
   authoritativeRequestUserId,
   internalServiceHeaders,
+  isProductionRuntime,
   tenantScopedPayload,
   TrustedGatewayIdentityError
 } from '@/lib/internal-service'
 import type { DiagnosticsPayload } from '@/lib/types'
 
 export const maxDuration = 300
-
-const KV_REST_API_URL = process.env.KV_REST_API_URL
-const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN
-const isKvConfigured = Boolean(KV_REST_API_URL && KV_REST_API_TOKEN)
 
 interface ChatResponseDiagnostics extends DiagnosticsPayload {
   backend_status?: number
@@ -61,14 +58,19 @@ export async function POST(req: Request) {
   const { messages } = json
   const channelFilter = json.channel_filter ?? undefined
   const clientTraceId: string | null =
-    typeof json.client_trace_id === 'string' && json.client_trace_id.trim().length
+    typeof json.client_trace_id === 'string' &&
+    json.client_trace_id.trim().length
       ? json.client_trace_id.trim()
       : null
   const entryProfileCode: string | undefined =
-    typeof json.entryProfileCode === 'string' && json.entryProfileCode.trim().length
+    typeof json.entryProfileCode === 'string' &&
+    json.entryProfileCode.trim().length
       ? json.entryProfileCode.trim()
       : undefined
-  const traceId = clientTraceId ?? (typeof json.id === 'string' ? String(json.id) : null) ?? randomUUID()
+  const traceId =
+    clientTraceId ??
+    (typeof json.id === 'string' ? String(json.id) : null) ??
+    randomUUID()
 
   const session = await auth()
   let userId: string | null
@@ -76,10 +78,22 @@ export async function POST(req: Request) {
     userId = authoritativeRequestUserId(req, session?.user?.id)
   } catch (error) {
     if (error instanceof TrustedGatewayIdentityError) {
-      return Response.json({ error: 'invalid_gateway_identity' }, { status: 401 })
+      return Response.json(
+        { error: 'invalid_gateway_identity' },
+        { status: 401 }
+      )
     }
     throw error
   }
+  const gatewayScope = requestChatScope(req)
+  if (
+    isProductionRuntime() &&
+    (!userId || !gatewayScope || gatewayScope.userId !== userId)
+  ) {
+    return Response.json({ error: 'invalid_gateway_identity' }, { status: 401 })
+  }
+  const persistenceScope: ChatScope | null =
+    gatewayScope ?? (userId ? { userId, tenantId: `local:${userId}` } : null)
 
   console.debug('chat-route: request received', {
     traceId,
@@ -122,33 +136,39 @@ export async function POST(req: Request) {
       userId,
       createdAt,
       path,
-      messages: [...(messages || []), { content: processedResponseContent, role: 'assistant' }],
+      messages: [
+        ...(messages || []),
+        { content: processedResponseContent, role: 'assistant' }
+      ],
       structured_metadata: structuredMetadata,
       entryProfileCode
     }
 
-    if (userId && isKvConfigured) {
+    if (userId) {
       try {
-        await kv.hmset(`chat:${id}`, payload)
-        await kv.zadd(`user:chat:${userId}`, { score: createdAt, member: `chat:${id}` })
+        if (!persistenceScope || persistenceScope.userId !== userId) {
+          throw new Error('canonical chat persistence scope is unavailable')
+        }
+        await chatStore().put(persistenceScope, payload as any)
       } catch (error) {
-        console.error('chat-route: failed to persist chat metadata', { traceId: trace }, error)
+        console.error(
+          'chat-route: failed to persist chat metadata',
+          { traceId: trace },
+          error
+        )
         return applyChatAccessResponse(
           new Response('Failed to persist chat', { status: 500 }),
           accessCheck.context,
           accessCheck.state
         )
       }
-    } else if (userId && !isKvConfigured) {
-      console.warn('chat-route: KV not configured, caching chat in memory', { traceId: trace })
-      putLocalChat(payload as any)
     }
 
     console.debug('chat-route: building response payload', {
       traceId: trace,
       metadataCount: structuredMetadata.length,
       diagnostics: Boolean(diagnostics),
-      persisted: Boolean(userId && isKvConfigured)
+      persisted: Boolean(userId)
     })
 
     const responsePayload = {
@@ -180,10 +200,14 @@ export async function POST(req: Request) {
   }
 
   const backendBaseUrl =
-    process.env.RAG_SERVICE_URL ?? process.env.NEXT_PUBLIC_RAG_API_URL ?? process.env.REACT_APP_BACKEND_URL
+    process.env.RAG_SERVICE_URL ??
+    process.env.NEXT_PUBLIC_RAG_API_URL ??
+    process.env.REACT_APP_BACKEND_URL
 
   if (!backendBaseUrl) {
-    console.error('chat-route: missing RAG backend URL environment variable', { traceId })
+    console.error('chat-route: missing RAG backend URL environment variable', {
+      traceId
+    })
     return persistAndRespond(
       'The retrieval service is not configured yet. Please try again later.',
       [],
@@ -198,7 +222,10 @@ export async function POST(req: Request) {
 
   const backendCandidates = backendChatCandidates(backendBaseUrl)
   if (!backendCandidates.length) {
-    console.error('chat-route: no backend candidates resolved', { traceId, backendBaseUrl })
+    console.error('chat-route: no backend candidates resolved', {
+      traceId,
+      backendBaseUrl
+    })
     return persistAndRespond(
       'The retrieval service is not configured yet. Please try again later.',
       [],
@@ -225,29 +252,39 @@ export async function POST(req: Request) {
     backendChatUrl = candidateUrl
     try {
       const backendPayload = tenantScopedPayload(req, {
-        message: messages?.length ? messages[messages.length - 1].content : 'No messages yet.',
+        message: messages?.length
+          ? messages[messages.length - 1].content
+          : 'No messages yet.',
         chat_history: messages,
         entry_profile_code: entryProfileCode,
         channel_filter: channelFilter
       })
       const response = await fetch(candidateUrl, {
         method: 'POST',
-        headers: internalServiceHeaders(req, { 'Content-Type': 'application/json' }),
+        headers: internalServiceHeaders(req, {
+          'Content-Type': 'application/json'
+        }),
         body: JSON.stringify(backendPayload)
       })
       if (response.status === 404 && !isLast) {
-        const candidateError = await response.text().catch(() => response.statusText)
+        const candidateError = await response
+          .text()
+          .catch(() => response.statusText)
         candidateErrors.push(`${candidateUrl} -> 404 ${candidateError}`)
-        console.warn('chat-route: backend candidate returned 404, trying fallback', {
-          traceId,
-          candidateUrl
-        })
+        console.warn(
+          'chat-route: backend candidate returned 404, trying fallback',
+          {
+            traceId,
+            candidateUrl
+          }
+        )
         continue
       }
       chatResponse = response
       break
     } catch (error) {
-      const candidateError = error instanceof Error ? error.message : 'network_failure'
+      const candidateError =
+        error instanceof Error ? error.message : 'network_failure'
       candidateErrors.push(`${candidateUrl} -> ${candidateError}`)
       if (!isLast) {
         console.warn('chat-route: backend candidate failed, trying fallback', {
@@ -286,7 +323,9 @@ export async function POST(req: Request) {
   })
 
   if (!chatResponse.ok) {
-    const errorText = await chatResponse.text().catch(() => chatResponse.statusText)
+    const errorText = await chatResponse
+      .text()
+      .catch(() => chatResponse.statusText)
     console.error('chat-route: backend responded with error', {
       traceId,
       status: chatResponse.status,
@@ -314,7 +353,11 @@ export async function POST(req: Request) {
       responseBody
     })
   } catch (error) {
-    console.error('chat-route: failed to parse backend JSON', { traceId }, error)
+    console.error(
+      'chat-route: failed to parse backend JSON',
+      { traceId },
+      error
+    )
     return persistAndRespond(
       'Received an unexpected response from the retrieval service.',
       [],
@@ -332,10 +375,12 @@ export async function POST(req: Request) {
   const rawAnswer: string =
     typeof responseBody === 'string'
       ? responseBody
-      : responseBody.response?.response ?? responseBody.response ?? ''
+      : (responseBody.response?.response ?? responseBody.response ?? '')
 
   if (!rawAnswer) {
-    console.error('chat-route: backend returned empty response body', { traceId })
+    console.error('chat-route: backend returned empty response body', {
+      traceId
+    })
     return persistAndRespond(
       'The retrieval service responded without any content. Please retry.',
       [],
@@ -351,7 +396,9 @@ export async function POST(req: Request) {
   }
 
   const diagnostics =
-    typeof responseBody === 'object' ? ((responseBody.diagnostics as DiagnosticsPayload | undefined) ?? null) : null
+    typeof responseBody === 'object'
+      ? ((responseBody.diagnostics as DiagnosticsPayload | undefined) ?? null)
+      : null
   const requestId =
     typeof responseBody === 'object'
       ? (responseBody.request_id ?? diagnostics?.request_id ?? null)
@@ -359,7 +406,9 @@ export async function POST(req: Request) {
 
   const finalKeptRaw =
     (diagnostics && (diagnostics as { final_kept?: unknown }).final_kept) ??
-    (typeof responseBody === 'object' ? (responseBody.final_kept as unknown) : undefined)
+    (typeof responseBody === 'object'
+      ? (responseBody.final_kept as unknown)
+      : undefined)
   const finalKept = Array.isArray(finalKeptRaw) ? finalKeptRaw : []
 
   console.debug('chat-route: backend diagnostics snapshot', {
@@ -393,11 +442,18 @@ export async function POST(req: Request) {
       if (sourcesBlock) {
         structuredMetadata = parseMetadata(sourcesBlock, rawAnswer)
       } else if (responseBody.formatted_metadata) {
-        structuredMetadata = parseMetadata(String(responseBody.formatted_metadata), rawAnswer)
+        structuredMetadata = parseMetadata(
+          String(responseBody.formatted_metadata),
+          rawAnswer
+        )
       }
     }
   } catch (error) {
-    console.error('chat-route: failed to parse structured metadata', { traceId }, error)
+    console.error(
+      'chat-route: failed to parse structured metadata',
+      { traceId },
+      error
+    )
   }
 
   console.debug('chat-route: backend payload processed', {
